@@ -2,47 +2,86 @@
 
 ## Marketplace da Economia Criativa e do Artesanato de Pernambuco
 
-**Projeto Integrador — ADS 4º Semestre**  
-**CESAR School — 2026.2**
+**Projeto Integrador — Análise e Desenvolvimento de Sistemas**
+**4º Semestre — CESAR School — 2026.2**
 
-## Sobre
+## Sobre o projeto
 
 O **Origem** é uma aplicação web full stack que conecta artesãos e empreendedores criativos de Pernambuco a compradores de todo o Brasil.
 
-A plataforma busca ampliar a visibilidade dos produtores e valorizar a **origem, a técnica e a história** das peças.
+A plataforma busca ampliar a visibilidade dos produtores, reduzir a dependência de intermediários e valorizar a **origem, a técnica e a história** de cada peça.
+
+O projeto tem como referência a **Comunidade do Pilar, no Recife**, com abertura para polos como **Alto do Moura/Caruaru** e **Tracunhaém**.
 
 ## Funcionalidades
 
-- Catálogo de produtos;
-- Busca e filtros por técnica e região;
-- Perfil do artesão;
-- Carrinho e pedidos;
-- Avaliações;
-- Gestão de catálogo, estoque e pedidos;
-- Painel administrativo;
-- Recomendação de produtos por Inteligência Artificial.
+* Catálogo de produtos;
+* Busca e filtros por técnica e região;
+* Perfil do artesão;
+* Carrinho;
+* Pedidos;
+* Avaliações;
+* Gestão de catálogo;
+* Controle de estoque;
+* Gestão de pedidos;
+* Painel administrativo;
+* Recomendação de produtos por Inteligência Artificial.
 
-## Perfis
+## Perfis de usuário
 
-- **Comprador:** pesquisa, compra e avalia produtos;
-- **Artesão:** gerencia produtos, estoque e pedidos;
-- **Administrador:** gerencia a plataforma.
+### Comprador
+
+Pesquisa e filtra produtos, consulta artesãos, adiciona itens ao carrinho, realiza pedidos e avalia produtos.
+
+### Artesão
+
+Gerencia catálogo, estoque e pedidos, além das informações relacionadas às suas peças.
+
+### Administrador
+
+Gerencia os recursos administrativos da plataforma.
+
+## Inteligência Artificial
+
+O projeto prevê um módulo de IA integrado à aplicação, contemplando:
+
+* Recomendação de produtos;
+* Classificação automática de produtos;
+* Análise de sentimento das avaliações;
+* Previsão de demanda.
+
+A recomendação parte inicialmente de um **baseline simples**, considerando critérios como técnica, região ou popularidade, e posteriormente pode ser aprimorada.
 
 ## Tecnologias
 
-O projeto será desenvolvido como uma aplicação **web full stack**, com integração entre frontend, backend, banco de dados e módulo de Inteligência Artificial.
+Aplicação **web full stack**, integrada a:
+
+* Frontend;
+* Backend/API;
+* Banco de dados;
+* Módulo de Inteligência Artificial;
+* Processamento assíncrono.
+
+## Escopo
+
+* Dados representativos/sintéticos;
+* Pagamento simulado, sem gateways reais;
+* Escopo de categorias e distribuição controlado;
+* Respeito à origem cultural e à autoria das peças.
 
 ## Equipe
 
-- Allana
-- Carlos
-- Leandro
-- Lara
-- Nicolas
-- Samara
-- Sérgio
-- João Pedro
+* Allana
+* Carlos
+* João Pedro
+* Lara
+* Leandro
+* Nicolas
+* Samara
+* Sérgio
 
 ## Status
 
-**Em desenvolvimento**
+**Em desenvolvimento — Projeto Integrador ADS 2026.2**
+
+O escopo do projeto é baseado no planejamento oficial do Projeto Integrador Origem, que define a aplicação full stack, seus perfis, funcionalidades e integração com IA. 
