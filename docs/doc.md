@@ -1,1 +1,0 @@
-### Apenas um documento pra a pasta subir no git => ao subir com coisas porfavor apagar esse documento
