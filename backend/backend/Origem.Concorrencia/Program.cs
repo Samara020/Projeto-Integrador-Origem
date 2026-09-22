@@ -1,7 +1,8 @@
 var builder = WebApplication.CreateBuilder(args);
 
-// Uma única instância atende todas as requisições desta API.
 builder.Services.AddSingleton<EstoqueDemonstracao>();
+builder.Services.AddSingleton<FilaPedidos>();
+builder.Services.AddHostedService<ProcessadorPedidos>();
 builder.Services.AddCors(opcoes => opcoes.AddPolicy("FrontendLocal", politica =>
     politica.WithOrigins("http://localhost:3000")
         .AllowAnyHeader()
