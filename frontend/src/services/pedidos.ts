@@ -1,7 +1,8 @@
 // Fake API: pedidos no localStorage, pelo mesmo motivo do carrinho.
 // Assinatura do backend: ContratoDeAPI.md, 2.6 e 2.7.
 import { gravarLocal, lerLocal } from "@/lib/armazenamento";
-import { ApiError } from "@/lib/http";
+import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
 import { carrinhoService } from "@/services/carrinho";
 import type {
   EnderecoEntrega,
@@ -12,6 +13,8 @@ import type {
 } from "@/types";
 
 const CHAVE = "pedidos";
+const API_CONCORRENCIA = process.env.NEXT_PUBLIC_CONCORRENCIA_API_URL;
+const PRODUTO_DEMONSTRACAO = "prd_201";
 const ENVIO_PADRAO: OpcaoEnvio = {
   id: "economico",
   nome: "Econômico",
@@ -32,6 +35,21 @@ export const pedidosService = {
     }
     if (!endereco.cep || !endereco.rua || !endereco.numero) {
       throw new ApiError(400, "Preencha o endereço de entrega.");
+    }
+
+    const itemDemonstracao = carrinho.itens.find(
+      (item) => item.produtoId === PRODUTO_DEMONSTRACAO,
+    );
+    if (API_CONCORRENCIA && itemDemonstracao) {
+      await http<{ mensagem: string; estoque: number }>("/demo/compras", {
+        metodo: "POST",
+        baseUrl: API_CONCORRENCIA,
+        corpo: {
+          usuario: authService.sessaoAtual()?.usuario.id ?? "visitante",
+          produtoId: itemDemonstracao.produtoId,
+          quantidade: itemDemonstracao.quantidade,
+        },
+      });
     }
 
     const pedido: PedidoResumo = {
