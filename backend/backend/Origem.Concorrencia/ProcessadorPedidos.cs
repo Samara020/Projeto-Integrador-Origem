@@ -26,10 +26,21 @@ public sealed class ProcessadorPedidos : BackgroundService
             await foreach (
                 var mensagem in _filaPedidos.LerAsync(stoppingToken))
             {
-                await ProcessarMensagemAsync(
-                    mensagem,
-                    stoppingToken
-                );
+                try
+                {
+                    await ProcessarMensagemAsync(mensagem, stoppingToken);
+                    _filaPedidos.MarcarProcessada(mensagem.Id);
+                }
+                catch (OperationCanceledException)
+                    when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _filaPedidos.MarcarFalha(mensagem.Id);
+                    _logger.LogError(ex, "Falha ao processar pedido: Id={Id}", mensagem.Id);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -55,7 +66,7 @@ public sealed class ProcessadorPedidos : BackgroundService
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Pedido recebido: Id={Id}, Usuario={Usuario}, Produto={ProdutoId}, Quantidade={Quantidade}",
+            "Notificação simulada recebida: Id={Id}, Usuario={Usuario}, Produto={ProdutoId}, Quantidade={Quantidade}",
             mensagem.Id,
             mensagem.Usuario,
             mensagem.ProdutoId,
@@ -68,7 +79,7 @@ public sealed class ProcessadorPedidos : BackgroundService
         );
 
         _logger.LogInformation(
-            "Pedido processado com sucesso: Id={Id}",
+            "Notificação simulada processada: Id={Id}",
             mensagem.Id
         );
     }

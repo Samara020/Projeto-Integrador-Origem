@@ -533,3 +533,54 @@ Retorna métricas globais e indicadores administrativos da plataforma.
   "volumeTransacionadoGlobal": 28450.00
 }
 ```
+
+---
+
+## 3. Rotas da demonstração de concorrência
+
+Estas rotas existem apenas na API C# da demonstração do produto `prd_201`. Não substituem o checkout geral descrito na seção 2.6. Estoque, pedidos e mensagens são mantidos em memória durante a execução da API.
+
+#### GET /demo/saude
+
+Retorna `200 OK` com `{ "mensagem": "API funcionando" }` quando a API está acessível.
+
+#### GET /demo/estoque
+
+Retorna `{ "estoque": 1 }` antes da primeira compra aprovada e `{ "estoque": 0 }` depois dela.
+
+#### POST /demo/compras
+
+```json
+{
+  "tentativaId": "8b5ee3de-8305-46ef-8cfa-1c5909c39c9d",
+  "usuario": "comprador-1",
+  "produtoId": "prd_201",
+  "quantidade": 1
+}
+```
+
+*Response (200 OK), inclusive quando a mesma tentativa é repetida com os mesmos dados:*
+
+```json
+{
+  "mensagem": "Compra aprovada e notificação enfileirada.",
+  "pedidoId": "ped_demo_8b5ee3de830546ef8cfa1c5909c39c9d",
+  "usuario": "comprador-1",
+  "estoque": 0
+}
+```
+
+Estoque insuficiente ou ID de tentativa reutilizado com outros dados retorna `409 Conflict` com `{ "mensagem": "..." }`. Entrada inválida retorna `400 Bad Request`. Fila cheia retorna `503 Service Unavailable` sem descontar o estoque.
+
+#### GET /demo/mensagens/{pedidoId}
+
+Consulta o estado da notificação simulada: `ENFILEIRADA`, `PROCESSADA` ou `FALHOU`.
+
+```json
+{
+  "pedidoId": "ped_demo_8b5ee3de830546ef8cfa1c5909c39c9d",
+  "estado": "PROCESSADA"
+}
+```
+
+Uma mensagem desconhecida retorna `404 Not Found`.

@@ -66,13 +66,13 @@ A recomendação parte de um baseline simples, considerando características com
 
 ## Stack
 
-* **Node.js**
-* **TypeScript**
-* **PostgreSQL**
+* **Node.js e TypeScript:** frontend Next.js.
+* **C# e .NET 10:** API da demonstração de concorrência e fila em memória.
+* **PostgreSQL:** previsto na arquitetura, ainda não utilizado por esta demonstração.
 
 ## Arquitetura
 
-O Origem integra diferentes componentes em uma aplicação web full stack:
+O Origem prevê a integração dos seguintes componentes:
 
 * Frontend responsivo;
 * Backend e APIs;
@@ -82,7 +82,9 @@ O Origem integra diferentes componentes em uma aplicação web full stack:
 * Autenticação;
 * Cache.
 
-A solução contempla a integração entre as diferentes áreas do Projeto Integrador, conectando os requisitos do sistema, o banco de dados, a aplicação web, a Inteligência Artificial e os mecanismos de concorrência e processamento assíncrono.
+A arquitetura planejada conecta os requisitos do sistema, o banco de dados, a aplicação web, a Inteligência Artificial e os mecanismos de concorrência e processamento assíncrono.
+
+O estado atual desta branch implementa o frontend com dados simulados no navegador e uma API C# para a compra concorrente do produto `prd_201`. O roteiro e os limites dessa demonstração estão em [`backend/README.md`](backend/README.md).
 
 ## Fluxo principal
 
