@@ -21,7 +21,9 @@ export default function Header() {
   const { totalItens } = useCarrinho();
   const { usuario, sair } = useSessao();
 
-  const links = [
+ const links = [
+    { href: "/", nome: "Artesanatos" },
+    { href: "/artesao", nome: "Artesãos" },
     ...(categorias.dados ?? []).map((categoria) => ({
       href: `/catalogo?categoria=${categoria.id}`,
       nome: categoria.nome,
