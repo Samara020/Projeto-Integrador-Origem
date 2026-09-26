@@ -234,6 +234,10 @@ https://github.com/Samara020/Projeto-Integrador-Origem/tree/main/docs
 
 https://github.com/Samara020/Projeto-Integrador-Origem/tree/backend
 
+## screencast 
+
+https://youtu.be/3yaYGo2tlas
+
 ## Equipe
 
 - Allana
