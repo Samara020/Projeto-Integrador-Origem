@@ -1,0 +1,6 @@
+.venv-ia/
+__pycache__/
+*.pyc
+.pytest_cache/
+.bentoml/
+.env
