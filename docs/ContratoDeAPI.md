@@ -653,14 +653,28 @@ Lista os tickets de suporte abertos pelo usuário ou geridos pela equipe.
 #### GET /produtos/recomendacoes
 Retorna recomendações personalizadas de produtos para o cliente.
 
+Parâmetro: `produtoId` (peça que o cliente está vendo).
+
 *Response (200 OK):*
 ```json
 {
   "recomendados": [
-    { "id": "prd_202", "nome": "Escultura em Madeira", "preco": 450.00 }
+    {
+      "id": "prd_202",
+      "nome": "Escultura em Madeira",
+      "preco": 450.00,
+      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal."
+    }
   ]
 }
 ```
+
+> Integração com o módulo de IA (HU-17, `modulo-ia/`): cada item tem os campos
+> de `ProdutoResumo` e um `motivo` opcional com a justificativa da IA. A rota do
+> site chama `POST /recommendations` do módulo (chave em `X-API-Key`) e troca os
+> IDs devolvidos pelos cartões das peças. Se o módulo estiver fora do ar,
+> responder com erro ou passar de 2 s, a rota usa o baseline local e o item vem
+> sem `motivo`. Lista vazia esconde a seção "Você também pode gostar".
 
 #### GET /artesao/painel/metricas
 Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.

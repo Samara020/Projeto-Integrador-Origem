@@ -11,7 +11,7 @@ import { useDestaques, useProdutos, useRecomendados } from "@/hooks/useProdutos"
 import { useSessao } from "@/hooks/useSessao";
 import { plural } from "@/lib/formato";
 import type { PecaVista } from "@/services/historico";
-import type { ProdutoResumo } from "@/types";
+import type { ProdutoSugerido } from "@/types";
 
 function maisFrequente<T extends string>(valores: T[]): T | undefined {
   const contagem = new Map<T, number>();
@@ -21,7 +21,7 @@ function maisFrequente<T extends string>(valores: T[]): T | undefined {
 
 function Secao({ titulo, carregando, erro, recarregar, itens, motivoDe, tomDe }: {
   titulo: string; carregando: boolean; erro: { message: string } | null; recarregar: () => void;
-  itens: ProdutoResumo[]; motivoDe: (p: ProdutoResumo) => string; tomDe?: (p: ProdutoResumo) => "terracota" | "selo";
+  itens: ProdutoSugerido[]; motivoDe: (p: ProdutoSugerido) => string; tomDe?: (p: ProdutoSugerido) => "terracota" | "selo";
 }) {
   if (!carregando && !erro && itens.length === 0) return null;
   return (
@@ -46,7 +46,7 @@ function PeloHistorico({ vista, r }: { vista: PecaVista; r: ReturnType<typeof us
       titulo="Baseado no seu histórico"
       carregando={r.carregando} erro={r.erro} recarregar={r.recarregar}
       itens={r.dados?.recomendados ?? []}
-      motivoDe={(p) => (p.artesao.id === vista.artesaoId ? `Do mesmo ateliê de ${vista.nome}` : `Porque você viu ${vista.tecnicaNome.toLowerCase()}`)}
+      motivoDe={(p) => (p.motivo ?? (p.artesao.id === vista.artesaoId ? `Do mesmo ateliê de ${vista.nome}` : `Porque você viu ${vista.tecnicaNome.toLowerCase()}`))}
       tomDe={(p) => (p.artesao.id === vista.artesaoId ? "selo" : "terracota")}
     />
   );

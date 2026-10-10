@@ -59,13 +59,15 @@ No Linux:
 
 ## Execução
 
-Com o ambiente virtual ativado e o PYTHONPATH configurado:
+Com o ambiente virtual ativado, entre na pasta do módulo e suba o serviço na porta 3001
+(a 3000 é do frontend Next.js):
 
-    bentoml serve modulo-ia.app.service:RecommendationService
+    cd modulo-ia
+    bentoml serve app.service:RecommendationService --port 3001
 
 O serviço será disponibilizado em:
 
-    http://localhost:3000
+    http://localhost:3001
 
 ## Endpoint
 
@@ -82,7 +84,7 @@ A API utiliza a chave:
 Exemplo:
 
     {
-      "product_id": "prod_001",
+      "product_id": "prd_201",
       "limit": 5
     }
 
@@ -181,6 +183,10 @@ Exemplo:
 
 ## Testes
 
+Os testes de lógica usam o catálogo sintético (`data/catalogo.json`), configurado
+automaticamente em `tests/conftest.py`. O `test_api.py` fala com o servidor em
+`http://localhost:3001` (mude com a variável `IA_BASE_URL`) e usa os IDs do site.
+
 Com o BentoML executando em outro terminal:
 
     pytest modulo-ia\tests -v
@@ -246,9 +252,37 @@ O cenário HTTP de indisponibilidade 503 também foi validado manualmente com o 
 
 ## Catálogo
 
-O mockup utiliza um catálogo sintético para permitir execução e testes sem dependência de banco de dados ou dados reais.
+O módulo trabalha com dois catálogos em `data/`:
 
-Os produtos possuem atributos necessários para a estratégia de recomendação.
+| Arquivo | Uso |
+|---|---|
+| `catalogo_origem.json` | Padrão. Espelha as peças da Fake API do frontend (`frontend/src/mocks`), com os mesmos IDs `prd_` |
+| `catalogo.json` | Catálogo sintético dos testes de lógica (`prod_001`...) |
+
+Para escolher outro arquivo, defina `CATALOGO_IA` com o caminho dele.
+
+Em `catalogo_origem.json`, categoria, técnica e região são os nomes exibidos no site,
+e `available` é `true` só para peças com disponibilidade `DISPONIVEL`
+(reservadas e vendidas não são recomendadas). Se as peças da Fake API mudarem,
+atualize este arquivo também.
+
+## Integração com o site
+
+A rota `GET /produtos/recomendacoes` do frontend
+(`frontend/src/app/api/produtos/recomendacoes/route.ts`) chama este módulo quando
+`RECOMENDACAO_API_URL` está definida em `frontend/.env.local`:
+
+    RECOMENDACAO_API_URL=http://localhost:3001
+    RECOMENDACAO_API_KEY=origem-mockup-key
+
+Fluxo:
+
+1. a página do produto pede `/api/produtos/recomendacoes?produtoId=prd_201`;
+2. a rota envia `POST /recommendations` com `product_id` e `limit: 4`;
+3. os IDs devolvidos viram cartões, e o `reason` vira o campo `motivo`, mostrado no cartão;
+4. se o módulo falhar ou passar de 2 s, a rota usa o baseline local e a página continua funcionando.
+
+O cabeçalho `X-Recomendacao-Fonte` da resposta diz de onde veio a lista (`ia` ou `baseline`).
 
 ## Limitações do mockup
 
@@ -270,11 +304,19 @@ O score e seus pesos são decisões de implementação do mockup e podem ser sub
 
 ## Execução rápida
 
+Terminal 1 (IA):
+
+    .\.venv-ia\Scripts\Activate.ps1
+    cd modulo-ia
+    bentoml serve app.service:RecommendationService --port 3001
+
+Terminal 2 (site), com `frontend/.env.local` copiado de `frontend/.env.example`:
+
+    cd frontend
+    npm run dev
+
+Terminal 3 (testes):
+
     .\.venv-ia\Scripts\Activate.ps1
     $env:PYTHONPATH="$PWD\modulo-ia"
-    bentoml serve modulo-ia.app.service:RecommendationService
-
-Em outro terminal:
-
-    .\.venv-ia\Scripts\Activate.ps1
     pytest modulo-ia\tests -v

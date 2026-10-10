@@ -11,7 +11,14 @@ const ROTULO_INDISPONIVEL = {
   VENDIDO: "Vendido",
 } as const;
 
-export function ProdutoCard({ produto }: { produto: ProdutoResumo }) {
+// motivo: justificativa da recomendação (HU-17), mostrada acima do nome.
+export function ProdutoCard({
+  produto,
+  motivo,
+}: {
+  produto: ProdutoResumo;
+  motivo?: string;
+}) {
   const indisponivel =
     produto.disponibilidade !== "DISPONIVEL"
       ? ROTULO_INDISPONIVEL[produto.disponibilidade]
@@ -37,6 +44,9 @@ export function ProdutoCard({ produto }: { produto: ProdutoResumo }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
+        {motivo && (
+          <p className="text-legenda font-bold text-terracota">{motivo}</p>
+        )}
         <h3 className="font-titulo text-h3 font-bold text-tinta">
           <Link
             href={`/produto/${produto.id}`}

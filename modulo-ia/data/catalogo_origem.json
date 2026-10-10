@@ -1,0 +1,114 @@
+[
+  {
+    "product_id": "prd_201",
+    "name": "Vaso Cerâmica Raízes",
+    "category": "Arte e Decoração",
+    "technique": "Cerâmica",
+    "region": "Zona da Mata",
+    "available": true
+  },
+  {
+    "product_id": "prd_202",
+    "name": "Luminária de Barro",
+    "category": "Arte e Decoração",
+    "technique": "Cerâmica",
+    "region": "Agreste",
+    "available": true
+  },
+  {
+    "product_id": "prd_203",
+    "name": "Pássaro de Madeira",
+    "category": "Artesanato",
+    "technique": "Entalhe em madeira",
+    "region": "Sertão do São Francisco",
+    "available": true
+  },
+  {
+    "product_id": "prd_204",
+    "name": "Toalha Bordada Ponto Cheio",
+    "category": "Artesanato",
+    "technique": "Bordado",
+    "region": "Agreste",
+    "available": true
+  },
+  {
+    "product_id": "prd_205",
+    "name": "Galo do Alto do Moura",
+    "category": "Artesanato",
+    "technique": "Cerâmica",
+    "region": "Agreste",
+    "available": true
+  },
+  {
+    "product_id": "prd_206",
+    "name": "Carranca Guardiã",
+    "category": "Arte e Decoração",
+    "technique": "Entalhe em madeira",
+    "region": "Sertão do São Francisco",
+    "available": false
+  },
+  {
+    "product_id": "prd_207",
+    "name": "Xilogravura A Chegada da Chuva",
+    "category": "Arte e Decoração",
+    "technique": "Xilogravura",
+    "region": "Agreste",
+    "available": true
+  },
+  {
+    "product_id": "prd_208",
+    "name": "Matriz Entalhada Pavão",
+    "category": "Arte e Decoração",
+    "technique": "Xilogravura",
+    "region": "Agreste",
+    "available": false
+  },
+  {
+    "product_id": "prd_209",
+    "name": "Folheto O Vaqueiro e a Lua",
+    "category": "Literatura",
+    "technique": "Cordel",
+    "region": "Sertão do Pajeú",
+    "available": true
+  },
+  {
+    "product_id": "prd_210",
+    "name": "Coleção Pajeú em Versos",
+    "category": "Literatura",
+    "technique": "Cordel",
+    "region": "Sertão do Pajeú",
+    "available": true
+  },
+  {
+    "product_id": "prd_211",
+    "name": "Caminho de Mesa Richelieu",
+    "category": "Artesanato",
+    "technique": "Bordado",
+    "region": "Agreste",
+    "available": true
+  },
+  {
+    "product_id": "prd_212",
+    "name": "Moringa com Caneca",
+    "category": "Artesanato",
+    "technique": "Cerâmica",
+    "region": "Zona da Mata",
+    "available": true
+  },
+  {
+    "product_id": "prd_213",
+    "name": "Santo Antônio de Barro",
+    "category": "Arte e Decoração",
+    "technique": "Cerâmica",
+    "region": "Zona da Mata",
+    "available": true
+  },
+  {
+    "product_id": "prd_214",
+    "name": "Trio de Aves do Sertão",
+    "category": "Artesanato",
+    "technique": "Entalhe em madeira",
+    "region": "Sertão do São Francisco",
+    "available": true
+  }
+]

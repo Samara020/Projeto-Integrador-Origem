@@ -143,6 +143,15 @@ export function buscarProduto(id: string): ProdutoDetalhe | null {
   return produto ? paraDetalhe(produto) : null;
 }
 
+// Converte os IDs devolvidos pelo módulo de IA em cartões, na ordem recebida.
+// IDs que o site não conhece ou peças vendidas ficam de fora.
+export function resumosPorIds(ids: string[]): ProdutoResumo[] {
+  return ids
+    .map((id) => produtos.find((p) => p.id === id))
+    .filter((p): p is ProdutoMock => !!p && p.disponibilidade !== "VENDIDO")
+    .map(paraResumo);
+}
+
 // Baseline da recomendação: mesma técnica primeiro, depois mesma região.
 export function recomendarPara(produtoId: string | null): ProdutoResumo[] {
   const base = produtos.find((p) => p.id === produtoId);

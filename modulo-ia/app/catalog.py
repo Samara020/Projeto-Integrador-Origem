@@ -1,8 +1,15 @@
-﻿import json
+import json
+import os
 from pathlib import Path
 
 
-CATALOG_PATH = Path(__file__).resolve().parent.parent / "data" / "catalogo.json"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+# Por padrão usa o catálogo do site (mesmos IDs prd_ do frontend).
+# Os testes trocam para data/catalogo.json pela variável CATALOGO_IA.
+CATALOG_PATH = Path(
+    os.getenv("CATALOGO_IA", DATA_DIR / "catalogo_origem.json")
+)
 
 
 def load_catalog():
