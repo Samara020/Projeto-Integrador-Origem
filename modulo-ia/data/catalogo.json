@@ -1,66 +1,16 @@
 [
-  {
-    "product_id": "prod_001",
-    "name": "Vaso de Barro Artesanal",
-    "category": "Cerâmica",
-    "technique": "Modelagem manual",
-    "region": "Caruaru",
-    "available": true
-  },
-  {
-    "product_id": "prod_002",
-    "name": "Jarro Decorativo de Barro",
-    "category": "Cerâmica",
-    "technique": "Modelagem manual",
-    "region": "Caruaru",
-    "available": true
-  },
-  {
-    "product_id": "prod_003",
-    "name": "Peça Cerâmica no Torno",
-    "category": "Cerâmica",
-    "technique": "Torno",
-    "region": "Caruaru",
-    "available": true
-  },
-  {
-    "product_id": "prod_004",
-    "name": "Escultura Cerâmica Regional",
-    "category": "Cerâmica",
-    "technique": "Modelagem manual",
-    "region": "Tracunhaém",
-    "available": true
-  },
-  {
-    "product_id": "prod_005",
-    "name": "Escultura em Madeira",
-    "category": "Madeira",
-    "technique": "Entalhe",
-    "region": "Recife",
-    "available": true
-  },
-  {
-    "product_id": "prod_006",
-    "name": "Peça Cerâmica Pintada",
-    "category": "Cerâmica",
-    "technique": "Pintura manual",
-    "region": "Caruaru",
-    "available": false
-  },
-  {
-    "product_id": "prod_007",
-    "name": "Figura em Madeira Entalhada",
-    "category": "Madeira",
-    "technique": "Entalhe",
-    "region": "Recife",
-    "available": true
-  },
-  {
-    "product_id": "prod_008",
-    "name": "Bordado Artesanal",
-    "category": "Têxtil",
-    "technique": "Bordado",
-    "region": "Passira",
-    "available": true
-  }
+  {"product_id":"prd_201","name":"Vaso Cerâmica Raízes","category":"arte-e-decoracao","technique":"ceramica","region":"zona-da-mata","available":true},
+  {"product_id":"prd_202","name":"Luminária de Barro","category":"arte-e-decoracao","technique":"ceramica","region":"agreste","available":true},
+  {"product_id":"prd_203","name":"Pássaro de Madeira","category":"artesanato","technique":"entalhe-em-madeira","region":"sertao-do-sao-francisco","available":true},
+  {"product_id":"prd_204","name":"Toalha Bordada Ponto Cheio","category":"artesanato","technique":"bordado","region":"agreste","available":true},
+  {"product_id":"prd_205","name":"Galo do Alto do Moura","category":"artesanato","technique":"ceramica","region":"agreste","available":true},
+  {"product_id":"prd_206","name":"Carranca Guardiã","category":"arte-e-decoracao","technique":"entalhe-em-madeira","region":"sertao-do-sao-francisco","available":false},
+  {"product_id":"prd_207","name":"Xilogravura A Chegada da Chuva","category":"arte-e-decoracao","technique":"xilogravura","region":"agreste","available":true},
+  {"product_id":"prd_208","name":"Matriz Entalhada Pavão","category":"arte-e-decoracao","technique":"xilogravura","region":"agreste","available":false},
+  {"product_id":"prd_209","name":"Folheto O Vaqueiro e a Lua","category":"literatura","technique":"cordel","region":"sertao-do-pajeu","available":true},
+  {"product_id":"prd_210","name":"Coleção Pajeú em Versos","category":"literatura","technique":"cordel","region":"sertao-do-pajeu","available":true},
+  {"product_id":"prd_211","name":"Caminho de Mesa Richelieu","category":"artesanato","technique":"bordado","region":"agreste","available":true},
+  {"product_id":"prd_212","name":"Moringa com Caneca","category":"artesanato","technique":"ceramica","region":"zona-da-mata","available":true},
+  {"product_id":"prd_213","name":"Santo Antônio de Barro","category":"arte-e-decoracao","technique":"ceramica","region":"zona-da-mata","available":true},
+  {"product_id":"prd_214","name":"Trio de Aves do Sertão","category":"artesanato","technique":"entalhe-em-madeira","region":"sertao-do-sao-francisco","available":true}
 ]
