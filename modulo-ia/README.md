@@ -1,10 +1,10 @@
 # Módulo de Recomendação de Produtos — Origem
 
-Mockup executável do módulo de recomendação de produtos do marketplace Origem.
+Mockup executável do módulo de recomendação de produtos do marketplace Origem, desenvolvido para demonstrar uma estratégia de recomendação baseada em conteúdo.
 
-O módulo implementa uma estratégia de recomendação baseada em conteúdo, utilizando atributos dos produtos para calcular uma pontuação de relacionamento, ordenar candidatos e retornar recomendações justificadas.
+O módulo utiliza atributos dos produtos para calcular uma pontuação de relacionamento, ordenar candidatos e retornar recomendações justificadas. A implementação utiliza um catálogo sintético, permitindo executar e testar a lógica sem depender de banco de dados ou de dados reais.
 
-## Tecnologias
+## 1. Tecnologias
 
 - Python 3.13+
 - BentoML 1.4.39
@@ -12,8 +12,9 @@ O módulo implementa uma estratégia de recomendação baseada em conteúdo, uti
 - pytest 9.1.1
 - requests 2.34.2
 
-## Estrutura
+## 2. Estrutura do módulo
 
+```text
 modulo-ia/
 ├── app/
 │   ├── config.py
@@ -30,251 +31,390 @@ modulo-ia/
 │   └── test_service.py
 ├── requirements.txt
 └── README.md
+```
 
-## Instalação
+## 3. Instalação
 
-Na raiz do projeto:
+Os comandos abaixo devem ser executados na raiz do repositório Origem.
 
-    python -m venv .venv-ia
-    .\.venv-ia\Scripts\Activate.ps1
-    pip install -r modulo-ia\requirements.txt
+### Windows — PowerShell
 
-No Linux:
+Crie o ambiente virtual, caso ainda não exista:
 
-    python3 -m venv .venv-ia
-    source .venv-ia/bin/activate
-    pip install -r modulo-ia/requirements.txt
+```powershell
+python -m venv modulo-ia\.venv
+```
 
-## Configuração
+Instale as dependências:
 
-O módulo utiliza a variável PYTHONPATH para localizar o pacote app.
+```powershell
+.\modulo-ia\.venv\Scripts\python.exe -m pip install -r .\modulo-ia\requirements.txt
+```
 
-No PowerShell:
+### Linux
 
-    $env:PYTHONPATH="$PWD\modulo-ia"
+```bash
+python3 -m venv modulo-ia/.venv
+modulo-ia/.venv/bin/python -m pip install -r modulo-ia/requirements.txt
+```
 
-No Linux:
+## 4. Configuração
 
-    export PYTHONPATH="$PWD/modulo-ia"
+O módulo utiliza a variável `PYTHONPATH` para localizar o pacote `app`.
 
-## Execução
+### Windows — PowerShell
 
-Com o ambiente virtual ativado e o PYTHONPATH configurado:
+```powershell
+$env:PYTHONPATH="$PWD\modulo-ia"
+```
 
-    bentoml serve modulo-ia.app.service:RecommendationService
+### Linux
 
-O serviço será disponibilizado em:
+```bash
+export PYTHONPATH="$PWD/modulo-ia"
+```
 
-    http://localhost:3000
+A chave utilizada pelo mockup é `origem-mockup-key`. Ela deve ser enviada no cabeçalho `X-API-Key` nas requisições autenticadas.
 
-## Endpoint
+Essa chave é destinada exclusivamente ao ambiente de demonstração.
 
-POST /recommendations
+## 5. Execução do serviço
+
+Execute os comandos na raiz do repositório.
+
+### Windows — PowerShell
+
+Configure o caminho do pacote:
+
+```powershell
+$env:PYTHONPATH="$PWD\modulo-ia"
+```
+
+Inicie o serviço BentoML na porta 3001:
+
+```powershell
+.\modulo-ia\.venv\Scripts\bentoml.exe serve app.service:RecommendationService --port 3001
+```
+
+### Linux
+
+```bash
+export PYTHONPATH="$PWD/modulo-ia"
+modulo-ia/.venv/bin/bentoml serve app.service:RecommendationService --port 3001
+```
+
+O serviço ficará disponível em:
+
+`http://localhost:3001`
+
+Mantenha esse terminal aberto enquanto executa os testes HTTP.
+
+## 6. Endpoint de recomendação
+
+**Método:** `POST`
+
+**Caminho:** `/recommendations`
+
+**URL completa:** `http://localhost:3001/recommendations`
 
 ### Autenticação
 
-A API utiliza a chave:
+As requisições autenticadas devem incluir o cabeçalho:
 
-    X-API-Key: origem-mockup-key
+```text
+X-API-Key: origem-mockup-key
+```
 
-### Requisição
+### Exemplo de requisição por produto
 
-Exemplo:
+```json
+{
+  "product_id": "prd_201",
+  "limit": 5
+}
+```
 
+O produto `prd_201` corresponde ao Vaso Cerâmica Raízes.
+
+### Exemplo de requisição por filtros
+
+```json
+{
+  "category": "arte-e-decoracao",
+  "technique": "ceramica",
+  "region": "zona-da-mata",
+  "limit": 5
+}
+```
+
+Os filtros utilizam os identificadores presentes no catálogo. O campo `product_id` permite informar um produto de referência; os filtros de categoria, técnica e região permitem definir o contexto da recomendação.
+
+O campo `limit` tem valor padrão 5 e aceita valores entre 1 e 20.
+
+### Exemplo de resposta
+
+```json
+{
+  "recommendations": [
     {
-      "product_id": "prod_001",
-      "limit": 5
-    }
-
-Também é possível utilizar filtros:
-
+      "product_id": "prd_213",
+      "score": 1.0,
+      "reason": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região."
+    },
     {
-      "category": "Cerâmica",
-      "technique": "Modelagem manual",
-      "region": "Caruaru",
-      "limit": 5
+      "product_id": "prd_202",
+      "score": 0.8,
+      "reason": "Recomendado por mesma categoria, mesma técnica artesanal."
     }
+  ]
+}
+```
 
-O limit possui valor padrão 5 e aceita valores entre 1 e 20.
+Os valores apresentados são ilustrativos de uma resposta para o contexto de referência `prd_201`. A quantidade e a ordenação efetivas dependem dos candidatos disponíveis no catálogo.
 
-## Resposta
+Cada recomendação contém o identificador do produto, a pontuação calculada e uma justificativa baseada nos atributos correspondentes.
 
-Exemplo:
+## 7. Estratégia de recomendação
 
-    {
-      "recommendations": [
-        {
-          "product_id": "prod_002",
-          "score": 1.0,
-          "reason": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região."
-        },
-        {
-          "product_id": "prod_004",
-          "score": 0.8,
-          "reason": "Recomendado por mesma categoria, mesma técnica artesanal."
-        }
-      ]
-    }
-
-## Estratégia de recomendação
-
-A recomendação utiliza os atributos:
-
-- categoria;
-- técnica artesanal;
-- região.
-
-Os pesos utilizados na implementação são:
+A implementação compara três atributos:
 
 | Atributo | Peso |
 |---|---:|
 | Categoria | 50% |
-| Técnica | 30% |
+| Técnica artesanal | 30% |
 | Região | 20% |
 
-O score é calculado somente sobre os atributos disponíveis no contexto.
+A pontuação é calculada sobre os atributos disponíveis no contexto, conforme os pesos definidos na configuração.
 
-A implementação ordena os candidatos pelo score em ordem decrescente.
+Os candidatos são ordenados pela pontuação em ordem decrescente. Em caso de empate, a implementação utiliza o identificador do produto como critério adicional de ordenação.
 
-## Filtros aplicados
+### Fluxo de processamento
 
-O módulo:
+1. Receber o produto de referência ou os filtros.
+2. Selecionar candidatos compatíveis com o contexto.
+3. Excluir produtos indisponíveis.
+4. Excluir o produto de referência, quando informado.
+5. Comparar categoria, técnica e região.
+6. Calcular a pontuação de relacionamento.
+7. Ordenar os candidatos.
+8. Gerar justificativas para as recomendações.
+9. Retornar a quantidade solicitada, respeitando o limite máximo.
 
-1. considera somente produtos disponíveis;
-2. exclui o produto utilizado como referência;
-3. compara os atributos disponíveis;
-4. calcula o score;
-5. ordena os resultados;
-6. retorna a quantidade solicitada.
+## 8. Fallback
 
-## Fallback
+Quando os critérios iniciais não encontram candidatos suficientes, o módulo reduz progressivamente os critérios de seleção:
 
-Quando não existem candidatos suficientes utilizando todos os atributos, o módulo reduz progressivamente os critérios:
+1. Categoria, técnica e região.
+2. Categoria e técnica.
+3. Categoria e região.
+4. Categoria.
+5. Lista vazia, quando não houver candidatos elegíveis.
 
-1. categoria + técnica + região;
-2. categoria + técnica;
-3. categoria + região;
-4. categoria;
-5. lista vazia.
+O produto de referência e os produtos indisponíveis permanecem excluídos em todas as etapas.
 
-O produto de referência e produtos indisponíveis continuam excluídos em todas as etapas.
+## 9. Justificativas
 
-## Justificativas
+Cada recomendação possui uma justificativa baseada nos atributos efetivamente correspondentes ao contexto.
 
-Cada recomendação possui uma justificativa baseada nos atributos efetivamente utilizados no cálculo.
+Exemplos:
 
-Exemplo:
+- Mesma categoria, mesma técnica artesanal e mesma região.
+- Mesma categoria e mesma técnica artesanal.
+- Mesma categoria.
 
-    Recomendado por mesma categoria, mesma técnica artesanal.
+O objetivo é permitir que o usuário compreenda os motivos da recomendação, em vez de receber somente uma lista de produtos.
 
-## Códigos HTTP
+## 10. Códigos HTTP
 
 | Código | Situação |
-|---:|---|
-| 200 | Recomendação processada |
+|---|---|
+| 200 | Recomendação processada com sucesso |
 | 400 | Requisição ou limite inválido |
 | 401 | Autenticação ausente |
 | 403 | Credencial inválida ou sem autorização |
 | 404 | Produto de referência inexistente |
-| 500 | Erro interno simulado |
-| 503 | Serviço indisponível simulado |
+| 500 | Erro interno |
+| 503 | Serviço indisponível |
 
-## Testes
+Os cenários de erro interno e indisponibilidade podem ser simulados por meio das variáveis de ambiente previstas na implementação.
 
-Com o BentoML executando em outro terminal:
+## 11. Testes automatizados
 
-    pytest modulo-ia\tests -v
+O módulo contém testes para a lógica de recomendação, a camada de serviço, as requisições HTTP e o desempenho.
 
-Resultados validados:
+### Executar todos os testes
 
-    15 passed
+Com o serviço BentoML em execução na porta 3001, abra outro terminal na raiz do repositório.
 
-O teste de desempenho foi executado com 10.000 produtos e 20 execuções da lógica de recomendação.
+#### Windows — PowerShell
 
-Resultado:
+```powershell
+.\modulo-ia\.venv\Scripts\python.exe -m pytest .\modulo-ia\tests -v
+```
 
-    P95: 0,0305s
-    Catálogo: 10.000 produtos
-    Execuções: 20
-    Limite RNF-09: 2s
-    Resultado: PASS
+#### Linux
 
-Os testes cobrem:
+```bash
+modulo-ia/.venv/bin/python -m pytest modulo-ia/tests -v
+```
 
-- exclusão do produto de referência;
-- exclusão de produtos indisponíveis;
-- cálculo de score;
-- ordenação;
-- fallback;
-- ausência de candidatos;
-- autenticação;
-- autorização;
-- limite inválido;
-- produto inexistente;
-- comunicação HTTP;
-- configuração dos cenários de indisponibilidade e erro interno;
-- teste de desempenho com catálogo de 10.000 produtos;
-- validação do percentil 95 (P95) abaixo de 2 segundos.
+### Executar somente os testes da API
 
-O cenário HTTP de indisponibilidade 503 também foi validado manualmente com o servidor BentoML.
+```powershell
+.\modulo-ia\.venv\Scripts\python.exe -m pytest .\modulo-ia\tests\test_api.py -v
+```
 
-## Relação com os requisitos do AV1
+Os testes HTTP validam:
+
+- Requisição de recomendação válida.
+- Exclusão do produto de referência.
+- Ordenação das recomendações.
+- Ausência de autenticação.
+- Chave de autenticação inválida.
+- Limite de recomendações inválido.
+- Produto de referência inexistente.
+
+Os testes unitários também verificam o cálculo de pontuação, a ordenação, a disponibilidade dos produtos, o fallback e a ausência de candidatos.
+
+Os testes de serviço e desempenho verificam os cenários implementados nos respectivos arquivos de teste.
+
+### Resultados dos testes
+
+Na execução realizada em 12/10/2026, a suíte completa apresentou os seguintes resultados:
+
+- 15 testes aprovados;
+- 0 testes com falha;
+- Tempo total: 11,91 segundos.
+
+A execução incluiu testes HTTP, desempenho, lógica de recomendação e configuração do serviço.
+
+Foram registrados 27 avisos de descontinuação em dependências, sem impedir a aprovação dos testes.
+
+## 12. Teste de desempenho
+
+### Resultado do teste de desempenho
+
+Teste executado em 12/10/2026.
+
+| Indicador | Resultado |
+|---|---:|
+| Catálogo avaliado | 10.000 produtos |
+| Execuções | 20 |
+| P95 medido | 0,0315 s |
+| Limite de referência do RNF-09 | 2 s |
+| Resultado | PASS |
+
+O teste validou o desempenho da lógica de recomendação com um catálogo de 10.000 produtos. O P95 medido foi de 0,0315 segundo, abaixo do limite de referência de 2 segundos.
+
+Esse resultado corresponde ao processamento avaliado pelo teste e não representa necessariamente o tempo total de uma requisição HTTP.
+
+## 13. Relação com os requisitos do AV1
 
 | Requisito | Implementação |
 |---|---|
-| RF-01 | RecommendationRequest recebe produto ou filtros |
-| RF-02 | select_candidates() seleciona candidatos |
-| RF-03 | available_products() mantém somente produtos disponíveis |
-| RF-04 | produto de referência é excluído |
-| RF-05 | categoria, técnica e região são comparadas |
-| RF-06 | calculate_score() calcula o relacionamento |
-| RF-07 | rank_candidates() ordena os resultados |
-| RF-08 | limite padrão 5 e máximo 20 |
-| RF-09 | build_reason() gera justificativa |
-| RF-10 | FALLBACK_STAGES implementa fallback |
-| RF-11 | retorna lista vazia quando não há candidatos |
-| RF-12 | endpoint HTTP /recommendations |
-| RNF-01 | serviço configurado com timeout de 2 segundos |
-| RNF-02 | validação por Pydantic e regras do serviço |
-| RNF-03 | autenticação e autorização por X-API-Key |
-| RNF-04 | catálogo utiliza somente atributos necessários |
-| RNF-05 | log registra quantidade e tempo sem dados pessoais |
-| RNF-06 | justificativa corresponde aos atributos comparados |
-| RNF-07 | indisponibilidade pode ser simulada com resposta 503 |
-| RNF-08 | execução baseada em Python/BentoML |
-| RNF-09 | teste com 10.000 produtos e 20 execuções apresentou P95 de 0,0305s, abaixo do limite de 2s |
+| RF-01 | `RecommendationRequest` recebe produto ou filtros |
+| RF-02 | `select_candidates()` seleciona candidatos |
+| RF-03 | `available_products()` mantém somente produtos disponíveis |
+| RF-04 | Exclui o produto de referência |
+| RF-05 | Compara categoria, técnica e região |
+| RF-06 | `calculate_score()` calcula o relacionamento |
+| RF-07 | `rank_candidates()` ordena os resultados |
+| RF-08 | Limite padrão 5 e máximo 20 |
+| RF-09 | `build_reason()` gera justificativas |
+| RF-10 | `FALLBACK_STAGES` define as etapas de fallback |
+| RF-11 | Retorna lista vazia quando não há candidatos elegíveis |
+| RF-12 | Endpoint HTTP `/recommendations` |
+| RNF-01 | Serviço configurado com timeout de 2 segundos |
+| RNF-02 | Validação por Pydantic e regras do serviço |
+| RNF-03 | Autenticação e autorização por `X-API-Key` |
+| RNF-04 | Catálogo utiliza somente os atributos necessários |
+| RNF-05 | Registro de métricas sem dados pessoais |
+| RNF-06 | Justificativa baseada nos atributos correspondentes |
+| RNF-07 | Cenário de indisponibilidade simulado com resposta 503 |
+| RNF-08 | Implementação baseada em Python e BentoML |
+| RNF-09 | Teste de desempenho com 10.000 produtos e verificação do P95 |
 
-## Catálogo
+## 14. Integração com o frontend Origem
 
-O mockup utiliza um catálogo sintético para permitir execução e testes sem dependência de banco de dados ou dados reais.
+O frontend utiliza uma rota intermediária para solicitar recomendações ao serviço de IA.
 
-Os produtos possuem atributos necessários para a estratégia de recomendação.
+O fluxo de demonstração é:
 
-## Limitações do mockup
+1. O frontend recebe a solicitação de recomendações.
+2. A rota intermediária envia uma requisição `POST` para o BentoML.
+3. O serviço retorna os identificadores dos produtos recomendados.
+4. O frontend associa os identificadores aos dados completos dos produtos.
+5. A interface apresenta os produtos recomendados disponíveis.
+6. Se o serviço estiver indisponível ou retornar erro, o frontend utiliza as recomendações de fallback previstas na implementação.
 
-Esta implementação é um protótipo executável para demonstração da lógica e da interface do módulo.
+Portas utilizadas na demonstração local:
+
+| Componente | Porta |
+|---|---:|
+| Frontend Next.js | 3000 |
+| Serviço BentoML | 3001 |
+
+A integração depende de os dois serviços estarem executando e de a configuração local da chave de API estar correta.
+
+## 15. Catálogo
+
+O mockup utiliza um catálogo sintético em `data/catalogo.json`, com identificadores alinhados aos produtos do frontend.
+
+O catálogo contém os atributos necessários para a recomendação, incluindo:
+
+- Identificador do produto.
+- Nome.
+- Categoria.
+- Técnica artesanal.
+- Região.
+- Disponibilidade.
+
+Os identificadores atuais seguem o padrão `prd_201` a `prd_214`.
+
+O catálogo permite validar a lógica de recomendação sem dependência de banco de dados.
+
+## 16. Limitações do mockup
+
+Esta implementação é um protótipo executável destinado à demonstração da lógica de recomendação e da integração com a interface.
 
 Não contempla:
 
-- banco de dados de produção;
-- autenticação integrada ao sistema Origem;
-- alteração de estoque;
-- pagamentos;
-- pedidos;
-- cadastro de produtos;
-- gerenciamento de preços;
-- infraestrutura de produção;
-- modelo de machine learning treinado.
+- Banco de dados de produção.
+- Autenticação integrada ao sistema Origem.
+- Alteração de estoque.
+- Processamento de pagamentos.
+- Gestão de pedidos.
+- Cadastro de produtos.
+- Gerenciamento de preços.
+- Infraestrutura de produção.
+- Modelo de machine learning treinado.
 
-O score e seus pesos são decisões de implementação do mockup e podem ser substituídos ou calibrados em uma implementação futura.
+O score e seus pesos são decisões de implementação do mockup e podem ser calibrados em uma versão futura.
 
-## Execução rápida
+## 17. Execução rápida
 
-    .\.venv-ia\Scripts\Activate.ps1
-    $env:PYTHONPATH="$PWD\modulo-ia"
-    bentoml serve modulo-ia.app.service:RecommendationService
+### Terminal 1 — Serviço de IA
 
-Em outro terminal:
+Na raiz do repositório, no Windows:
 
-    .\.venv-ia\Scripts\Activate.ps1
-    pytest modulo-ia\tests -v
+```powershell
+$env:PYTHONPATH="$PWD\modulo-ia"
+.\modulo-ia\.venv\Scripts\bentoml.exe serve app.service:RecommendationService --port 3001
+```
+
+### Terminal 2 — Testes da IA
+
+```powershell
+.\modulo-ia\.venv\Scripts\python.exe -m pytest .\modulo-ia\tests -v
+```
+
+### Terminal 3 — Frontend
+
+```powershell
+cd frontend
+npm run dev
+```
+
+A interface ficará disponível em `http://localhost:3000`.
+
+O serviço de IA ficará disponível em `http://localhost:3001`.
