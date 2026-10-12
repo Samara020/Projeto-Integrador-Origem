@@ -2,8 +2,10 @@
 
 ### Marketplace da Economia Criativa e do Artesanato de Pernambuco
 
-**Projeto Integrador — ADS**
-**CESAR School — 4º Semestre — 2026.2**
+**Projeto Integrador, ADS**
+**CESAR School, 4º Semestre, 2026.2**
+
+> **Avaliação de IA (AV2):** instruções de instalação, tabela de requisitos e casos de teste estão na seção [Módulo de IA](#módulo-de-ia-recomendação-de-produtos-av2).
 
 ## Sobre o projeto
 
