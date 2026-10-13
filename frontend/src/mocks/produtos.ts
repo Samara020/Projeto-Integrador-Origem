@@ -141,7 +141,7 @@ export const produtos: ProdutoMock[] = [
     preco: 180,
     descricao:
       "Impressão manual em papel de algodão, 33 por 48 cm. Tiragem de 50 cópias, numeradas e assinadas.",
-    imagens: [VASO],
+    imagens: [LUMINARIA],
     artesaoId: "usr_904",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "xilogravura",
@@ -249,7 +249,7 @@ export const produtos: ProdutoMock[] = [
     preco: 260,
     descricao:
       "Imagem sacra de 30 cm no traço alongado de Tracunhaém. Queima única, sem pintura.",
-    imagens: [PASSARO, VASO],
+    imagens: [VASO, LUMINARIA],
     artesaoId: "usr_905",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "ceramica",
