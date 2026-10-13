@@ -99,6 +99,10 @@ Também é possível utilizar filtros:
 
 O limit possui valor padrão 5 e aceita valores entre 1 e 20.
 
+Categoria é opcional. No catálogo padrão do site, também é possível enviar
+somente `{"technique": "Cerâmica"}` ou `{"region": "Agreste"}`.
+Os valores dos filtros devem corresponder aos nomes presentes no catálogo escolhido.
+
 ## Resposta
 
 Exemplo:
@@ -161,6 +165,16 @@ Quando não existem candidatos suficientes utilizando todos os atributos, o mód
 
 O produto de referência e produtos indisponíveis continuam excluídos em todas as etapas.
 
+Sem categoria, a seleção começa por técnica + região, depois apenas técnica e,
+por último, apenas região. Etapas que exigem um filtro ausente são ignoradas.
+Assim, uma consulta apenas por técnica ou apenas
+por região considera as peças disponíveis com esse atributo. Com os dois filtros,
+as peças que combinam ambos vêm primeiro, seguidas pelas da mesma técnica e,
+por último, pelas da mesma região, sem repetir peças.
+Se nenhuma etapa encontrar candidatos, a lista fica vazia; produtos sem relação
+com os filtros não são acrescentados. Quando uma categoria é informada, ela
+continua obrigatória em todas as etapas da seleção.
+
 ## Justificativas
 
 Cada recomendação possui uma justificativa baseada nos atributos efetivamente utilizados no cálculo.
@@ -193,7 +207,7 @@ Com o BentoML executando em outro terminal:
 
 Resultados validados:
 
-    15 passed
+    25 passed
 
 O teste de desempenho foi executado com 10.000 produtos e 20 execuções da lógica de recomendação.
 
@@ -212,6 +226,7 @@ Os testes cobrem:
 - cálculo de score;
 - ordenação;
 - fallback;
+- filtros apenas por técnica, apenas por região e combinações sem categoria;
 - ausência de candidatos;
 - autenticação;
 - autorização;
@@ -283,6 +298,9 @@ Fluxo:
 4. se o módulo falhar ou passar de 2 s, a rota usa o baseline local e a página continua funcionando.
 
 O cabeçalho `X-Recomendacao-Fonte` da resposta diz de onde veio a lista (`ia` ou `baseline`).
+
+O site também exclui peças reservadas e vendidas ao montar os cartões devolvidos
+pela IA, as sugestões locais e os destaques usados quando não há histórico.
 
 ## Limitações do mockup
 

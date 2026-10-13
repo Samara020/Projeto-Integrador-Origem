@@ -1,5 +1,6 @@
 import os
 
+import pytest
 import requests
 
 
@@ -73,3 +74,33 @@ def test_recomendacoes_produto_inexistente():
     )
 
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("filtros", "esperados", "motivo"),
+    [
+        (
+            {"technique": "Cerâmica"},
+            {"prd_201", "prd_202", "prd_205", "prd_212", "prd_213"},
+            "Recomendado por mesma técnica artesanal.",
+        ),
+        (
+            {"region": "Agreste"},
+            {"prd_202", "prd_204", "prd_205", "prd_207", "prd_211"},
+            "Recomendado por mesma região.",
+        ),
+    ],
+)
+def test_recomendacoes_http_por_filtro_sem_categoria(filtros, esperados, motivo):
+    response = requests.post(
+        f"{BASE_URL}/recommendations",
+        headers={"X-API-Key": API_KEY},
+        json=filtros,
+        timeout=5,
+    )
+
+    assert response.status_code == 200
+    recomendacoes = response.json()["recommendations"]
+    assert {item["product_id"] for item in recomendacoes} == esperados
+    assert all(item["score"] == 1.0 for item in recomendacoes)
+    assert all(item["reason"] == motivo for item in recomendacoes)

@@ -135,7 +135,9 @@ export function listarProdutos(
 }
 
 export function listarDestaques(): ProdutoResumo[] {
-  return produtos.filter((p) => p.destaque).map(paraResumo);
+  return produtos
+    .filter((p) => p.destaque && p.disponibilidade === "DISPONIVEL")
+    .map(paraResumo);
 }
 
 export function buscarProduto(id: string): ProdutoDetalhe | null {
@@ -144,11 +146,11 @@ export function buscarProduto(id: string): ProdutoDetalhe | null {
 }
 
 // Converte os IDs devolvidos pelo módulo de IA em cartões, na ordem recebida.
-// IDs que o site não conhece ou peças vendidas ficam de fora.
+// IDs que o site não conhece ou peças reservadas/vendidas ficam de fora.
 export function resumosPorIds(ids: string[]): ProdutoResumo[] {
   return ids
     .map((id) => produtos.find((p) => p.id === id))
-    .filter((p): p is ProdutoMock => !!p && p.disponibilidade !== "VENDIDO")
+    .filter((p): p is ProdutoMock => !!p && p.disponibilidade === "DISPONIVEL")
     .map(paraResumo);
 }
 
@@ -163,7 +165,7 @@ export function recomendarPara(produtoId: string | null): ProdutoResumo[] {
     (achar(artesaos, p.artesaoId).regiaoId === regiaoBase ? 1 : 0);
 
   return produtos
-    .filter((p) => p.id !== base.id && p.disponibilidade !== "VENDIDO")
+    .filter((p) => p.id !== base.id && p.disponibilidade === "DISPONIVEL")
     .sort((a, b) => pontos(b) - pontos(a))
     .slice(0, 4)
     .map(paraResumo);

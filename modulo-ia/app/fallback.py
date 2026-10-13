@@ -13,10 +13,15 @@ FALLBACK_STAGES = [
 def select_candidates(context, reference_product_id=None, limit=5):
     candidates = available_products(reference_product_id)
 
+    stages = FALLBACK_STAGES
+    if context.get("category") is None:
+        # Sem categoria, amplia apenas pelos filtros disponíveis no contexto.
+        stages = [("technique", "region"), ("technique",), ("region",)]
+
     selected = []
     selected_ids = set()
 
-    for stage in FALLBACK_STAGES:
+    for stage in stages:
         stage_candidates = []
 
         for candidate in candidates:

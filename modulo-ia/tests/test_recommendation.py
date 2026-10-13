@@ -1,3 +1,5 @@
+import pytest
+
 from app.catalog import available_products
 from app.fallback import select_candidates
 from app.recommendation import calculate_score, rank_candidates
@@ -95,3 +97,46 @@ def test_retorna_lista_vazia_quando_nao_ha_candidatos():
     )
 
     assert resultado == []
+
+
+@pytest.mark.parametrize(
+    ("contexto", "esperados"),
+    [
+        ({"technique": "Modelagem manual"}, ["prod_001", "prod_002", "prod_004"]),
+        ({"region": "Caruaru"}, ["prod_001", "prod_002", "prod_003"]),
+        (
+            {"technique": "Modelagem manual", "region": "Caruaru"},
+            ["prod_001", "prod_002", "prod_004", "prod_003"],
+        ),
+    ],
+)
+def test_recomenda_por_filtros_sem_categoria(contexto, esperados):
+    resultado = select_candidates(contexto, limit=20)
+
+    assert [item["product_id"] for item in resultado] == esperados
+    scores = [item["score"] for item in resultado]
+    assert scores == sorted(scores, reverse=True)
+    assert all("categoria" not in item["reason"] for item in resultado)
+
+
+def test_filtros_sem_categoria_respeitam_limite_e_exclusao_da_referencia():
+    resultado = select_candidates(
+        {"technique": "Modelagem manual", "region": "Caruaru"},
+        reference_product_id="prod_001",
+        limit=2,
+    )
+
+    assert [item["product_id"] for item in resultado] == ["prod_002", "prod_004"]
+
+
+@pytest.mark.parametrize(
+    "contexto",
+    [
+        {},
+        {"technique": "Inexistente"},
+        {"region": "Inexistente"},
+        {"category": "Inexistente", "region": "Caruaru"},
+    ],
+)
+def test_nao_recomenda_pecas_sem_relacao_com_os_filtros(contexto):
+    assert select_candidates(contexto) == []

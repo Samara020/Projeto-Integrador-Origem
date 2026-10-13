@@ -675,6 +675,8 @@ Parâmetro: `produtoId` (peça que o cliente está vendo).
 > IDs devolvidos pelos cartões das peças. Se o módulo estiver fora do ar,
 > responder com erro ou passar de 2 s, a rota usa o baseline local e o item vem
 > sem `motivo`. Lista vazia esconde a seção "Você também pode gostar".
+> As sugestões da IA e do baseline local incluem somente peças com
+> `disponibilidade: "DISPONIVEL"`; peças reservadas ou vendidas ficam de fora.
 
 #### GET /artesao/painel/metricas
 Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.
