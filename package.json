@@ -1,0 +1,10 @@
+{
+  "name": "origem",
+  "private": true,
+  "description": "Regressão da TAS do Origem: um comando por nível de teste.",
+  "scripts": {
+    "test:unit": "node scripts/testes.mjs unit",
+    "test:api": "node scripts/testes.mjs api",
+    "test:e2e": "node scripts/testes.mjs e2e"
+  }
+}
