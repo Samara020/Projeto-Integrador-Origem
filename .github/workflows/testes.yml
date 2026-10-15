@@ -1,0 +1,102 @@
+name: Testes
+
+# Regressão completa da TAS do Origem: Testes Unitários, de API e End-to-End num job só.
+# Disparo manual: aba Actions > Testes > Run workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regressao:
+    name: Regressão completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      # O frontend e os testes de API falam com o módulo de IA de verdade (integração).
+      # A chave é a de demonstração do mockup, já pública no README; não é segredo.
+      IA_BASE_URL: http://localhost:3001
+      RECOMENDACAO_API_URL: http://localhost:3001
+      RECOMENDACAO_API_KEY: origem-mockup-key
+      E2E_BROWSER: chrome
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Preparar Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: modulo-ia/requirements.txt
+
+      - name: Cache do binário do Cypress
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+      - name: Instalar dependências
+        run: |
+          npm ci --prefix frontend
+          npm ci --prefix e2e
+          npm --prefix e2e exec -- cypress verify
+          python -m pip install -r modulo-ia/requirements.txt
+
+      - name: Resumo da execução
+        run: |
+          mkdir -p relatorios
+          echo "## Regressão completa da TAS" >> "$GITHUB_STEP_SUMMARY"
+
+      # O nível unitário não precisa de servidor: roda antes do build e da subida,
+      # para uma falha ali não esconder o resultado dele.
+      - name: Testes Unitários
+        run: npm run test:unit
+
+      # Build e servidores rodam mesmo se o unitário falhar, para API e E2E mostrarem o resultado deles.
+      - name: Build do frontend
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npm run build
+
+      - name: Subir módulo de IA (porta 3001) e frontend (porta 3000)
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p relatorios
+          (cd modulo-ia && PYTHONPATH="$PWD" nohup bentoml serve app.service:RecommendationService --port 3001 > ../relatorios/modulo-ia.log 2>&1 &)
+          (cd frontend && nohup npm start > ../relatorios/frontend.log 2>&1 &)
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3001/readyz; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3000/api/categorias; do sleep 1; done'
+
+      - name: Testes de API
+        if: ${{ !cancelled() }}
+        run: npm run test:api
+
+      - name: Testes End-to-End (E2E)
+        if: ${{ !cancelled() }}
+        run: npm run test:e2e
+
+      - name: Guardar relatórios, logs, prints e vídeos
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorios-testes
+          path: |
+            relatorios/
+            e2e/cypress/screenshots/
+            e2e/cypress/videos/
+          if-no-files-found: warn
+          retention-days: 14
