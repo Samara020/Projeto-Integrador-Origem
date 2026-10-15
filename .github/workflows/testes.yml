@@ -2,8 +2,11 @@ name: Testes
 
 # Regressão completa da TAS do Origem: Testes Unitários, de API e End-to-End num job só.
 # Disparo manual: aba Actions > Testes > Run workflow.
+# Também é reutilizável (workflow_call): testes-agendados.yml, testes-commit.yml e
+# testes-merge.yml chamam este arquivo, então o job existe num lugar só.
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
