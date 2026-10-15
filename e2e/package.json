@@ -1,0 +1,13 @@
+{
+  "name": "origem-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Testes End-to-End (E2E) do Origem em Cypress, contra o frontend em http://localhost:3000",
+  "scripts": {
+    "test": "cypress run",
+    "open": "cypress open"
+  },
+  "devDependencies": {
+    "cypress": "^16.2.0"
+  }
+}
