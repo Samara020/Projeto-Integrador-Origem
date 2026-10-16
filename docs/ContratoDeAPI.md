@@ -48,6 +48,8 @@ Cadastra um novo usuário no sistema.
 }
 ```
 
+*Proposta do frontend (lacuna):* para `"papel": "ADMINISTRADOR"`, o corpo leva também `"codigoConvite"`, o código que a equipe entrega a quem vai administrar. Sem código válido, a resposta é `403 Forbidden` com `{ "mensagem": "Código de convite inválido." }`. Comprador e artesão não enviam o campo.
+
 #### POST /auth/login
 Autentica o usuário e emite o token de sessão.
 
@@ -116,6 +118,38 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 }
 ```
 
+> Lacuna acordada para a tela "Cadastro de peça" do painel do artesão: a peça
+> precisa de `sku`, `material`, `dimensoes`, `peso`, `certificado` e
+> `informacoesOrigem`, e a resposta devolve o `sku` gerado.
+
+```json
+{
+  "nome": "Luminária Mandacaru",
+  "descricao": "Peça modelada e vazada à mão, inspirada na luz do sertão.",
+  "categoria": "Casa e decoração",
+  "tecnica": "Cerâmica manual",
+  "material": "Barro vermelho, pigmento natural",
+  "dimensoes": "28 × 18 × 18 cm",
+  "peso": 1.2,
+  "origem": "Caruaru, Pernambuco · tradição familiar desde 1987",
+  "preco": 145.00,
+  "modalidadeProducao": "PECA_UNICA",
+  "estoque": 8,
+  "informacoesOrigem": "Caruaru, Pernambuco · tradição familiar desde 1987",
+  "certificado": "certificado_luminaria.pdf",
+  "imagens": ["https://storage.sistemaorigem.com/img1.jpg"]
+}
+```
+*Response (201 Created):*
+```json
+{
+  "id": "prd_201",
+  "sku": "ORG-LUM-014",
+  "statusValidacao": "PENDENTE",
+  "criadoEm": "2026-09-03T21:10:00Z"
+}
+```
+
 #### PUT /produtos/{id}
 Atualiza os dados de uma peça existente (Exclusivo para o artesão dono da peça).
 
@@ -141,6 +175,53 @@ Inativa/Remove uma peça do catálogo.
 ```json
 {
   "mensagem": "Produto inativado com sucesso."
+}
+```
+
+#### GET /artesao/pecas
+Lista as peças do artesão autenticado com os dados que a tela "Gestão de estoque"
+mostra: SKU, quantidade em estoque e situação do anúncio.
+*(Exemplo: `GET /artesao/pecas?situacao=ESTOQUE_BAIXO`)*
+
+*Response (200 OK):*
+```json
+{
+  "total": 1,
+  "pagina": 1,
+  "limite": 20,
+  "contagem": { "ATIVO": 18, "INATIVO": 3, "ESGOTADO": 3, "ESTOQUE_BAIXO": 0 },
+  "itens": [
+    {
+      "id": "prd_201",
+      "nome": "Luminária Mandacaru",
+      "sku": "ORG-LUM-014",
+      "imagemPrincipal": "https://storage.sistemaorigem.com/img1.jpg",
+      "estoque": 8,
+      "situacao": "ATIVO"
+    }
+  ]
+}
+```
+
+> `contagem` vem junto do envelope para os filtros da tela ("Todos", "Ativos",
+> "Inativos", "Esgotados") mostrarem o total de cada situação, mesmo com um
+> filtro aplicado.
+
+#### PUT /artesao/pecas/{id}/estoque
+Atualiza a quantidade em estoque ou pausa a venda da peça.
+
+```json
+{
+  "estoque": 2,
+  "situacao": "ATIVO"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "id": "prd_201",
+  "estoque": 2,
+  "situacao": "ATIVO"
 }
 ```
 
@@ -260,6 +341,47 @@ Retorna o perfil público e a vitrine de produtos de um artesão.
   "produtos": [
     { "id": "prd_201", "nome": "Vaso de Cerâmica Marajoara", "preco": 380.00 }
   ]
+}
+```
+
+#### GET /artesao/perfil
+Retorna os dados de edição do perfil do artesão autenticado, incluindo o que
+não é público: contato, redes sociais, certificações e dados bancários.
+
+*Response (200 OK):*
+```json
+{
+  "nomeArtistico": "Ana Pereira Cerâmica",
+  "regiao": "Caruaru, PE",
+  "biografia": "Minha cerâmica nasce do barro do Agreste e das memórias da minha família.",
+  "tecnicas": ["Cerâmica", "Modelagem manual", "Pintura mineral"],
+  "foto": "https://storage.sistemaorigem.com/ana.jpg",
+  "fotoCapa": "https://storage.sistemaorigem.com/ana-capa.jpg",
+  "contato": { "telefone": "(81) 99999-2210", "redesSociais": "@anapereiraceramica" },
+  "certificacoes": ["Selo Artesanato de Pernambuco"],
+  "dadosBancarios": "Banco 260 · Ag. 0001 · •••• 4821"
+}
+```
+
+#### PUT /artesao/perfil
+Salva os dados de edição do perfil do artesão autenticado.
+
+```json
+{
+  "nomeArtistico": "Ana Pereira Cerâmica",
+  "regiao": "Caruaru, PE",
+  "biografia": "Minha cerâmica nasce do barro do Agreste.",
+  "tecnicas": ["Cerâmica"],
+  "contato": { "telefone": "(81) 99999-2210", "redesSociais": "@anapereiraceramica" },
+  "certificacoes": ["Selo Artesanato de Pernambuco"],
+  "dadosBancarios": "Banco 260 · Ag. 0001 · •••• 4821"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "nomeArtistico": "Ana Pereira Cerâmica",
+  "atualizadoEm": "2026-09-25T18:40:00Z"
 }
 ```
 
@@ -392,6 +514,36 @@ Lista os pedidos recebidos contendo peças do artesão autenticado.
 }
 ```
 
+> Lacuna acordada para a tela "Gestão de pedidos" do painel do artesão: cada
+> pedido precisa de `criadoEm`, `comprador` (`nome` e `local`), `itens`
+> (`produtoId`, `nome`, `quantidade` e `precoUnitario`), `valorTotal`,
+> `statusProducao` (`NOVO`, `EM_PRODUCAO`, `PRONTO`, `ENVIADO`, `ENTREGUE` ou
+> `CANCELADO`), `proximaAcao` e `codigoRastreio` quando já houver envio.
+
+```json
+{
+  "pedidosRecebidos": [
+    {
+      "id": "ped_501",
+      "criadoEm": "2026-09-11T14:20:00Z",
+      "statusProducao": "NOVO",
+      "comprador": { "nome": "Marina Costa", "local": "Recife, PE" },
+      "itens": [
+        {
+          "produtoId": "prd_201",
+          "nome": "Luminária Mandacaru",
+          "quantidade": 1,
+          "precoUnitario": 145.00
+        }
+      ],
+      "valorTotal": 145.00,
+      "proximaAcao": "ACEITAR",
+      "codigoRastreio": null
+    }
+  ]
+}
+```
+
 #### PUT /artesao/pedidos/{id}/status
 Atualiza o status de produção/envio do pedido.
 
@@ -501,14 +653,30 @@ Lista os tickets de suporte abertos pelo usuário ou geridos pela equipe.
 #### GET /produtos/recomendacoes
 Retorna recomendações personalizadas de produtos para o cliente.
 
+Parâmetro: `produtoId` (peça que o cliente está vendo).
+
 *Response (200 OK):*
 ```json
 {
   "recomendados": [
-    { "id": "prd_202", "nome": "Escultura em Madeira", "preco": 450.00 }
+    {
+      "id": "prd_202",
+      "nome": "Escultura em Madeira",
+      "preco": 450.00,
+      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal."
+    }
   ]
 }
 ```
+
+> Integração com o módulo de IA (HU-17, `modulo-ia/`): cada item tem os campos
+> de `ProdutoResumo` e um `motivo` opcional com a justificativa da IA. A rota do
+> site chama `POST /recommendations` do módulo (chave em `X-API-Key`) e troca os
+> IDs devolvidos pelos cartões das peças. Se o módulo estiver fora do ar,
+> responder com erro ou passar de 2 s, a rota usa o baseline local e o item vem
+> sem `motivo`. Lista vazia esconde a seção "Você também pode gostar".
+> As sugestões da IA e do baseline local incluem somente peças com
+> `disponibilidade: "DISPONIVEL"`; peças reservadas ou vendidas ficam de fora.
 
 #### GET /artesao/painel/metricas
 Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.
@@ -519,6 +687,95 @@ Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.
   "totalVendasMes": 1520.00,
   "produtosAtivos": 4,
   "pedidosPendentes": 2
+}
+```
+
+> Lacuna acordada para a tela "Dashboard do artesão": os cartões, o gráfico dos
+> últimos 30 dias, os alertas e a lista de pedidos recentes vêm na mesma rota.
+> `vendasPorDia` traz um ponto por dia do gráfico e `alertas` traz a contagem de
+> itens que precisam de ação, com `destino` indicando a tela que resolve.
+
+```json
+{
+  "vendasMes": 8420.00,
+  "variacaoVendas": 18,
+  "pedidosPendentes": 12,
+  "pedidosNovos": 3,
+  "avaliacaoMedia": 4.8,
+  "totalAvaliacoes": 126,
+  "visualizacoes": 2846,
+  "variacaoVisualizacoes": 24,
+  "produtosAtivos": 4,
+  "vendasPorDia": [{ "dia": "2026-09-01", "valor": 180.00 }],
+  "alertas": [
+    {
+      "id": "estoque-baixo",
+      "quantidade": 3,
+      "mensagem": "3 peças com estoque baixo",
+      "acao": "Ver estoque",
+      "destino": "/painel/artesao/estoque"
+    }
+  ],
+  "pedidosRecentes": [
+    {
+      "id": "ped_1048",
+      "comprador": "Marina Costa",
+      "itens": "Luminária Mandacaru × 1",
+      "valorTotal": 145.00,
+      "statusProducao": "NOVO"
+    }
+  ]
+}
+```
+
+#### GET /artesao/envio/configuracoes
+Retorna as opções de envio, os tipos de embalagem e os prazos por região usados
+pela tela "Transporte e embalagem" do painel do artesão.
+
+*Response (200 OK):*
+```json
+{
+  "opcoes": [
+    { "id": "economico", "nome": "Origem Econômico", "prazo": "6 a 8 dias úteis", "ativa": true }
+  ],
+  "tiposEmbalagem": [{ "id": "caixa-papelao", "nome": "Caixa de papelão reciclado" }],
+  "prazosPorRegiao": [{ "regiao": "Nordeste", "prazo": "3 a 5 dias" }]
+}
+```
+
+#### PUT /artesao/envio/configuracoes
+Ativa ou desativa uma opção de envio do artesão.
+
+```json
+{
+  "opcaoId": "expresso",
+  "ativa": true
+}
+```
+*Response (200 OK):*
+```json
+{
+  "id": "expresso",
+  "ativa": true
+}
+```
+
+#### POST /envios/cotacao
+Calcula o frete de um pacote com base no CEP de destino, no peso e nas
+dimensões informadas pelo ateliê. Rota de cálculo, sem efeito colateral.
+
+```json
+{
+  "cep": "01310-100",
+  "pesoKg": 1.2,
+  "dimensoes": { "altura": 30, "largura": 22, "profundidade": 22 }
+}
+```
+*Response (200 OK):*
+```json
+{
+  "servico": { "id": "economico", "nome": "Origem Econômico", "prazo": "6 a 8 dias úteis" },
+  "valor": 24.80
 }
 ```
 

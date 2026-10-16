@@ -7,6 +7,7 @@ import { AvisoFormulario } from "@/components/conta/AvisoFormulario";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Campo } from "@/components/ui/Campo";
 import { useSessao } from "@/hooks/useSessao";
+import { ROTA_PAINEL_ADMIN, destinoAposEntrar, voltaDaUrl } from "@/lib/destino";
 import { ApiError } from "@/lib/http";
 import { validarEmail, validarSenhaLogin } from "@/lib/validacao";
 
@@ -33,8 +34,8 @@ export function FormularioLogin() {
     setEnviando(true);
     setFalha(null);
     try {
-      await entrar({ email: email.trim().toLowerCase(), senha });
-      router.push("/");
+      const sessao = await entrar({ email: email.trim().toLowerCase(), senha });
+      router.push(destinoAposEntrar(sessao.usuario.papel, voltaDaUrl()));
     } catch (causa) {
       setFalha(
         causa instanceof ApiError
@@ -52,7 +53,11 @@ export function FormularioLogin() {
           Você entrou como <strong className="text-tinta">{usuario.nome}</strong>.
         </p>
         <div className="flex flex-wrap gap-3">
-          <BotaoLink href="/catalogo">Ir para o catálogo</BotaoLink>
+          {usuario.papel === "ADMINISTRADOR" ? (
+            <BotaoLink href={ROTA_PAINEL_ADMIN}>Ir para o painel</BotaoLink>
+          ) : (
+            <BotaoLink href="/catalogo">Ir para o catálogo</BotaoLink>
+          )}
           <Botao variante="secundario" onClick={() => void sair()}>
             Sair da conta
           </Botao>
@@ -90,10 +95,8 @@ export function FormularioLogin() {
         erro={erros.senha}
       />
 
-      {/* prefetch desligado até a página /recuperar-senha existir: tire quando ela entrar. */}
       <Link
         href="/recuperar-senha"
-        prefetch={false}
         className="inline-flex min-h-10 items-center self-end text-apoio text-terracota hover:underline"
       >
         Esqueci minha senha
@@ -116,7 +119,8 @@ export function FormularioLogin() {
       {/* Só enquanto a Fake API estiver ligada. Sai na Avaliação 2. */}
       {!process.env.NEXT_PUBLIC_API_URL && (
         <p className="rounded-raio bg-superficie-2 px-3 py-2 text-legenda text-tinta-2">
-          Conta de demonstração: comprador@origem.dev, senha origem123.
+          Contas de demonstração (senha origem123): comprador@origem.dev ou
+          admin@origem.dev.
         </p>
       )}
     </form>

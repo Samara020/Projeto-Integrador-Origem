@@ -4,6 +4,9 @@ import type { Usuario } from "@/types";
 
 export const SENHA_DEMO = "origem123";
 
+// Código que a equipe entrega a quem vai administrar. Sem ele, ninguém se cadastra como ADMINISTRADOR.
+export const CODIGO_CONVITE_ADMIN = "ORIGEM-ADMIN-2026";
+
 export const usuarios: Usuario[] = [
   {
     id: "usr_101",

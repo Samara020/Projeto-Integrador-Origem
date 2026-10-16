@@ -41,7 +41,8 @@ Os tokens vivem em `src/app/globals.css`, dentro de `@theme` (Tailwind 4). Cada 
 | `selo-ponto` | `#5DD6A0` | Ponto do selo "Autêntico" |
 | `erro` | `#C32822` | Mensagem e borda de erro |
 | `aviso` | `#E6A218` | Alerta (estoque baixo), estrela de avaliação |
-| `info` | `#1A528F` | Aviso informativo |
+| `info` | `#1A528F` | Aviso informativo, balão do comprador no chat |
+| `areia` | `#F4E6C5` | Chip de valor, balão da assistente, caixa de estimativa |
 
 Contraste: `tinta-4` sobre `superficie` dá 2,9:1. Não passa no mínimo de leitura (4,5:1). Por isso fica só em placeholder. Onde o Figma usa `#A09485` em texto ("Ana Pereira · Pernambuco"), use `tinta-3`.
 

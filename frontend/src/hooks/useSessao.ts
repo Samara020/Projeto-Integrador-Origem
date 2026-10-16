@@ -13,12 +13,18 @@ function carregarUmaVez() {
   sessaoStore.definir(authService.sessaoAtual());
 }
 
+function lida() {
+  return carregada;
+}
+
 export function useSessao() {
   const sessao = useSyncExternalStore(
     sessaoStore.assinar,
     sessaoStore.obter,
     () => null,
   );
+  // false até ler o localStorage. Sem isso, a tela confunde "carregando" com "sem conta".
+  const pronta = useSyncExternalStore(sessaoStore.assinar, lida, () => false);
 
   useEffect(() => {
     carregarUmaVez();
@@ -27,13 +33,18 @@ export function useSessao() {
   return {
     sessao,
     usuario: sessao?.usuario ?? null,
+    pronta,
 
     async entrar(dados: DadosLogin) {
-      sessaoStore.definir(await authService.entrar(dados));
+      const nova = await authService.entrar(dados);
+      sessaoStore.definir(nova);
+      return nova;
     },
 
     async cadastrar(dados: DadosCadastro) {
-      sessaoStore.definir(await authService.cadastrar(dados));
+      const nova = await authService.cadastrar(dados);
+      sessaoStore.definir(nova);
+      return nova;
     },
 
     async sair() {

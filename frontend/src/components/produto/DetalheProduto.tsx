@@ -1,11 +1,12 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, PencilRuler } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { Avaliacoes } from "@/components/produto/Avaliacoes";
+import { BotaoComparar } from "@/components/produto/BotaoComparar";
 import { Galeria } from "@/components/produto/Galeria";
 import { Recomendados } from "@/components/produto/Recomendados";
 import { SeletorQuantidade } from "@/components/produto/SeletorQuantidade";
@@ -17,6 +18,7 @@ import { Estrelas } from "@/components/ui/Estrelas";
 import { Selo } from "@/components/ui/Selo";
 import { toaster } from "@/components/ui/toaster";
 import { useCarrinho } from "@/hooks/useCarrinho";
+import { registrarVisita } from "@/hooks/useHistorico";
 import { useProduto } from "@/hooks/useProdutos";
 import { formatarMoeda, formatarNota, plural } from "@/lib/formato";
 import type { Disponibilidade, ModalidadeProducao, ProdutoDetalhe } from "@/types";
@@ -149,7 +151,18 @@ export function DetalheProduto({ id }: { id: string }) {
 
   // O dado chega no cliente, então o título da aba é ajustado aqui.
   useEffect(() => {
-    if (produto) document.title = `${produto.nome} · Origem`;
+    if (!produto) return;
+    document.title = `${produto.nome} · Origem`;
+    registrarVisita({
+      id: produto.id,
+      nome: produto.nome,
+      artesaoId: produto.artesao.id,
+      artesaoNome: produto.artesao.nome,
+      regiaoId: produto.regiao.id,
+      regiaoNome: produto.regiao.nome,
+      tecnicaId: produto.tecnica.id,
+      tecnicaNome: produto.tecnica.nome,
+    });
   }, [produto]);
 
   return (
@@ -193,10 +206,8 @@ export function DetalheProduto({ id }: { id: string }) {
               </p>
               <p className="text-apoio text-tinta-3">
                 por{" "}
-                {/* prefetch desligado até a página /artesao/[id] existir: tire quando ela entrar. */}
                 <Link
                   href={`/artesao/${produto.artesao.id}`}
-                  prefetch={false}
                   className="font-medium text-tinta underline-offset-2 hover:underline"
                 >
                   {produto.artesao.loja}
@@ -205,19 +216,31 @@ export function DetalheProduto({ id }: { id: string }) {
               </p>
 
               {produto.totalAvaliacoes > 0 && (
-                <a
-                  href="#avaliacoes"
+                <Link
+                  href={`/produto/${produto.id}/avaliacoes`}
                   className="flex items-center gap-2 self-start text-apoio text-tinta-2 hover:underline"
                 >
                   <Estrelas nota={produto.avaliacaoMedia} />
                   {formatarNota(produto.avaliacaoMedia)} ·{" "}
                   {plural(produto.totalAvaliacoes, "avaliação", "avaliações")}
-                </a>
+                </Link>
               )}
 
               <p className="text-corpo text-tinta-2">{produto.descricao}</p>
 
               <Compra produto={produto} />
+              {produto.modalidadeProducao === "SOB_ENCOMENDA" &&
+                produto.disponibilidade === "DISPONIVEL" && (
+                  <BotaoLink
+                    href={`/produto/${produto.id}/personalizar`}
+                    variante="secundario"
+                    className="self-start"
+                  >
+                    <PencilRuler className="size-4" aria-hidden="true" />
+                    Personalizar esta peça
+                  </BotaoLink>
+                )}
+              <BotaoComparar produtoId={produto.id} />
             </div>
           </article>
 

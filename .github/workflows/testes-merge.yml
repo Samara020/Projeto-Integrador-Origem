@@ -1,0 +1,19 @@
+name: Testes no merge na main
+
+# Regressão completa a cada commit que chega na main. Merge de pull request e push
+# direto chegam na main como evento push, então este gatilho cobre os dois sem rodar
+# em dobro. Commits nas outras branches ficam com testes-commit.yml.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  regressao:
+    name: Regressão completa
+    permissions:
+      contents: read
+    uses: ./.github/workflows/testes.yml

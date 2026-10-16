@@ -1,5 +1,6 @@
 "use client";
 
+import { Palette, ShieldCheck, ShoppingBag, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -10,6 +11,7 @@ import { Selecao } from "@/components/ui/Selecao";
 import { toaster } from "@/components/ui/toaster";
 import { useRegioes, useTecnicas } from "@/hooks/useCatalogo";
 import { useSessao } from "@/hooks/useSessao";
+import { destinoAposEntrar, voltaDaUrl } from "@/lib/destino";
 import { ApiError } from "@/lib/http";
 import {
   validarEmail,
@@ -18,17 +20,30 @@ import {
 } from "@/lib/validacao";
 import type { Papel } from "@/types";
 
-// Administrador não se cadastra sozinho: esse papel é dado por outro administrador.
-const PERFIS: { papel: Papel; nome: string; descricao: string }[] = [
+// Administrador só se cadastra com o código de convite que a equipe entrega.
+const PERFIS: {
+  papel: Papel;
+  nome: string;
+  descricao: string;
+  Icone: LucideIcon;
+}[] = [
   {
     papel: "COMPRADOR",
     nome: "Comprador",
     descricao: "Quero comprar direto de quem faz.",
+    Icone: ShoppingBag,
   },
   {
     papel: "ARTESAO",
     nome: "Artesão",
     descricao: "Quero vender minhas peças.",
+    Icone: Palette,
+  },
+  {
+    papel: "ADMINISTRADOR",
+    nome: "Administrador",
+    descricao: "Vou cuidar da plataforma.",
+    Icone: ShieldCheck,
   },
 ];
 
@@ -38,8 +53,13 @@ type Erros = {
   senha?: string;
   tecnica?: string;
   regiao?: string;
+  convite?: string;
   termos?: string;
 };
+
+function validarConvite(valor: string): string | undefined {
+  if (!valor.trim()) return "Digite o código de convite.";
+}
 
 export function FormularioCadastro() {
   const router = useRouter();
@@ -53,12 +73,14 @@ export function FormularioCadastro() {
   const [senha, setSenha] = useState("");
   const [tecnica, setTecnica] = useState("");
   const [regiao, setRegiao] = useState("");
+  const [convite, setConvite] = useState("");
   const [termos, setTermos] = useState(false);
   const [erros, setErros] = useState<Erros>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const artesao = papel === "ARTESAO";
+  const administrador = papel === "ADMINISTRADOR";
   const listasFalharam = artesao && (tecnicas.erro || regioes.erro);
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -69,6 +91,7 @@ export function FormularioCadastro() {
       senha: validarSenhaNova(senha),
       tecnica: artesao && !tecnica ? "Escolha sua técnica principal." : undefined,
       regiao: artesao && !regiao ? "Escolha a região onde você produz." : undefined,
+      convite: administrador ? validarConvite(convite) : undefined,
       termos: termos ? undefined : "Aceite os termos para criar a conta.",
     };
     setErros(novos);
@@ -83,13 +106,16 @@ export function FormularioCadastro() {
         senha,
         papel,
         ...(artesao ? { tecnica, regiao } : {}),
+        ...(administrador ? { codigoConvite: convite.trim() } : {}),
       });
       toaster.create({
         type: "success",
         title: "Conta criada",
-        description: "Você já está dentro. Boas descobertas.",
+        description: administrador
+          ? "Seu acesso ao painel administrativo está liberado."
+          : "Você já está dentro. Boas descobertas.",
       });
-      router.push("/");
+      router.push(destinoAposEntrar(papel, voltaDaUrl()));
     } catch (causa) {
       setFalha(
         causa instanceof ApiError
@@ -109,10 +135,12 @@ export function FormularioCadastro() {
           Como você quer usar a Origem?
         </legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {PERFIS.map((perfil) => (
+          {PERFIS.map(({ Icone, ...perfil }) => (
             <label
               key={perfil.papel}
               className={`flex cursor-pointer flex-col gap-1 rounded-raio border px-4 py-3 transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-terracota ${
+                perfil.papel === "ADMINISTRADOR" ? "sm:col-span-2" : ""
+              } ${
                 papel === perfil.papel
                   ? "border-terracota bg-terracota/5"
                   : "border-borda hover:border-borda-forte"
@@ -126,7 +154,13 @@ export function FormularioCadastro() {
                 onChange={() => setPapel(perfil.papel)}
                 className="sr-only"
               />
-              <span className="text-apoio font-bold text-tinta">
+              <span className="inline-flex items-center gap-2 text-apoio font-bold text-tinta">
+                <Icone
+                  className={`size-4 shrink-0 ${
+                    papel === perfil.papel ? "text-terracota" : "text-tinta-3"
+                  }`}
+                  aria-hidden="true"
+                />
                 {perfil.nome}
               </span>
               <span className="text-legenda text-tinta-3">
@@ -194,6 +228,22 @@ export function FormularioCadastro() {
             erro={erros.regiao}
           />
         </div>
+      )}
+
+      {administrador && (
+        <Campo
+          id="cadastro-convite"
+          rotulo="Código de convite"
+          autoComplete="off"
+          spellCheck={false}
+          dica="A equipe da Origem envia esse código a quem vai administrar a plataforma."
+          value={convite}
+          onChange={(e) => setConvite(e.target.value)}
+          onBlur={() =>
+            setErros((a) => ({ ...a, convite: validarConvite(convite) }))
+          }
+          erro={erros.convite}
+        />
       )}
 
       {listasFalharam && (

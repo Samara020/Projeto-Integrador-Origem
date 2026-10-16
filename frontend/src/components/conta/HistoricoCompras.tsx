@@ -124,7 +124,7 @@ export function HistoricoCompras() {
             <Download className="size-4" aria-hidden="true" /> Baixar histórico
           </Botao>
         </div>
-        <a href="mailto:suporte@origem.com.br" className="text-apoio text-terracota hover:underline">Precisa de ajuda com um pedido? Fale com o suporte Origem.</a>
+        <Link href="/suporte" className="text-apoio text-terracota hover:underline">Precisa de ajuda com um pedido? Fale com o suporte Origem.</Link>
       </section>
 
       <section ref={historico} aria-labelledby="pedidos-recentes" className="flex min-h-96 flex-col overflow-hidden rounded-painel border border-borda bg-superficie shadow-card">

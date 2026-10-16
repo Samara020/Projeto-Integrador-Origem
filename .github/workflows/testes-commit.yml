@@ -1,0 +1,19 @@
+name: Testes a cada commit
+
+# Regressão completa a cada push em qualquer branch, menos a main. Na main quem roda é
+# testes-merge.yml, para o mesmo commit não ser testado duas vezes. Push de tag não
+# dispara (só há filtro de branch).
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  regressao:
+    name: Regressão completa
+    permissions:
+      contents: read
+    uses: ./.github/workflows/testes.yml

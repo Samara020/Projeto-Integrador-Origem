@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 
-type Variante = "autentico" | "neutro" | "destaque" | "sucesso";
+type Variante =
+  "autentico" | "neutro" | "destaque" | "sucesso" | "aviso" | "erro";
 
 const VARIANTES: Record<Variante, string> = {
   autentico: "bg-selo text-superficie",
   neutro: "bg-superficie-2 text-tinta-2",
   destaque: "bg-terracota/10 text-terracota",
   sucesso: "bg-selo/10 text-selo",
+  aviso: "bg-aviso text-superficie",
+  erro: "bg-terracota text-superficie",
 };
 
 export function Selo({

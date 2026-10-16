@@ -1,8 +1,21 @@
 import { apagarLocal, gravarLocal, lerLocal } from "@/lib/armazenamento";
-import { http } from "@/lib/http";
-import type { DadosCadastro, DadosLogin, Sessao, Usuario } from "@/types";
+import { ApiError, http } from "@/lib/http";
+import type {
+  DadosCadastro,
+  DadosLogin,
+  DadosRecuperarSenha,
+  DadosRedefinirSenha,
+  RespostaMensagem,
+  Sessao,
+  Usuario,
+} from "@/types";
 
 const CHAVE = "sessao";
+const ATRASO_MS = 600;
+
+function esperar(): Promise<void> {
+  return new Promise((resolver) => setTimeout(resolver, ATRASO_MS));
+}
 
 export const authService = {
   sessaoAtual(): Sessao | null {
@@ -36,5 +49,19 @@ export const authService = {
 
   async sair(): Promise<void> {
     apagarLocal(CHAVE);
+  },
+
+  // Fake API: simulado no navegador; nenhum e-mail sai. A resposta é a mesma exista ou não a conta.
+  // Avaliação 2: trocar por http("/auth/recuperar-senha", { metodo: "POST", corpo: dados }).
+  async recuperarSenha(dados: DadosRecuperarSenha): Promise<RespostaMensagem> {
+    await esperar();
+    return { mensagem: `Se ${dados.email} tiver conta na Origem, o link chega em instantes.` };
+  },
+
+  // Avaliação 2: trocar por http("/auth/redefinir-senha", { metodo: "POST", corpo: dados }).
+  async redefinirSenha(dados: DadosRedefinirSenha): Promise<RespostaMensagem> {
+    await esperar();
+    if (!dados.token) throw new ApiError(400, "O link de recuperação expirou. Peça um novo.");
+    return { mensagem: "Senha alterada. Entre com a senha nova." };
   },
 };

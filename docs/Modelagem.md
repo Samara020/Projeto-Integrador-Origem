@@ -1,5 +1,5 @@
 ## Modelagem Conceitual
-<img width="2068" height="984" alt="Conceitual_1" src="https://github.com/user-attachments/assets/d1e4eec3-e061-4002-8427-5ad725771b04" />
+<img width="2379" height="1242" alt="Conceitual_1" src="https://github.com/user-attachments/assets/50266de7-ae16-4b42-8712-60bcb5e3a336" />
 
 ## Modelo Lógico
-<img width="2298" height="1162" alt="Lógico_1" src="https://github.com/user-attachments/assets/30f8e2f7-f64f-4fbe-8e7f-686ee8e89578" />
+<img width="2369" height="1147" alt="Lógico_1" src="https://github.com/user-attachments/assets/7c5fc3d1-e957-4e3a-9ee5-5f65b49c9614" />

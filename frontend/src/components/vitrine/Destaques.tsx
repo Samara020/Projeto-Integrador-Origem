@@ -9,10 +9,12 @@ import {
 import { BotaoLink } from "@/components/ui/Botao";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
+import { useComparacao } from "@/hooks/useComparacao";
 import { useDestaques } from "@/hooks/useProdutos";
 
 export function Destaques() {
   const { dados, carregando, erro, recarregar } = useDestaques();
+  const comparacao = useComparacao();
 
   return (
     <section aria-labelledby="destaques-titulo" className="py-secao">
@@ -29,10 +31,17 @@ export function Destaques() {
               Escolhidas pela equipe, feitas à mão em Pernambuco.
             </p>
           </div>
-          <BotaoLink href="/catalogo" variante="secundario">
-            Ver todas
-            <ArrowRight className="size-4 text-terracota" aria-hidden="true" />
-          </BotaoLink>
+          <div className="flex flex-wrap items-center gap-3">
+            {comparacao.ids.length > 0 && (
+              <BotaoLink href="/comparar" variante="contorno">
+                Comparar seleção ({comparacao.ids.length})
+              </BotaoLink>
+            )}
+            <BotaoLink href="/catalogo" variante="secundario">
+              Ver todas
+              <ArrowRight className="size-4 text-terracota" aria-hidden="true" />
+            </BotaoLink>
+          </div>
         </div>
 
         {carregando && <ProdutoGradeEsqueleto quantidade={4} />}

@@ -66,13 +66,25 @@ src/
 | `/cadastro` | Cadastro |
 | `/recuperar-senha` | Recuperação de senha |
 | `/catalogo` | Catálogo · Busca |
-| `/produto/[id]` | Detalhes do produto |
+| `/produto/[id]` | Detalhes do produto, Peça única (3 estados) |
+| `/produto/[id]/avaliacoes` | Avaliações (no Figma é a visão do artesão; aqui, a da peça) |
+| `/produto/[id]/personalizar` | Personalização de peça |
 | `/artesao/[id]` | Loja do artesão |
+| `/comparar` | Comparação de peças |
+| `/recomendacoes` | Recomendações personalizadas |
 | `/carrinho` | Carrinho |
 | `/checkout` | Checkout, Pagamento |
 | `/conta` | Perfil do comprador |
 | `/conta/pedidos/[id]` | Acompanhamento de pedido |
-| `/painel/artesao` | Dashboard do artesão, Gestão de estoque, Gestão de pedidos |
+| `/suporte` | Central de suporte |
+| `/suporte/chat` | Chat com IA · Triagem (conversa nova) |
+| `/suporte/[id]` | Chat com IA · Triagem, Escalonamento para humano (2 estados) |
+| `/painel/artesao` | Dashboard do artesão |
+| `/painel/artesao/pecas/nova` | Cadastro de peça |
+| `/painel/artesao/estoque` | Gestão de estoque |
+| `/painel/artesao/pedidos` | Gestão de pedidos |
+| `/painel/artesao/perfil` | Perfil do artesão |
+| `/painel/artesao/envio` | Transporte e embalagem |
 | `/painel/admin` | Dashboard administrador |
 
 Busca e filtros vivem na URL: `/catalogo?termo=barro&categoria=ceramica&regiao=agreste&pagina=2`. Assim o link pode ser compartilhado e o botão voltar funciona.
@@ -106,7 +118,8 @@ Na Avaliação 2: define `NEXT_PUBLIC_API_URL` com o endereço do backend, apaga
 Route Handler em deploy serverless não guarda estado entre chamadas. Por isso, na Avaliação 1:
 
 - Leitura (produtos, artesãos, categorias, técnicas, regiões, avaliações, indicadores): Fake API em `app/api`.
-- Escrita (carrinho, pedidos, login simulado): o service guarda no `localStorage`, com a mesma assinatura que terá com o backend (`carrinhoService.adicionar(produtoId, quantidade)` devolve `Promise`).
+- Escrita (carrinho, pedidos, pagamento, avaliação nova, tickets de suporte, comparação, peças vistas, personalização, login simulado): o service guarda no `localStorage`, com a mesma assinatura que terá com o backend (`carrinhoService.adicionar(produto, quantidade)` devolve `Promise`).
+- A triagem do suporte (HU-23) é uma lista de regras por palavra-chave em `services/suporte.ts`. O módulo de IA a substitui na Avaliação 2.
 
 Quem usa o service não sabe a diferença. Na Avaliação 2 só o miolo do service muda.
 
@@ -132,6 +145,12 @@ O contrato ainda não tem, e a Avaliação 1 pede:
 - Campos de detalhe do produto: descrição, técnica, região, estoque, galeria de imagens, disponibilidade, total de avaliações.
 - Região e disponibilidade no item de `GET /produtos` (o card mostra os dois).
 - `nome` e `imagemPrincipal` no item de `GET /carrinho`.
+- Perfil do artesão (`GET /artesaos/{id}/perfil`): foto, técnica, especialidade, verificado, história, citação, imagens, média e total de avaliações, peças vendidas.
+- `POST /auth/redefinir-senha` com o token que chega por e-mail.
+- `GET /comprador/avaliacoes`; `compraVerificada` e `respostaArtesao` na avaliação; `dimensoes` e `material` no detalhe da peça.
+- `POST /suporte/tickets/{id}/mensagens` (mensagens do chat, classificação e sugestões da triagem); `prioridade` no ticket.
+- `POST /produtos/{id}/personalizacoes` (solicitação ao artesão) e histórico de peças vistas.
+- `codigoConvite` em `POST /auth/register` para administrador (sem ele, 403).
 - `tecnica` e `regiao` em `POST /auth/register` para artesão. O Figma também pede CPF/CNPJ e localização: o front ainda não coleta, porque o contrato não recebe.
 
 Os campos marcados com "lacuna" em `src/types/index.ts` são exatamente estes.

@@ -1,5 +1,5 @@
 // Dados da Fake API. Só src/app/api importa daqui.
-// As duas fotos vieram do Figma e se repetem até a equipe ter foto real de cada peça.
+// As fotos vieram do Figma e se repetem até a equipe ter foto real de cada peça.
 import type { Disponibilidade, ModalidadeProducao } from "@/types";
 
 export type ProdutoMock = {
@@ -16,10 +16,15 @@ export type ProdutoMock = {
   disponibilidade: Disponibilidade;
   estoque: number;
   destaque: boolean;
+  dimensoes: string;
+  material: string;
 };
 
 const VASO = "/produtos/vaso-ceramica.jpg";
 const PASSARO = "/produtos/passaro-madeira.jpg";
+const PASSARO_ENTALHE = "/produtos/passaro-madeira-entalhe.jpg";
+const LUMINARIA = "/produtos/luminaria-barro.jpg";
+const TOALHA = "/produtos/toalha-bordada.jpg";
 
 export const produtos: ProdutoMock[] = [
   {
@@ -37,6 +42,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 1,
     destaque: true,
+    dimensoes: "22 × 14 cm",
+    material: "Barro da Zona da Mata, engobe natural",
   },
   {
     id: "prd_202",
@@ -44,7 +51,7 @@ export const produtos: ProdutoMock[] = [
     preco: 120,
     descricao:
       "Cúpula vazada à faca, ainda com o barro úmido. A luz atravessa os recortes e desenha a parede.",
-    imagens: [PASSARO, VASO],
+    imagens: [LUMINARIA, VASO],
     artesaoId: "usr_901",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "ceramica",
@@ -53,6 +60,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 6,
     destaque: true,
+    dimensoes: "24 × 18 cm",
+    material: "Barro vermelho vazado à faca",
   },
   {
     id: "prd_203",
@@ -60,7 +69,7 @@ export const produtos: ProdutoMock[] = [
     preco: 70,
     descricao:
       "Entalhado em umburana, madeira leve do sertão. Pintura com pigmento à base de água e acabamento em cera.",
-    imagens: [PASSARO, VASO],
+    imagens: [PASSARO, PASSARO_ENTALHE],
     artesaoId: "usr_903",
     categoriaId: "artesanato",
     tecnicaId: "entalhe-em-madeira",
@@ -69,6 +78,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 9,
     destaque: true,
+    dimensoes: "16 × 9 cm",
+    material: "Umburana com pigmento à base de água",
   },
   {
     id: "prd_204",
@@ -76,7 +87,7 @@ export const produtos: ProdutoMock[] = [
     preco: 85,
     descricao:
       "Linho cru com flores em ponto cheio. Cerca de quarenta horas de agulha em cada toalha.",
-    imagens: [VASO],
+    imagens: [TOALHA],
     artesaoId: "usr_902",
     categoriaId: "artesanato",
     tecnicaId: "bordado",
@@ -85,6 +96,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 3,
     destaque: true,
+    dimensoes: "1,40 × 0,90 m",
+    material: "Linho cru com linha de algodão",
   },
   {
     id: "prd_205",
@@ -101,6 +114,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 12,
     destaque: false,
+    dimensoes: "18 × 12 cm",
+    material: "Barro do Alto do Moura, pintura a frio",
   },
   {
     id: "prd_206",
@@ -108,7 +123,7 @@ export const produtos: ProdutoMock[] = [
     preco: 340,
     descricao:
       "Carranca de proa com 40 cm, talhada em cedro. Nas barcas do São Francisco, espantava o mau agouro.",
-    imagens: [PASSARO],
+    imagens: [PASSARO_ENTALHE],
     artesaoId: "usr_903",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "entalhe-em-madeira",
@@ -117,6 +132,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "RESERVADO",
     estoque: 1,
     destaque: false,
+    dimensoes: "40 × 22 cm",
+    material: "Cedro maciço",
   },
   {
     id: "prd_207",
@@ -124,7 +141,7 @@ export const produtos: ProdutoMock[] = [
     preco: 180,
     descricao:
       "Impressão manual em papel de algodão, 33 por 48 cm. Tiragem de 50 cópias, numeradas e assinadas.",
-    imagens: [VASO],
+    imagens: [LUMINARIA],
     artesaoId: "usr_904",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "xilogravura",
@@ -133,6 +150,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 14,
     destaque: false,
+    dimensoes: "33 × 48 cm",
+    material: "Papel de algodão 300 g, tinta gráfica",
   },
   {
     id: "prd_208",
@@ -149,6 +168,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "VENDIDO",
     estoque: 0,
     destaque: false,
+    dimensoes: "33 × 48 cm",
+    material: "Matriz de umburana",
   },
   {
     id: "prd_209",
@@ -165,6 +186,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 80,
     destaque: false,
+    dimensoes: "11 × 16 cm, 16 páginas",
+    material: "Papel jornal, capa em xilogravura",
   },
   {
     id: "prd_210",
@@ -181,6 +204,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 22,
     destaque: false,
+    dimensoes: "Caixa 12 × 18 cm, 6 folhetos",
+    material: "Papel jornal e cartão",
   },
   {
     id: "prd_211",
@@ -188,7 +213,7 @@ export const produtos: ProdutoMock[] = [
     preco: 210,
     descricao:
       "Algodão branco recortado e bordado em richelieu, 1,60 m. Feito sob medida em até 20 dias.",
-    imagens: [VASO],
+    imagens: [TOALHA],
     artesaoId: "usr_902",
     categoriaId: "artesanato",
     tecnicaId: "bordado",
@@ -197,6 +222,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 2,
     destaque: false,
+    dimensoes: "1,60 × 0,40 m",
+    material: "Algodão branco, bordado richelieu",
   },
   {
     id: "prd_212",
@@ -213,6 +240,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 15,
     destaque: false,
+    dimensoes: "28 × 16 cm, 1,5 L",
+    material: "Barro sem esmalte",
   },
   {
     id: "prd_213",
@@ -220,7 +249,7 @@ export const produtos: ProdutoMock[] = [
     preco: 260,
     descricao:
       "Imagem sacra de 30 cm no traço alongado de Tracunhaém. Queima única, sem pintura.",
-    imagens: [PASSARO, VASO],
+    imagens: [VASO, LUMINARIA],
     artesaoId: "usr_905",
     categoriaId: "arte-e-decoracao",
     tecnicaId: "ceramica",
@@ -229,6 +258,8 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 1,
     destaque: false,
+    dimensoes: "30 × 10 cm",
+    material: "Barro de Tracunhaém, queima única",
   },
   {
     id: "prd_214",
@@ -236,7 +267,7 @@ export const produtos: ProdutoMock[] = [
     preco: 150,
     descricao:
       "Carcará, asa-branca e galo-de-campina em umburana. Vendidos juntos, com base de apoio.",
-    imagens: [PASSARO],
+    imagens: [PASSARO_ENTALHE, PASSARO],
     artesaoId: "usr_903",
     categoriaId: "artesanato",
     tecnicaId: "entalhe-em-madeira",
@@ -245,5 +276,7 @@ export const produtos: ProdutoMock[] = [
     disponibilidade: "DISPONIVEL",
     estoque: 4,
     destaque: false,
+    dimensoes: "3 peças de 12 × 8 cm",
+    material: "Umburana com base de cedro",
   },
 ];

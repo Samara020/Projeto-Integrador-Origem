@@ -10,6 +10,7 @@ export const avaliacoes: Avaliacao[] = [
     comentario:
       "Chegou muito bem embalado. A pintura é ainda mais bonita de perto.",
     criadoEm: "2026-08-02T14:10:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_702",
@@ -18,6 +19,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Veio com um bilhete do ateliê contando como a peça foi feita.",
     criadoEm: "2026-08-19T09:42:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_703",
@@ -26,6 +28,9 @@ export const avaliacoes: Avaliacao[] = [
     nota: 4,
     comentario: "Lindo. Um pouco menor do que eu imaginava pela foto.",
     criadoEm: "2026-09-01T18:25:00Z",
+    compraVerificada: true,
+    respostaArtesao:
+      "Obrigada, Juliana. As medidas ficam na descrição: 22 cm de altura. Na próxima foto vou colocar uma régua do lado.",
   },
   {
     id: "avl_704",
@@ -34,6 +39,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "A sombra que ela faz na parede é o melhor da sala.",
     criadoEm: "2026-07-23T20:05:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_705",
@@ -42,6 +48,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 4,
     comentario: "Bem acabada. O fio poderia ser mais comprido.",
     criadoEm: "2026-08-30T11:00:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_706",
@@ -50,6 +57,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Comprei um e voltei para comprar mais dois de presente.",
     criadoEm: "2026-08-11T16:31:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_707",
@@ -58,6 +66,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Leve, bem pintado e com cheiro de madeira boa.",
     criadoEm: "2026-09-05T08:15:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_708",
@@ -66,6 +75,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "O avesso é tão caprichado quanto a frente.",
     criadoEm: "2026-08-27T13:48:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_709",
@@ -74,6 +84,9 @@ export const avaliacoes: Avaliacao[] = [
     nota: 4,
     comentario: "Cores vivas. Demorou dois dias a mais do que o previsto.",
     criadoEm: "2026-09-08T10:20:00Z",
+    compraVerificada: true,
+    respostaArtesao:
+      "Desculpe o atraso, Gustavo. A queima daquela semana atrasou pela chuva. Galo bem chegado é o que importa.",
   },
   {
     id: "avl_710",
@@ -82,6 +95,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Papel grosso, impressão nítida, numeração a lápis. Emoldurei.",
     criadoEm: "2026-08-15T19:02:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_711",
@@ -90,6 +104,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Veio em tubo rígido, sem nenhum amassado.",
     criadoEm: "2026-09-10T15:37:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_712",
@@ -98,6 +113,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "Usei em sala de aula. Os alunos quiseram escrever os deles.",
     criadoEm: "2026-08-05T07:50:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_713",
@@ -106,6 +122,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 4,
     comentario: "Boa seleção. A caixa chegou com um canto amassado.",
     criadoEm: "2026-09-12T12:12:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_714",
@@ -114,6 +131,7 @@ export const avaliacoes: Avaliacao[] = [
     nota: 5,
     comentario: "A água fica fresca de verdade. Uso todo dia.",
     criadoEm: "2026-08-21T17:44:00Z",
+    compraVerificada: true,
   },
   {
     id: "avl_715",
@@ -122,5 +140,8 @@ export const avaliacoes: Avaliacao[] = [
     nota: 3,
     comentario: "Bonitos, mas a base veio um pouco torta.",
     criadoEm: "2026-09-14T09:09:00Z",
+    compraVerificada: true,
+    respostaArtesao:
+      "Noemi, me manda uma foto por aqui que eu troco a base sem custo. Umburana às vezes empena depois do corte.",
   },
 ];

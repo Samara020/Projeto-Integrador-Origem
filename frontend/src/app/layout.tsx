@@ -3,8 +3,7 @@ import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { Provider } from "@/components/ui/provider";
 import { Toaster } from "@/components/ui/toaster";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -73,11 +72,11 @@ export default function RootLayout({
           >
             Pular para o conteúdo
           </a>
-          <Header />
+          <SiteHeader />
           <main id="conteudo" className="flex flex-1 flex-col">
             {children}
           </main>
-          <Footer />
+          <SiteFooter />
           <Toaster />
         </Provider>
       </body>

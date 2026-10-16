@@ -1,0 +1,66 @@
+[
+  {
+    "product_id": "prod_001",
+    "name": "Vaso de Barro Artesanal",
+    "category": "Cerâmica",
+    "technique": "Modelagem manual",
+    "region": "Caruaru",
+    "available": true
+  },
+  {
+    "product_id": "prod_002",
+    "name": "Jarro Decorativo de Barro",
+    "category": "Cerâmica",
+    "technique": "Modelagem manual",
+    "region": "Caruaru",
+    "available": true
+  },
+  {
+    "product_id": "prod_003",
+    "name": "Peça Cerâmica no Torno",
+    "category": "Cerâmica",
+    "technique": "Torno",
+    "region": "Caruaru",
+    "available": true
+  },
+  {
+    "product_id": "prod_004",
+    "name": "Escultura Cerâmica Regional",
+    "category": "Cerâmica",
+    "technique": "Modelagem manual",
+    "region": "Tracunhaém",
+    "available": true
+  },
+  {
+    "product_id": "prod_005",
+    "name": "Escultura em Madeira",
+    "category": "Madeira",
+    "technique": "Entalhe",
+    "region": "Recife",
+    "available": true
+  },
+  {
+    "product_id": "prod_006",
+    "name": "Peça Cerâmica Pintada",
+    "category": "Cerâmica",
+    "technique": "Pintura manual",
+    "region": "Caruaru",
+    "available": false
+  },
+  {
+    "product_id": "prod_007",
+    "name": "Figura em Madeira Entalhada",
+    "category": "Madeira",
+    "technique": "Entalhe",
+    "region": "Recife",
+    "available": true
+  },
+  {
+    "product_id": "prod_008",
+    "name": "Bordado Artesanal",
+    "category": "Têxtil",
+    "technique": "Bordado",
+    "region": "Passira",
+    "available": true
+  }
+]

@@ -1,5 +1,6 @@
 "use client";
 
+import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
@@ -16,12 +17,17 @@ export function Avaliacoes({ produtoId }: { produtoId: string }) {
       aria-labelledby="avaliacoes-titulo"
       className="flex scroll-mt-32 flex-col gap-4"
     >
-      <h2
-        id="avaliacoes-titulo"
-        className="font-titulo text-h2 font-bold text-tinta"
-      >
-        O que dizem de quem comprou
-      </h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h2
+          id="avaliacoes-titulo"
+          className="font-titulo text-h2 font-bold text-tinta"
+        >
+          O que dizem de quem comprou
+        </h2>
+        <BotaoLink href={`/produto/${produtoId}/avaliacoes`} variante="secundario">
+          Ver todas e avaliar
+        </BotaoLink>
+      </div>
 
       {carregando && (
         <div className="grid gap-4 md:grid-cols-3" role="status" aria-label="Carregando avaliações">
@@ -39,7 +45,7 @@ export function Avaliacoes({ produtoId }: { produtoId: string }) {
       )}
       {dados && dados.total > 0 && (
         <ul className="grid gap-4 md:grid-cols-3">
-          {dados.itens.map((avaliacao) => (
+          {dados.itens.slice(0, 3).map((avaliacao) => (
             <li
               key={avaliacao.id}
               className="flex flex-col gap-2 rounded-raio border border-superficie-2 bg-superficie p-4"

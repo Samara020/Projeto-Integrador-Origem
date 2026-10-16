@@ -1,0 +1,22 @@
+name: Testes agendados (2h da manhã)
+
+# Regressão completa todo dia às 2h de Brasília. O cron do GitHub é em UTC:
+# 2h em Brasília (UTC-3, sem horário de verão desde 2019) = 5h UTC.
+# O agendamento só roda no último commit da branch padrão (main) e pode atrasar em
+# horário de pico do GitHub. Em repositório público sem atividade por 60 dias, o
+# GitHub desliga o agendamento sozinho; reative na aba Actions.
+# workflow_dispatch: para demonstrar sem esperar a madrugada.
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regressao:
+    name: Regressão completa
+    permissions:
+      contents: read
+    uses: ./.github/workflows/testes.yml

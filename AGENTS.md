@@ -21,11 +21,12 @@ Este arquivo vale para pessoas e para agentes de IA (Claude Code, Cursor, Copilo
 
 ## Git
 
-- `main` é a branch principal e precisa estar sempre rodando. O deploy sai dela.
-- Uma branch por tarefa: `feat/catalogo-busca`, `fix/carrinho-remover`, `docs/fake-api`.
-- Antes de começar: `git pull --rebase origin main`.
-- Entrega por Pull Request para `main`, com pelo menos uma revisão de outra pessoa.
-- PR pequeno: uma tela ou um recurso por vez.
+Decisão da equipe em 25/09/2026: o trabalho vai direto na `main`. Sem branch de feature e sem PR.
+
+- `main` precisa estar sempre rodando. O deploy sai dela.
+- Antes de commitar: `git pull --rebase origin main`. Nunca copie pastas por cima da `main`; isso apaga a história e cria conflito para todo mundo.
+- Antes do push, em `frontend/`: `npm run build` e `npm run lint` verdes. Build quebrado na `main` para a equipe inteira.
+- Commit pequeno: uma tela ou um recurso por vez. Se precisar de vários dias numa coisa, aí sim use uma branch e mescle quando terminar.
 
 ## Commits
 

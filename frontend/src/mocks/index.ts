@@ -14,7 +14,7 @@ import { categorias, regioes, tecnicas } from "./catalogo";
 import { produtos, type ProdutoMock } from "./produtos";
 
 export { categorias, regioes, tecnicas };
-export { usuarios, SENHA_DEMO } from "./usuarios";
+export { usuarios, SENHA_DEMO, CODIGO_CONVITE_ADMIN } from "./usuarios";
 
 function achar<T extends { id: string }>(lista: T[], id: string): T {
   const item = lista.find((i) => i.id === id);
@@ -65,6 +65,8 @@ function paraDetalhe(p: ProdutoMock): ProdutoDetalhe {
     tecnica: achar(tecnicas, p.tecnicaId),
     estoque: p.estoque,
     totalAvaliacoes: notasDe(p.id).length,
+    dimensoes: p.dimensoes,
+    material: p.material,
   };
 }
 
@@ -133,12 +135,23 @@ export function listarProdutos(
 }
 
 export function listarDestaques(): ProdutoResumo[] {
-  return produtos.filter((p) => p.destaque).map(paraResumo);
+  return produtos
+    .filter((p) => p.destaque && p.disponibilidade === "DISPONIVEL")
+    .map(paraResumo);
 }
 
 export function buscarProduto(id: string): ProdutoDetalhe | null {
   const produto = produtos.find((p) => p.id === id);
   return produto ? paraDetalhe(produto) : null;
+}
+
+// Converte os IDs devolvidos pelo módulo de IA em cartões, na ordem recebida.
+// IDs que o site não conhece ou peças reservadas/vendidas ficam de fora.
+export function resumosPorIds(ids: string[]): ProdutoResumo[] {
+  return ids
+    .map((id) => produtos.find((p) => p.id === id))
+    .filter((p): p is ProdutoMock => !!p && p.disponibilidade === "DISPONIVEL")
+    .map(paraResumo);
 }
 
 // Baseline da recomendação: mesma técnica primeiro, depois mesma região.
@@ -152,7 +165,7 @@ export function recomendarPara(produtoId: string | null): ProdutoResumo[] {
     (achar(artesaos, p.artesaoId).regiaoId === regiaoBase ? 1 : 0);
 
   return produtos
-    .filter((p) => p.id !== base.id && p.disponibilidade !== "VENDIDO")
+    .filter((p) => p.id !== base.id && p.disponibilidade === "DISPONIVEL")
     .sort((a, b) => pontos(b) - pontos(a))
     .slice(0, 4)
     .map(paraResumo);
@@ -168,13 +181,29 @@ export function avaliacoesDe(produtoId: string): RespostaAvaliacoes {
 export function perfilDoArtesao(id: string): ArtesaoPerfil | null {
   const artesao = artesaos.find((a) => a.id === id);
   if (!artesao) return null;
+
+  const pecas = produtos.filter((p) => p.artesaoId === id);
+  const notas = pecas.flatMap((p) => notasDe(p.id));
+  const soma = notas.reduce((total, a) => total + a.nota, 0);
+
   return {
     id: artesao.id,
     nome: artesao.nome,
     nomeLoja: artesao.nomeLoja,
     biografia: artesao.biografia,
     regiao: artesao.cidade,
-    produtos: produtos.filter((p) => p.artesaoId === id).map(paraResumo),
+    produtos: pecas.map(paraResumo),
+    foto: artesao.foto,
+    tecnica: achar(tecnicas, artesao.tecnicaId).nome,
+    especialidade: artesao.especialidade,
+    verificado: artesao.verificado,
+    historia: artesao.historia,
+    citacao: artesao.citacao,
+    imagens: artesao.imagens,
+    avaliacaoMedia:
+      notas.length === 0 ? 0 : Math.round((soma / notas.length) * 10) / 10,
+    totalAvaliacoes: notas.length,
+    pecasVendidas: artesao.pecasVendidas,
   };
 }
 

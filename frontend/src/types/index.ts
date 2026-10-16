@@ -55,6 +55,9 @@ export type ProdutoDetalhe = ProdutoResumo & {
   tecnica: Tecnica;
   estoque: number;
   totalAvaliacoes: number;
+  // lacunas: a comparação mostra dimensões e material
+  dimensoes: string;
+  material: string;
 };
 
 export type OrdenacaoProdutos =
@@ -77,8 +80,13 @@ export type FiltrosProdutos = {
   limite?: number;
 };
 
+// motivo: justificativa do módulo de IA (HU-17). Ausente quando a sugestão vem do baseline.
+export type ProdutoSugerido = ProdutoResumo & {
+  motivo?: string;
+};
+
 export type RespostaRecomendacoes = {
-  recomendados: ProdutoResumo[];
+  recomendados: ProdutoSugerido[];
 };
 
 // Artesãos
@@ -90,6 +98,17 @@ export type ArtesaoPerfil = {
   biografia: string;
   regiao: string;
   produtos: ProdutoResumo[];
+  // lacunas: a tela "Loja do artesão" mostra foto, técnica, história, avaliações e vendas
+  foto: string | null;
+  tecnica: string;
+  especialidade: string;
+  verificado: boolean;
+  historia: string[];
+  citacao: string;
+  imagens: string[];
+  avaliacaoMedia: number;
+  totalAvaliacoes: number;
+  pecasVendidas: number;
 };
 
 // Avaliações (lacuna: GET /produtos/{id}/avaliacoes)
@@ -101,6 +120,9 @@ export type Avaliacao = {
   nota: number;
   comentario: string;
   criadoEm: string;
+  // lacunas: a tela de avaliações mostra compra verificada e a resposta do artesão
+  compraVerificada: boolean;
+  respostaArtesao?: string;
 };
 
 export type RespostaAvaliacoes = {
@@ -129,6 +151,8 @@ export type DadosCadastro = {
   // lacunas: o Figma pede técnica e região no cadastro de artesão
   tecnica?: string;
   regiao?: string;
+  // lacuna: administrador só se cadastra com o código de convite da equipe
+  codigoConvite?: string;
 };
 
 export type DadosLogin = {
@@ -222,4 +246,297 @@ export type IndicadoresVitrine = {
   totalProdutos: number;
   avaliacaoMedia: number;
   totalAvaliacoes: number;
+};
+
+// Painel do artesão (lacuna: GET /artesao/painel/metricas)
+
+export type StatusProducao =
+  | "NOVO"
+  | "EM_PRODUCAO"
+  | "PRONTO"
+  | "ENVIADO"
+  | "ENTREGUE"
+  | "CANCELADO";
+
+export type ProximaAcaoPedido =
+  | "ACEITAR"
+  | "MARCAR_PRONTO"
+  | "INFORMAR_RASTREIO"
+  | "VER_RASTREIO"
+  | "NENHUMA";
+
+export type AlertaArtesao = {
+  id: string;
+  quantidade: number;
+  mensagem: string;
+  acao: string;
+  destino: string;
+};
+
+export type PedidoRecente = {
+  id: string;
+  comprador: string;
+  itens: string;
+  valorTotal: number;
+  statusProducao: StatusProducao;
+};
+
+export type MetricasArtesao = {
+  vendasMes: number;
+  variacaoVendas: number;
+  pedidosPendentes: number;
+  pedidosNovos: number;
+  avaliacaoMedia: number;
+  totalAvaliacoes: number;
+  visualizacoes: number;
+  variacaoVisualizacoes: number;
+  produtosAtivos: number;
+  vendasPorDia: { dia: string; valor: number }[];
+  alertas: AlertaArtesao[];
+  pedidosRecentes: PedidoRecente[];
+};
+
+// Gestão de estoque (lacuna: GET /artesao/pecas e PUT /artesao/pecas/{id}/estoque)
+
+export type SituacaoPeca = "ATIVO" | "INATIVO" | "ESGOTADO" | "ESTOQUE_BAIXO";
+
+export type PecaEstoque = {
+  id: string;
+  nome: string;
+  sku: string;
+  imagemPrincipal: string;
+  estoque: number;
+  situacao: SituacaoPeca;
+};
+
+export type PaginacaoPecas = Paginado<PecaEstoque> & {
+  contagem: Record<SituacaoPeca, number>;
+};
+
+export type NovoProduto = {
+  nome: string;
+  descricao: string;
+  categoria: string;
+  tecnica: string;
+  material: string;
+  dimensoes: string;
+  peso: number;
+  origem: string;
+  preco: number;
+  modalidadeProducao: ModalidadeProducao;
+  estoque: number;
+  informacoesOrigem: string;
+  certificado: string;
+  imagens: string[];
+};
+
+export type ProdutoCriado = {
+  id: string;
+  sku: string;
+  statusValidacao: "PENDENTE" | "APROVADA" | "REPROVADA";
+  criadoEm: string;
+};
+
+export type PedidoRecebido = {
+  id: string;
+  criadoEm: string;
+  statusProducao: StatusProducao;
+  comprador: { nome: string; local: string };
+  itens: {
+    produtoId: string;
+    nome: string;
+    quantidade: number;
+    precoUnitario: number;
+  }[];
+  valorTotal: number;
+  proximaAcao: ProximaAcaoPedido;
+  codigoRastreio: string | null;
+};
+
+export type RespostaPedidosRecebidos = {
+  pedidosRecebidos: PedidoRecebido[];
+};
+
+// Perfil do artesão em edição (lacuna: GET /artesao/perfil e PUT /artesao/perfil)
+
+export type PerfilArtesaoEdicao = {
+  nomeArtistico: string;
+  regiao: string;
+  biografia: string;
+  tecnicas: string[];
+  foto: string | null;
+  fotoCapa: string | null;
+  contato: { telefone: string; redesSociais: string };
+  certificacoes: string[];
+  dadosBancarios: string;
+};
+
+export type PerfilArtesaoAtualizado = {
+  nomeArtistico: string;
+  atualizadoEm: string;
+};
+
+// Transporte e embalagem (lacuna: /artesao/envio e /envios/cotacao)
+
+export type OpcaoEnvioConfigurada = {
+  id: string;
+  nome: string;
+  prazo: string;
+  ativa: boolean;
+};
+
+export type ConfiguracoesEnvio = {
+  opcoes: OpcaoEnvioConfigurada[];
+  tiposEmbalagem: Referencia[];
+  prazosPorRegiao: { regiao: string; prazo: string }[];
+};
+
+export type DadosFrete = {
+  cep: string;
+  pesoKg: number;
+  dimensoes: { altura: number; largura: number; profundidade: number };
+};
+
+export type CotacaoFrete = {
+  servico: { id: string; nome: string; prazo: string };
+  valor: number;
+};
+
+export type MetricasAdmin = {
+  totalUsuarios: number;
+  totalArtesaos: number;
+  volumeTransacionadoGlobal: number;
+  totalVendas: number;
+  variacaoVendas: number;
+  totalArtesaosAtivos: number;
+  novosArtesaosNoMes: number;
+  totalProdutos: number;
+  novosProdutos: number;
+  ticketsSuporte: number;
+  ticketsUrgentes: number;
+  validacoesPendentes: number;
+  vendasPorRegiao: { sigla: string; percentual: number }[];
+  categoriasMaisVendidas: { nome: string; percentual: number }[];
+  denunciasPendentes: number;
+  usuariosRecentes: { nome: string; papel: string }[];
+  atividadesRecentes: string[];
+};
+
+// Recuperação de senha (HU-01): POST /auth/recuperar-senha
+
+export type DadosRecuperarSenha = {
+  email: string;
+};
+
+// lacuna: POST /auth/redefinir-senha com o token que chega por e-mail
+export type DadosRedefinirSenha = {
+  token: string;
+  senha: string;
+};
+
+// Avaliação após a compra (HU-19): POST /avaliacoes
+
+export type StatusAvaliacao = "PUBLICADO" | "EM_MODERACAO" | "REMOVIDO";
+
+export type NovaAvaliacao = {
+  pedidoId: string;
+  produtoId: string;
+  nota: number;
+  comentario: string;
+};
+
+export type AvaliacaoCriada = {
+  id: string;
+  status: StatusAvaliacao;
+};
+
+// lacuna: o comprador precisa rever o que já avaliou (GET /comprador/avaliacoes)
+export type MinhaAvaliacao = NovaAvaliacao &
+  AvaliacaoCriada & {
+    criadoEm: string;
+    nomeProduto: string;
+    imagemPrincipal: string;
+  };
+
+// Suporte (HU-22) e triagem inteligente (HU-23): POST e GET /suporte/tickets
+
+export type StatusTicket =
+  | "TRIAGEM_INTELIGENTE"
+  | "ABERTO"
+  | "ESCALADO_HUMANO"
+  | "RESOLVIDO";
+
+export type CategoriaSuporte =
+  | "rastreio"
+  | "produto"
+  | "pedido"
+  | "pagamento"
+  | "troca"
+  | "conta";
+
+export type PrioridadeTicket = "NORMAL" | "ALTA";
+
+export type NovoTicket = {
+  assunto: string;
+  mensagem: string;
+  pedidoId?: string;
+  prioridade?: PrioridadeTicket;
+};
+
+export type TicketCriado = {
+  ticketId: string;
+  status: StatusTicket;
+};
+
+export type AutorMensagem = "COMPRADOR" | "IA" | "ATENDENTE";
+
+export type MensagemTicket = {
+  id: string;
+  autor: AutorMensagem;
+  texto: string;
+  criadoEm: string;
+  // só nas mensagens da assistente: como classificou e o que sugere responder
+  categoria?: CategoriaSuporte;
+  sugestoes?: string[];
+};
+
+// lacuna: o contrato lista só ticketId, assunto e status; o chat precisa das mensagens
+export type Ticket = TicketCriado & {
+  assunto: string;
+  criadoEm: string;
+  pedidoId?: string;
+  prioridade: PrioridadeTicket;
+  categoria?: CategoriaSuporte;
+  mensagens: MensagemTicket[];
+};
+
+export type ArtigoAjuda = {
+  id: string;
+  categoria: CategoriaSuporte;
+  titulo: string;
+  resumo: string;
+  popular: boolean;
+};
+
+// Personalização (HU-24): solicitação enviada ao artesão
+// lacuna: POST /produtos/{id}/personalizacoes
+
+export type NovaPersonalizacao = {
+  produtoId: string;
+  cor: string;
+  tamanho: string;
+  inscricao: string;
+  detalhes: string;
+  mensagem: string;
+};
+
+export type Personalizacao = NovaPersonalizacao & {
+  id: string;
+  status: "ENVIADA" | "RESPONDIDA";
+  criadoEm: string;
+  nomeProduto: string;
+  imagemPrincipal: string;
+  artesaoNome: string;
+  prazoAdicionalDias: number;
+  precoAdicional: number;
 };

@@ -24,7 +24,9 @@ export function useProduto(id: string) {
 
 export function useRecomendados(produtoId: string) {
   return useConsulta(`recomendados:${produtoId}`, (sinal) =>
-    produtosService.recomendados(produtoId, sinal),
+    produtoId
+      ? produtosService.recomendados(produtoId, sinal)
+      : Promise.resolve({ recomendados: [] }),
   );
 }
 

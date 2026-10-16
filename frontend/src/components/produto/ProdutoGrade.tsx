@@ -1,6 +1,6 @@
 import { ProdutoCard } from "@/components/produto/ProdutoCard";
 import { Esqueleto } from "@/components/ui/Esqueleto";
-import type { ProdutoResumo } from "@/types";
+import type { ProdutoSugerido } from "@/types";
 
 const GRADE = "grid grid-cols-2 gap-4 md:grid-cols-3";
 
@@ -16,14 +16,14 @@ export function ProdutoGrade({
   produtos,
   colunas = "vitrine",
 }: {
-  produtos: ProdutoResumo[];
+  produtos: ProdutoSugerido[];
   colunas?: Colunas;
 }) {
   return (
     <ul className={COLUNAS[colunas]}>
       {produtos.map((produto) => (
         <li key={produto.id}>
-          <ProdutoCard produto={produto} />
+          <ProdutoCard produto={produto} motivo={produto.motivo} />
         </li>
       ))}
     </ul>
