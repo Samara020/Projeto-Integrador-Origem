@@ -28,7 +28,10 @@ export function useCheckout() {
       ...dados,
       pedidoId: pedido.pedidoId,
     });
-    if (processado.status === "APROVADO") await carrinho.esvaziar();
+    if (processado.status === "APROVADO") {
+      await carrinho.esvaziar();
+      pedidosService.encerrarTentativaDemonstracao();
+    }
     setPagamento(processado);
     return processado;
   }

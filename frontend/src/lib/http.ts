@@ -4,7 +4,6 @@ import { lerLocal } from "@/lib/armazenamento";
 import type { Sessao } from "@/types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
-const USANDO_FAKE_API = BASE === "/api";
 
 export class ApiError extends Error {
   status: number;
@@ -23,9 +22,10 @@ type Opcoes = {
   corpo?: unknown;
   parametros?: Parametros;
   sinal?: AbortSignal;
+  baseUrl?: string;
 };
 
-function montarUrl(caminho: string, parametros?: Parametros): string {
+function montarUrl(caminho: string, parametros?: Parametros, base = BASE): string {
   const busca = new URLSearchParams();
   for (const [chave, valor] of Object.entries(parametros ?? {})) {
     if (valor !== undefined && valor !== "" && valor !== false) {
@@ -34,13 +34,13 @@ function montarUrl(caminho: string, parametros?: Parametros): string {
   }
 
   // Repassa ?_erro=500 da página para a Fake API, para testar a tela de erro.
-  if (USANDO_FAKE_API && typeof window !== "undefined") {
+  if (base === "/api" && typeof window !== "undefined") {
     const erro = new URLSearchParams(window.location.search).get("_erro");
     if (erro) busca.set("_erro", erro);
   }
 
   const query = busca.toString();
-  return `${BASE}${caminho}${query ? `?${query}` : ""}`;
+  return `${base}${caminho}${query ? `?${query}` : ""}`;
 }
 
 export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
@@ -54,7 +54,7 @@ export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> 
 
   let resposta: Response;
   try {
-    resposta = await fetch(montarUrl(caminho, opcoes.parametros), {
+    resposta = await fetch(montarUrl(caminho, opcoes.parametros, opcoes.baseUrl), {
       method: opcoes.metodo ?? "GET",
       headers: cabecalhos,
       body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,

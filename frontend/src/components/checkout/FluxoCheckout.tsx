@@ -58,7 +58,7 @@ export function FluxoCheckout() {
           <dl className="grid w-full gap-3 rounded-raio bg-fundo p-4 text-apoio sm:grid-cols-2">
             <div>
               <dt className="text-tinta-3">Pedido</dt>
-              <dd className="font-bold tabular-nums text-tinta">
+              <dd className="break-all font-bold tabular-nums text-tinta">
                 {checkout.pedido.pedidoId}
               </dd>
             </div>

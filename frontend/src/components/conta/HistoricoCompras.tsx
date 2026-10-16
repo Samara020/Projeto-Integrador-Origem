@@ -46,7 +46,7 @@ function PedidoCard({ pedido }: { pedido: PedidoResumo }) {
     <article className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <p className="text-legenda font-bold text-terracota">PEDIDO #{pedido.id}</p>
+          <p className="break-all text-legenda font-bold text-terracota">PEDIDO #{pedido.id}</p>
           <p className="text-apoio text-tinta-3">{formatarData(pedido.criadoEm)}</p>
         </div>
         <span className="rounded-full bg-superficie-2 px-3 py-1 text-legenda font-bold text-tinta-2">

@@ -45,7 +45,7 @@ export function DetalhePedido({ id }: { id: string }) {
         <section className="flex max-w-3xl flex-col gap-6 rounded-painel border border-borda bg-superficie p-6 shadow-card">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-borda pb-5">
             <div>
-              <p className="text-apoio font-bold text-terracota">PEDIDO #{pedido.id}</p>
+              <p className="break-all text-apoio font-bold text-terracota">PEDIDO #{pedido.id}</p>
               <h1 className="mt-1 font-titulo text-h1 font-bold text-tinta">Detalhes da compra</h1>
               <p className="mt-1 text-apoio text-tinta-3">Realizado em {formatarData(pedido.criadoEm)}</p>
             </div>
