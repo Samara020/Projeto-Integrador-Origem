@@ -13,6 +13,7 @@ import { Selo } from "@/components/ui/Selo";
 import { toaster } from "@/components/ui/toaster";
 import { useAcoesAdmin, usePecasPendentes } from "@/hooks/useAdmin";
 import { formatarData } from "@/lib/formato";
+import { ApiError } from "@/lib/http";
 import type { DecisaoValidacao, PecaPendente, StatusValidacao } from "@/types";
 
 // "" é o padrão da tela (pendentes): URL sem status ou com status desconhecido cai aqui.
@@ -84,6 +85,7 @@ export default function ValidacoesAdmin() {
         ...atual,
         [peca.id]: "Explique o motivo da reprovação em pelo menos 10 caracteres.",
       }));
+      document.getElementById(`justificativa-${peca.id}`)?.focus();
       return;
     }
 
@@ -94,12 +96,15 @@ export default function ValidacoesAdmin() {
         type: "success",
         title: aprovada ? `Peça aprovada: ${peca.nome}` : `Peça reprovada: ${peca.nome}`,
         description: aprovada
-          ? "A peça ganha o selo Autêntico e entra no catálogo."
-          : "O artesão recebe a justificativa.",
+          ? "Ela sai da fila e fica registrada como aprovada, com o selo Autêntico."
+          : "Ela sai da fila e fica registrada como reprovada, com a justificativa.",
       });
       setJustificativas((atual) => ({ ...atual, [peca.id]: "" }));
       recarregar();
-    }).catch(() => {});
+    }).catch((causa: unknown) => {
+      // 409: outra aba já decidiu esta peça. O alerta fica e a fila mostra o estado atual.
+      if (causa instanceof ApiError && causa.status === 409) recarregar();
+    });
   }
 
   return (

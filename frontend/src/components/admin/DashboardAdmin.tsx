@@ -52,7 +52,7 @@ export default function DashboardAdmin() {
                       <h2 className="text-legenda font-semibold uppercase tracking-wide text-tinta-3">{cartao.titulo}</h2>
                       <p className="font-titulo text-h2 font-bold tabular-nums text-tinta">{valor}</p>
                       {detalhe === null ? (
-                        <Link href="/painel/admin/validacoes" className="text-apoio font-semibold text-terracota hover:text-terracota-escura">Revisar agora</Link>
+                        <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio font-semibold text-terracota hover:text-terracota-escura">Ver fila de validação</Link>
                       ) : (
                         <p className={`text-apoio ${cartao.valor === "tickets" ? "text-terracota" : "text-selo"}`}>{detalhe}</p>
                       )}
@@ -92,7 +92,7 @@ export default function DashboardAdmin() {
                   <CircleAlert className="size-4 shrink-0 text-aviso" aria-hidden="true" />
                   {formatarInteiro(dados.denunciasPendentes)} denúncias exigem prioridade
                 </div>
-                <Link href="/painel/admin/validacoes" className="text-apoio text-tinta-2 underline hover:text-terracota">{formatarInteiro(dados.validacoesPendentes)} validações pendentes, ver fila</Link>
+                <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio text-tinta-2 underline hover:text-terracota">{formatarInteiro(dados.validacoesPendentes)} validações pendentes, ver fila</Link>
                 <Link href="/painel/admin/moderacao" className="inline-flex min-h-10 w-fit items-center gap-2 rounded-raio bg-terracota px-4 text-apoio font-bold text-white hover:bg-terracota-escura">
                   Revisar agora <CheckCircle2 className="size-4" aria-hidden="true" />
                 </Link>

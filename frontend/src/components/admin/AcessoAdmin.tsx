@@ -1,24 +1,26 @@
 "use client";
 
 import { ShieldX } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { useSessao } from "@/hooks/useSessao";
-import { ROTA_PAINEL_ADMIN } from "@/lib/destino";
 
 // Guarda de tela. Quem protege o dado de verdade é o backend (403 em /admin/*) na Avaliação 2.
 export function AcessoAdmin({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { usuario, pronta, sair } = useSessao();
   const semConta = pronta && !usuario;
 
   useEffect(() => {
     if (semConta) {
-      router.replace(`/entrar?volta=${encodeURIComponent(ROTA_PAINEL_ADMIN)}`);
+      // Volta para a tela pedida, com o filtro da URL. A busca é lida aqui para dispensar useSearchParams.
+      const volta = `${pathname}${window.location.search}`;
+      router.replace(`/entrar?volta=${encodeURIComponent(volta)}`);
     }
-  }, [semConta, router]);
+  }, [semConta, router, pathname]);
 
   if (!pronta || !usuario) {
     return (

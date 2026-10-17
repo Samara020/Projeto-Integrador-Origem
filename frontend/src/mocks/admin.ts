@@ -42,7 +42,7 @@ const ARTESAO_MARIA = { id: "usr_902", nome: "Maria de Lourdes" };
 
 export const pecasPendentes: PecaPendente[] = [
   {
-    id: "prd_301",
+    id: "prd_401",
     nome: "Luminária de Barro Queimado",
     imagemPrincipal: "/produtos/luminaria-barro.jpg",
     artesao: ARTESAO_ZEFA,
@@ -57,7 +57,7 @@ export const pecasPendentes: PecaPendente[] = [
     decididoEm: null,
   },
   {
-    id: "prd_302",
+    id: "prd_402",
     nome: "Toalha de Mesa Bordada",
     imagemPrincipal: "/produtos/toalha-bordada.jpg",
     artesao: ARTESAO_MARIA,
@@ -72,7 +72,7 @@ export const pecasPendentes: PecaPendente[] = [
     decididoEm: null,
   },
   {
-    id: "prd_303",
+    id: "prd_403",
     nome: "Pássaro Entalhado em Cedro",
     imagemPrincipal: "/produtos/passaro-madeira-entalhe.jpg",
     artesao: { id: "usr_903", nome: "Seu Damião" },
@@ -87,7 +87,7 @@ export const pecasPendentes: PecaPendente[] = [
     decididoEm: null,
   },
   {
-    id: "prd_304",
+    id: "prd_404",
     nome: "Vaso de Cerâmica Raízes",
     imagemPrincipal: "/produtos/vaso-ceramica.jpg",
     artesao: { id: "usr_905", nome: "Ateliê Mãos da Mata" },
@@ -101,7 +101,7 @@ export const pecasPendentes: PecaPendente[] = [
     decididoEm: "2026-10-09T10:30:00Z",
   },
   {
-    id: "prd_305",
+    id: "prd_405",
     nome: "Toalha Bordada Industrial",
     imagemPrincipal: "/produtos/toalha-bordada.jpg",
     artesao: ARTESAO_MARIA,

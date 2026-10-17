@@ -30,6 +30,7 @@ export const authService = {
     });
     // Fake API: o nome salvo no perfil do admin (localStorage) vence o da API.
     // Avaliação 2: o backend devolve o nome atualizado e este trecho sai.
+    // Mesma chave de services/admin.ts (CHAVE_PERFIL); literal aqui para não criar import circular.
     const nomeDoPerfil =
       recebida.usuario.papel === "ADMINISTRADOR"
         ? lerLocal<PerfilAdminEdicao>("admin:perfil")?.nome
@@ -57,10 +58,11 @@ export const authService = {
     return sessao;
   },
 
-  // Fake API: o nome novo do perfil precisa aparecer no cabeçalho, que lê a sessão.
+  // Fake API: o nome novo do perfil do admin precisa aparecer no cabeçalho, que lê a sessão.
+  // Sessão de outro papel não é tocada.
   atualizarNome(nome: string): Sessao | null {
     const sessao = lerLocal<Sessao>(CHAVE);
-    if (!sessao) return null;
+    if (!sessao || sessao.usuario.papel !== "ADMINISTRADOR") return null;
     const atualizada: Sessao = { ...sessao, usuario: { ...sessao.usuario, nome } };
     gravarLocal(CHAVE, atualizada);
     return atualizada;

@@ -14,6 +14,7 @@ import { Selo } from "@/components/ui/Selo";
 import { toaster } from "@/components/ui/toaster";
 import { useAcoesAdmin, useAvaliacoesSinalizadas } from "@/hooks/useAdmin";
 import { formatarData } from "@/lib/formato";
+import { ApiError } from "@/lib/http";
 import type { AcaoModeracao, AvaliacaoSinalizada, MotivoSinalizacao, StatusAvaliacao } from "@/types";
 
 // "" é o padrão da tela (em moderação): URL sem status ou com status desconhecido cai aqui.
@@ -87,7 +88,10 @@ export default function ModeracaoAdmin() {
           : "Ela sai da fila e fica registrada como mantida.",
       });
       recarregar();
-    }).catch(() => {});
+    }).catch((causa: unknown) => {
+      // 409: outra aba já moderou esta avaliação. O alerta fica e a fila mostra o estado atual.
+      if (causa instanceof ApiError && causa.status === 409) recarregar();
+    });
   }
 
   return (

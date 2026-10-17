@@ -10,9 +10,9 @@ export default function LayoutPainelAdmin({ children }: { children: ReactNode })
     <AcessoAdmin>
       <div className="flex min-h-dvh flex-1 flex-col bg-fundo">
         <CabecalhoPainel navegacao={NAVEGACAO_ADMIN} />
-        <main id="conteudo" className="mx-auto flex w-full max-w-pagina flex-1 flex-col gap-4 px-margem py-6">
+        <div className="mx-auto flex w-full max-w-pagina flex-1 flex-col gap-4 px-margem py-6">
           {children}
-        </main>
+        </div>
         <footer className="h-16 shrink-0 bg-tinta" aria-label="Rodapé administrativo" />
       </div>
     </AcessoAdmin>

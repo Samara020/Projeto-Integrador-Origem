@@ -936,4 +936,6 @@ Troca a senha da conta.
   "mensagem": "Senha alterada. Use a nova senha no próximo acesso."
 }
 ```
-*Erros (400):* senha atual vazia, nova com menos de 8 caracteres ou confirmação diferente, cada um com `{ "mensagem": "..." }`.
+*Erros (400):* senha atual vazia, nova com menos de 8 caracteres, confirmação vazia (`{ "mensagem": "Confirme a nova senha." }`) ou confirmação diferente, cada um com `{ "mensagem": "..." }`.
+
+*Erro (401):* senha atual não confere: `{ "mensagem": "Senha atual incorreta." }`.

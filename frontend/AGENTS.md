@@ -116,12 +116,14 @@ componente -> hook -> service -> lib/http.ts -> /api (Fake API hoje, backend rea
 
 Na Avaliação 2: define `NEXT_PUBLIC_API_URL` com o endereço do backend, apaga `src/app/api/` e `src/mocks/`. Tela, hook e tipo não mudam.
 
+`authService.entrar` deixa de ler `admin:perfil` (o backend devolve o nome atualizado).
+
 ### Dado que muda (carrinho, pedido, sessão)
 
 Route Handler em deploy serverless não guarda estado entre chamadas. Por isso, na Avaliação 1:
 
 - Leitura (produtos, artesãos, categorias, técnicas, regiões, avaliações, indicadores): Fake API em `app/api`.
-- Escrita (carrinho, pedidos, pagamento, avaliação nova, tickets de suporte, comparação, peças vistas, personalização, login simulado): o service guarda no `localStorage`, com a mesma assinatura que terá com o backend (`carrinhoService.adicionar(produto, quantidade)` devolve `Promise`).
+- Escrita (carrinho, pedidos, pagamento, avaliação nova, tickets de suporte, comparação, peças vistas, personalização, login simulado, decisões de validação e moderação e o perfil do administrador): o service guarda no `localStorage`, com a mesma assinatura que terá com o backend (`carrinhoService.adicionar(produto, quantidade)` devolve `Promise`).
 - A triagem do suporte (HU-23) é uma lista de regras por palavra-chave em `services/suporte.ts`. O módulo de IA a substitui na Avaliação 2.
 
 Quem usa o service não sabe a diferença. Na Avaliação 2 só o miolo do service muda.

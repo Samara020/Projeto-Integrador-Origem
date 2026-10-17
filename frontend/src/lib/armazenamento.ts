@@ -20,6 +20,18 @@ export function gravarLocal(chave: string, valor: unknown): void {
   }
 }
 
+// Igual a gravarLocal, mas diz se gravou: decisão do admin não pode "dar certo" sem persistir.
+export function gravarLocalVerificado(chave: string, valor: unknown): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const json = JSON.stringify(valor);
+    window.localStorage.setItem(PREFIXO + chave, json);
+    return window.localStorage.getItem(PREFIXO + chave) === json;
+  } catch {
+    return false;
+  }
+}
+
 export function apagarLocal(chave: string): void {
   if (typeof window === "undefined") return;
   try {

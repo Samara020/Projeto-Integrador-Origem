@@ -2,7 +2,7 @@
 // Leitura vai para a Fake API. A decisão do admin fica no localStorage e é aplicada
 // por cima do item da API: Route Handler em deploy serverless não guarda estado.
 // Avaliação 2: cada escrita vira um http() PUT e as leituras deixam de aplicar o local.
-import { gravarLocal, lerLocal } from "@/lib/armazenamento";
+import { gravarLocalVerificado, lerLocal } from "@/lib/armazenamento";
 import { ApiError, http } from "@/lib/http";
 import { authService } from "@/services/auth";
 import type {
@@ -31,6 +31,13 @@ const ATRASO_MS = 500;
 
 type ValidacaoLocal = { status: Exclude<StatusValidacao, "PENDENTE">; justificativa: string; decididoEm: string };
 type ModeracaoLocal = { status: StatusAvaliacao; moderadaEm: string };
+
+// Grava ou lança: a decisão não pode aparecer como salva se o navegador recusou a gravação.
+function gravarOuFalhar(chave: string, valor: unknown): void {
+  if (!gravarLocalVerificado(chave, valor)) {
+    throw new ApiError(507, "Não foi possível salvar no navegador. Libere espaço e tente de novo.");
+  }
+}
 
 function esperar(): Promise<void> {
   return new Promise((resolver) => setTimeout(resolver, ATRASO_MS));
@@ -76,6 +83,8 @@ export const adminService = {
   },
 
   // PUT /admin/produtos/{id}/validacao
+  // Leitura, checagem e gravação ficam juntas, depois da espera: duas abas em sequência recebem 409.
+  // Clique simultâneo em duas abas (janela de microssegundos) não é serializado nesta avaliação; o backend garante isso na Avaliação 2.
   async validarPeca(id: string, decisao: DecisaoValidacao): Promise<ResultadoValidacao> {
     await esperar();
     const justificativa = decisao.justificativa.trim();
@@ -85,7 +94,7 @@ export const adminService = {
     const atual = validacoes();
     if (atual[id]) throw new ApiError(409, "Esta peça já foi avaliada.");
 
-    gravarLocal(CHAVE_VALIDACOES, {
+    gravarOuFalhar(CHAVE_VALIDACOES, {
       ...atual,
       [id]: { status: decisao.status, justificativa, decididoEm: new Date().toISOString() },
     });
@@ -114,7 +123,7 @@ export const adminService = {
     if (atual[id]) throw new ApiError(409, "Esta avaliação já foi moderada.");
 
     const status: StatusAvaliacao = acao === "REMOVER" ? "REMOVIDO" : "PUBLICADO";
-    gravarLocal(CHAVE_MODERACOES, { ...atual, [id]: { status, moderadaEm: new Date().toISOString() } });
+    gravarOuFalhar(CHAVE_MODERACOES, { ...atual, [id]: { status, moderadaEm: new Date().toISOString() } });
     return { id, status };
   },
 
@@ -130,7 +139,7 @@ export const adminService = {
     const nome = dados.nome.trim();
     if (!nome) throw new ApiError(400, "Informe o nome de quem administra.");
 
-    gravarLocal(CHAVE_PERFIL, { nome, funcao: dados.funcao.trim(), telefone: dados.telefone.trim() });
+    gravarOuFalhar(CHAVE_PERFIL, { nome, funcao: dados.funcao.trim(), telefone: dados.telefone.trim() });
     authService.atualizarNome(nome);
     return { nome, atualizadoEm: new Date().toISOString() };
   },
@@ -144,6 +153,10 @@ export const adminService = {
     }
     if (!dados.confirmacao) throw new ApiError(400, "Confirme a nova senha.");
     if (dados.novaSenha !== dados.confirmacao) throw new ApiError(400, "As senhas não coincidem.");
-    return { mensagem: "Senha alterada. Use a nova senha no próximo acesso." };
+    // Avaliação 2: o backend grava a senha e a mensagem volta a "Senha alterada. Use a nova senha no próximo acesso."
+    return {
+      mensagem:
+        "Senha conferida. Nesta demonstração a troca não fica gravada; continue entrando com a senha atual.",
+    };
   },
 };
