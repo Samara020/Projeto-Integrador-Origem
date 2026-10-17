@@ -8,10 +8,21 @@ import { concluir, gravar, lerGravado } from "./apoio";
 
 const ENDERECO: EnderecoEntrega = { cep: "50030-230", rua: "Rua da Aurora", numero: "100" };
 
+// Carrinho comum, sem a peça de demonstração (prd_201): comprá-la passa pela API de
+// concorrência (services/pedidos.ts), que não existe no ambiente dos testes unitários.
 const ITENS: ItemCarrinho[] = [
-  { produtoId: "prd_201", quantidade: 2, precoUnitario: 160, nome: "Vaso Cerâmica Raízes", imagemPrincipal: "/a.jpg" },
+  { produtoId: "prd_202", quantidade: 2, precoUnitario: 120, nome: "Luminária de Barro", imagemPrincipal: "/a.jpg" },
   { produtoId: "prd_203", quantidade: 1, precoUnitario: 70, nome: "Pássaro de Madeira", imagemPrincipal: "/b.jpg" },
 ];
+
+// Peça de demonstração: checkout só conclui com a API de concorrência configurada.
+const VASO_DEMO: ItemCarrinho = {
+  produtoId: "prd_201",
+  quantidade: 2,
+  precoUnitario: 160,
+  nome: "Vaso Cerâmica Raízes",
+  imagemPrincipal: "/a.jpg",
+};
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -47,7 +58,7 @@ describe("TC06 · pedidosService.checkout", () => {
 
     expect(criado.status).toBe("AGUARDANDO_PAGAMENTO");
     expect(criado.pedidoId).toMatch(/^ped_\d{6}$/);
-    expect(criado.valorTotal).toBe(160 * 2 + 70 + frete);
+    expect(criado.valorTotal).toBe(120 * 2 + 70 + frete);
   });
 
   test("TC10 · o pedido gravado guarda os mesmos itens e o mesmo total do carrinho", async () => {
@@ -72,6 +83,26 @@ describe("TC06 · pedidosService.checkout", () => {
     expect(pedidos.map((pedido) => pedido.id)).toEqual([criado.pedidoId, "ped_000001"]);
   });
 
+  test("peça de demonstração sem a API de concorrência é recusada com 503", async () => {
+    gravar("carrinho", [VASO_DEMO]);
+    const anterior = process.env.NEXT_PUBLIC_CONCORRENCIA_API_URL;
+    delete process.env.NEXT_PUBLIC_CONCORRENCIA_API_URL;
+    try {
+      // O service lê a variável ao carregar: importa uma cópia isolada, sem ela.
+      let isolado!: typeof import("@/services/pedidos");
+      await jest.isolateModulesAsync(async () => {
+        isolado = await import("@/services/pedidos");
+      });
+
+      await expect(isolado.pedidosService.checkout(ENDERECO)).rejects.toMatchObject({
+        status: 503,
+        message: "Configure a API de concorrência para comprar esta peça.",
+      });
+    } finally {
+      if (anterior !== undefined) process.env.NEXT_PUBLIC_CONCORRENCIA_API_URL = anterior;
+    }
+  });
+
   test("listar sem pedidos devolve lista vazia", async () => {
     await expect(pedidosService.listar()).resolves.toEqual({ pedidos: [] });
   });
@@ -81,7 +112,7 @@ describe("TC07 · pagamentosService.processar atualiza o status do pedido", () =
   const PEDIDO: PedidoResumo = {
     id: "ped_123456",
     status: "AGUARDANDO_PAGAMENTO",
-    valorTotal: 408,
+    valorTotal: 328,
     criadoEm: "2026-10-14T12:00:00.000Z",
     itens: ITENS,
   };
