@@ -8,6 +8,7 @@ import Header from "@/components/layout/Header";
 function dentroDoPainel(pathname: string) {
   return (
     pathname === "/painel/admin" ||
+    pathname.startsWith("/painel/admin/") ||
     pathname === "/painel/artesao" ||
     pathname.startsWith("/painel/artesao/")
   );

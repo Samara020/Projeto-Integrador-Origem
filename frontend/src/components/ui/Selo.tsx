@@ -8,7 +8,7 @@ const VARIANTES: Record<Variante, string> = {
   neutro: "bg-superficie-2 text-tinta-2",
   destaque: "bg-terracota/10 text-terracota",
   sucesso: "bg-selo/10 text-selo",
-  aviso: "bg-aviso text-superficie",
+  aviso: "bg-aviso text-tinta",
   erro: "bg-terracota text-superficie",
 };
 
