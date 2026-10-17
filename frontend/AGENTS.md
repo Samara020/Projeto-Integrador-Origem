@@ -86,6 +86,9 @@ src/
 | `/painel/artesao/perfil` | Perfil do artesão |
 | `/painel/artesao/envio` | Transporte e embalagem |
 | `/painel/admin` | Dashboard administrador |
+| `/painel/admin/validacoes` | Validação de origem |
+| `/painel/admin/moderacao` | Moderação de conteúdo |
+| `/painel/admin/perfil` | Perfil do administrador |
 
 Busca e filtros vivem na URL: `/catalogo?termo=barro&categoria=ceramica&regiao=agreste&pagina=2`. Assim o link pode ser compartilhado e o botão voltar funciona.
 

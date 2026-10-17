@@ -8,28 +8,11 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { useSessao } from "@/hooks/useSessao";
-
-const LINKS = [
-  { href: "/painel/artesao", nome: "Painel" },
-  { href: "/painel/artesao/pecas/nova", nome: "Peças" },
-  { href: "/painel/artesao/estoque", nome: "Estoque" },
-  { href: "/painel/artesao/pedidos", nome: "Pedidos" },
-  { href: "/painel/artesao/envio", nome: "Transporte" },
-  { href: "/painel/artesao/perfil", nome: "Perfil" },
-];
+import { iniciais } from "@/lib/formato";
+import type { NavegacaoPainel } from "./navegacao";
 
 const BOTAO_ICONE =
   "inline-flex size-10 items-center justify-center rounded-raio text-tinta transition-colors duration-150 hover:bg-superficie-2";
-
-function iniciais(nome: string) {
-  return nome
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toUpperCase();
-}
 
 function ItemPerfil() {
   const { usuario, sair } = useSessao();
@@ -62,22 +45,22 @@ function ItemPerfil() {
   );
 }
 
-// Cabeçalho do painel do artesão: uma navegação só, com o mesmo menu nas telas.
-export function CabecalhoPainel() {
+// Cabeçalho dos painéis (artesão e administrador): a navegação vem por parâmetro.
+export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
   const { usuario } = useSessao();
 
-  const linksDoAtelie = LINKS.map((link) => ({
+  const linksDoAtelie = navegacao.links.map((link) => ({
     ...link,
     ativa:
-      link.href === "/painel/artesao" ? pathname === link.href : pathname.startsWith(link.href),
+      link.href === navegacao.inicio ? pathname === link.href : pathname.startsWith(link.href),
   }));
 
   return (
     <header className="border-b border-borda bg-superficie">
       <Container className="flex min-h-19 flex-wrap items-center justify-between gap-3 py-3 lg:flex-nowrap">
-        <Link href="/painel/artesao" aria-label="Origem, painel do artesão" className="shrink-0">
+        <Link href={navegacao.inicio} aria-label={navegacao.rotuloLogo} className="shrink-0">
           <Image
             src="/marca/logo-origem.webp"
             alt="Origem"
@@ -89,7 +72,7 @@ export function CabecalhoPainel() {
         </Link>
 
         <nav
-          aria-label="Menu do artesão"
+          aria-label={navegacao.rotuloMenu}
           className="order-3 w-full overflow-x-auto lg:order-none lg:w-auto"
         >
           <ul className="flex min-w-max items-center gap-5 lg:gap-7">
@@ -111,9 +94,9 @@ export function CabecalhoPainel() {
 
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href="/painel/artesao/pedidos"
+            href={navegacao.avisos.href}
             className={BOTAO_ICONE}
-            aria-label="Avisos de pedidos novos"
+            aria-label={navegacao.avisos.rotulo}
           >
             <Bell className="size-5" aria-hidden="true" />
           </Link>
@@ -122,7 +105,7 @@ export function CabecalhoPainel() {
             type="button"
             onClick={() => setMenuAberto(true)}
             className={`${BOTAO_ICONE} lg:hidden`}
-            aria-label="Abrir menu do ateliê"
+            aria-label={`Abrir menu${navegacao.tituloDrawer === "Ateliê" ? " do ateliê" : ""}`}
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>
@@ -138,8 +121,11 @@ export function CabecalhoPainel() {
           <Drawer.Backdrop />
           <Drawer.Positioner>
             <Drawer.Content>
-              <Drawer.Header className="font-titulo text-h3 font-bold">
-                Ateliê {usuario?.nome.split(" ")[0] ?? "do artesão"}
+              <Drawer.Header className="flex flex-col font-titulo text-h3 font-bold">
+                {navegacao.tituloDrawer}
+                {usuario && (
+                  <span className="text-legenda font-normal text-tinta-3">{usuario.nome}</span>
+                )}
               </Drawer.Header>
               <Drawer.CloseTrigger asChild>
                 <button type="button" className={BOTAO_ICONE} aria-label="Fechar menu">
@@ -147,7 +133,7 @@ export function CabecalhoPainel() {
                 </button>
               </Drawer.CloseTrigger>
               <Drawer.Body>
-                <nav aria-label="Menu do artesão">
+                <nav aria-label={navegacao.rotuloMenu}>
                   <ul className="flex flex-col">
                     {linksDoAtelie.map((link) => (
                       <li key={link.href}>
