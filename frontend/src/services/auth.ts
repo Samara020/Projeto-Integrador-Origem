@@ -47,6 +47,15 @@ export const authService = {
     return sessao;
   },
 
+  // Fake API: o nome novo do perfil precisa aparecer no cabeçalho, que lê a sessão.
+  atualizarNome(nome: string): Sessao | null {
+    const sessao = lerLocal<Sessao>(CHAVE);
+    if (!sessao) return null;
+    const atualizada: Sessao = { ...sessao, usuario: { ...sessao.usuario, nome } };
+    gravarLocal(CHAVE, atualizada);
+    return atualizada;
+  },
+
   async sair(): Promise<void> {
     apagarLocal(CHAVE);
   },

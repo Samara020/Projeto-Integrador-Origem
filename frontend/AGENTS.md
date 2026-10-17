@@ -152,6 +152,9 @@ O contrato ainda não tem, e a Avaliação 1 pede:
 - `POST /produtos/{id}/personalizacoes` (solicitação ao artesão) e histórico de peças vistas.
 - `codigoConvite` em `POST /auth/register` para administrador (sem ele, 403).
 - `tecnica` e `regiao` em `POST /auth/register` para artesão. O Figma também pede CPF/CNPJ e localização: o front ainda não coleta, porque o contrato não recebe.
+- Fila de validação de origem (`GET /admin/produtos/pendentes`): filtro `?status` e campos de auditoria (`statusValidacao`, `justificativa`, `decididoEm`, `enviadoEm`, `tecnica`, `regiao`, `imagemPrincipal`, `informacoesOrigem`, `certificado`).
+- `GET /admin/avaliacoes?status=` (fila de moderação) e ação `MANTER` em `PUT /admin/avaliacoes/{id}/moderar`.
+- Perfil e senha do administrador: `GET` e `PUT /admin/perfil`, `PUT /admin/senha`.
 
 Os campos marcados com "lacuna" em `src/types/index.ts` são exatamente estes.
 

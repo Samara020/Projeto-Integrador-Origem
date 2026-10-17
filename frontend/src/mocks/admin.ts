@@ -1,6 +1,7 @@
-import type { MetricasAdmin } from "@/types";
+import type { AvaliacaoSinalizada, MetricasAdmin, PecaPendente, PerfilAdmin } from "@/types";
 
-export const metricasAdmin: MetricasAdmin = {
+// As contagens de validações e denúncias pendentes saem das listas abaixo, na rota.
+export const metricasAdmin: Omit<MetricasAdmin, "validacoesPendentes" | "denunciasPendentes"> = {
   totalUsuarios: 350,
   totalArtesaos: 45,
   volumeTransacionadoGlobal: 28450,
@@ -12,7 +13,6 @@ export const metricasAdmin: MetricasAdmin = {
   novosProdutos: 312,
   ticketsSuporte: 27,
   ticketsUrgentes: 8,
-  validacoesPendentes: 16,
   vendasPorRegiao: [
     { sigla: "CE", percentual: 51 },
     { sigla: "PE", percentual: 79 },
@@ -26,7 +26,6 @@ export const metricasAdmin: MetricasAdmin = {
     { nome: "Madeira", percentual: 21 },
     { nome: "Literatura", percentual: 18 },
   ],
-  denunciasPendentes: 5,
   usuariosRecentes: [
     { nome: "Joana Melo", papel: "Compradora" },
     { nome: "Mestre Naldo", papel: "Artesão" },
@@ -36,4 +35,154 @@ export const metricasAdmin: MetricasAdmin = {
     "09:18 Perfil de Cida Barro validado",
     "08:55 Ticket #284 respondido",
   ],
+};
+
+const ARTESAO_ZEFA = { id: "usr_906", nome: "Zefa do Pajeú" };
+const ARTESAO_MARIA = { id: "usr_902", nome: "Maria de Lourdes" };
+
+export const pecasPendentes: PecaPendente[] = [
+  {
+    id: "prd_301",
+    nome: "Luminária de Barro Queimado",
+    imagemPrincipal: "/produtos/luminaria-barro.jpg",
+    artesao: ARTESAO_ZEFA,
+    tecnica: "Cerâmica",
+    regiao: "Sertão do Pajeú",
+    enviadoEm: "2026-10-15T14:20:00Z",
+    informacoesOrigem:
+      "Barro tirado do leito seco do rio Pajeú, queimado em forno a lenha no quintal da oficina.",
+    certificado: "/certificados/zefa-ceramica-2026.pdf",
+    statusValidacao: "PENDENTE",
+    justificativa: null,
+    decididoEm: null,
+  },
+  {
+    id: "prd_302",
+    nome: "Toalha de Mesa Bordada",
+    imagemPrincipal: "/produtos/toalha-bordada.jpg",
+    artesao: ARTESAO_MARIA,
+    tecnica: "Bordado",
+    regiao: "Agreste",
+    enviadoEm: "2026-10-14T09:40:00Z",
+    informacoesOrigem:
+      "Bordado em ponto cheio sobre linho cru, feito em Passira por três gerações da mesma família.",
+    certificado: null,
+    statusValidacao: "PENDENTE",
+    justificativa: null,
+    decididoEm: null,
+  },
+  {
+    id: "prd_303",
+    nome: "Pássaro Entalhado em Cedro",
+    imagemPrincipal: "/produtos/passaro-madeira-entalhe.jpg",
+    artesao: { id: "usr_903", nome: "Seu Damião" },
+    tecnica: "Entalhe em madeira",
+    regiao: "Sertão do São Francisco",
+    enviadoEm: "2026-10-12T16:05:00Z",
+    informacoesOrigem:
+      "Cedro de manejo autorizado, talhado a formão. A pintura usa tinta de pigmento natural.",
+    certificado: "/certificados/damiao-entalhe-2026.pdf",
+    statusValidacao: "PENDENTE",
+    justificativa: null,
+    decididoEm: null,
+  },
+  {
+    id: "prd_304",
+    nome: "Vaso de Cerâmica Raízes",
+    imagemPrincipal: "/produtos/vaso-ceramica.jpg",
+    artesao: { id: "usr_905", nome: "Ateliê Mãos da Mata" },
+    tecnica: "Cerâmica",
+    regiao: "Zona da Mata",
+    enviadoEm: "2026-10-08T11:00:00Z",
+    informacoesOrigem: "Modelado à mão com argila da Zona da Mata e pintado com engobe.",
+    certificado: "/certificados/maos-da-mata-2026.pdf",
+    statusValidacao: "APROVADA",
+    justificativa: "Certificado conferido e processo de queima documentado em vídeo.",
+    decididoEm: "2026-10-09T10:30:00Z",
+  },
+  {
+    id: "prd_305",
+    nome: "Toalha Bordada Industrial",
+    imagemPrincipal: "/produtos/toalha-bordada.jpg",
+    artesao: ARTESAO_MARIA,
+    tecnica: "Bordado",
+    regiao: "Agreste",
+    enviadoEm: "2026-10-05T08:15:00Z",
+    informacoesOrigem: "Bordado sobre tecido comprado pronto, sem registro do processo.",
+    certificado: null,
+    statusValidacao: "REPROVADA",
+    justificativa: "Fotos de produto industrial e nenhum registro do processo manual.",
+    decididoEm: "2026-10-06T15:45:00Z",
+  },
+];
+
+export const avaliacoesSinalizadas: AvaliacaoSinalizada[] = [
+  {
+    id: "avl_801",
+    produto: { id: "prd_201", nome: "Vaso Cerâmica Raízes", imagemPrincipal: "/produtos/vaso-ceramica.jpg" },
+    autor: "Carlos Mendes",
+    nota: 4,
+    comentario: "Peça bonita. Me chama no zap que faço mais barato direto comigo.",
+    criadoEm: "2026-10-16T18:10:00Z",
+    motivo: "LINK_OU_CONTATO",
+    sinalizadaEm: "2026-10-16T18:10:05Z",
+    status: "EM_MODERACAO",
+    moderadaEm: null,
+  },
+  {
+    id: "avl_802",
+    produto: { id: "prd_202", nome: "Luminária de Barro", imagemPrincipal: "/produtos/luminaria-barro.jpg" },
+    autor: "Rafael Souza",
+    nota: 1,
+    comentario: "Lixo, o artesão é um enganador e não sabe fazer nada.",
+    criadoEm: "2026-10-15T20:30:00Z",
+    motivo: "OFENSA",
+    sinalizadaEm: "2026-10-15T20:30:04Z",
+    status: "EM_MODERACAO",
+    moderadaEm: null,
+  },
+  {
+    id: "avl_803",
+    produto: { id: "prd_206", nome: "Carranca Guardiã", imagemPrincipal: "/produtos/passaro-madeira-entalhe.jpg" },
+    autor: "Perfil Promo",
+    nota: 5,
+    comentario: "Ótimo! Ótimo! Ótimo! Compre também na loja do meu perfil, tem desconto.",
+    criadoEm: "2026-10-14T07:45:00Z",
+    motivo: "SPAM",
+    sinalizadaEm: "2026-10-14T07:45:02Z",
+    status: "EM_MODERACAO",
+    moderadaEm: null,
+  },
+  {
+    id: "avl_804",
+    produto: { id: "prd_201", nome: "Vaso Cerâmica Raízes", imagemPrincipal: "/produtos/vaso-ceramica.jpg" },
+    autor: "Beatriz Lima",
+    nota: 2,
+    comentario: "Chegou com uma lasca na borda, esperava mais cuidado na embalagem.",
+    criadoEm: "2026-10-10T13:00:00Z",
+    motivo: "DENUNCIA",
+    sinalizadaEm: "2026-10-11T09:00:00Z",
+    status: "PUBLICADO",
+    moderadaEm: "2026-10-11T16:20:00Z",
+  },
+  {
+    id: "avl_805",
+    produto: { id: "prd_202", nome: "Luminária de Barro", imagemPrincipal: "/produtos/luminaria-barro.jpg" },
+    autor: "Lucas Prado",
+    nota: 3,
+    comentario: "Boa peça, mais barata no site da concorrência, me chama no zap.",
+    criadoEm: "2026-10-07T10:00:00Z",
+    motivo: "LINK_OU_CONTATO",
+    sinalizadaEm: "2026-10-07T10:00:03Z",
+    status: "REMOVIDO",
+    moderadaEm: "2026-10-08T09:30:00Z",
+  },
+];
+
+export const perfilAdmin: PerfilAdmin = {
+  nome: "Equipe Origem",
+  email: "admin@origem.dev",
+  funcao: "Curadoria e moderação",
+  telefone: "",
+  criadoEm: "2026-08-01T08:00:00Z",
 };

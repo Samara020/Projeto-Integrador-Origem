@@ -333,7 +333,7 @@ export type NovoProduto = {
 export type ProdutoCriado = {
   id: string;
   sku: string;
-  statusValidacao: "PENDENTE" | "APROVADA" | "REPROVADA";
+  statusValidacao: StatusValidacao;
   criadoEm: string;
 };
 
@@ -420,6 +420,81 @@ export type MetricasAdmin = {
   denunciasPendentes: number;
   usuariosRecentes: { nome: string; papel: string }[];
   atividadesRecentes: string[];
+};
+
+// Administração: validação de origem (HU-03), moderação (HU-21) e perfil (lacunas marcadas)
+
+export type StatusValidacao = "PENDENTE" | "APROVADA" | "REPROVADA";
+
+// lacuna: campos de auditoria e filtro ?status em GET /admin/produtos/pendentes
+export type PecaPendente = {
+  id: string;
+  nome: string;
+  imagemPrincipal: string;
+  artesao: Referencia;
+  tecnica: string;
+  regiao: string;
+  enviadoEm: string;
+  informacoesOrigem: string;
+  certificado: string | null;
+  statusValidacao: StatusValidacao;
+  justificativa: string | null;
+  decididoEm: string | null;
+};
+
+export type RespostaPecasPendentes = { total: number; itens: PecaPendente[] };
+
+export type DecisaoValidacao = {
+  status: Exclude<StatusValidacao, "PENDENTE">;
+  justificativa: string;
+};
+
+export type ResultadoValidacao = {
+  id: string;
+  statusValidacao: StatusValidacao;
+  seloAtivo: boolean;
+};
+
+export type MotivoSinalizacao = "LINK_OU_CONTATO" | "OFENSA" | "SPAM" | "DENUNCIA";
+
+// lacuna: GET /admin/avaliacoes?status=EM_MODERACAO
+export type AvaliacaoSinalizada = {
+  id: string;
+  produto: { id: string; nome: string; imagemPrincipal: string };
+  autor: string;
+  nota: number;
+  comentario: string;
+  criadoEm: string;
+  motivo: MotivoSinalizacao;
+  sinalizadaEm: string;
+  status: StatusAvaliacao;
+  moderadaEm: string | null;
+};
+
+export type RespostaAvaliacoesSinalizadas = { total: number; itens: AvaliacaoSinalizada[] };
+
+// lacuna: a ação MANTER em PUT /admin/avaliacoes/{id}/moderar
+export type AcaoModeracao = "REMOVER" | "MANTER";
+
+export type ResultadoModeracao = { id: string; status: StatusAvaliacao };
+
+// lacuna: GET e PUT /admin/perfil, PUT /admin/senha
+export type PerfilAdmin = {
+  nome: string;
+  email: string;
+  funcao: string;
+  telefone: string;
+  criadoEm: string;
+};
+
+export type PerfilAdminEdicao = Pick<PerfilAdmin, "nome" | "funcao" | "telefone">;
+
+export type PerfilAdminAtualizado = { nome: string; atualizadoEm: string };
+
+export type AlteracaoSenha = {
+  senhaAtual: string;
+  novaSenha: string;
+  confirmacao: string;
 };
 
 // Recuperação de senha (HU-01): POST /auth/recuperar-senha

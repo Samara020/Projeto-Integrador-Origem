@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Esqueleto } from "@/components/ui/Esqueleto";
-import { useMetricasAdmin } from "@/hooks/useMetricasAdmin";
+import { useMetricasAdmin } from "@/hooks/useAdmin";
 import { useSessao } from "@/hooks/useSessao";
 import { formatarInteiro, formatarMoeda, iniciais } from "@/lib/formato";
 

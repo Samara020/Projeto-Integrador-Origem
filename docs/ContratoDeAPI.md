@@ -246,6 +246,18 @@ Lista todas as peças aguardando auditoria de origem (Exclusivo para `ADMINISTRA
 }
 ```
 
+> Lacuna (frontend): a tela de validação precisa filtrar a fila e mostrar o que
+> foi decidido. `GET /admin/produtos/pendentes` aceita `?status=PENDENTE|APROVADA|REPROVADA`
+> (sem o parâmetro, devolve todas, da mais recente para a mais antiga) e cada item
+> ganha estes campos:
+>
+> - `imagemPrincipal` (lacuna, frontend): foto principal da peça.
+> - `tecnica` (lacuna, frontend) e `regiao` (lacuna, frontend): nomes, não ids.
+> - `enviadoEm` (lacuna, frontend): data de envio para análise, ISO 8601.
+> - `informacoesOrigem` (lacuna, frontend) e `certificado` (lacuna, frontend, `null` quando não enviado).
+> - `statusValidacao` (lacuna, frontend): `PENDENTE`, `APROVADA` ou `REPROVADA`.
+> - `justificativa` (lacuna, frontend) e `decididoEm` (lacuna, frontend): `null` enquanto pendente.
+
 #### PUT /admin/produtos/{id}/validacao
 Analisa e altera o status de validação de origem e autenticidade da peça.
 
@@ -613,6 +625,35 @@ Modera uma avaliação sinalizada como suspeita ou inapropriada.
 }
 ```
 
+> Lacuna (frontend): `acao` também aceita `"MANTER"`. A avaliação volta a
+> `PUBLICADO` e sai da fila de moderação.
+
+#### GET /admin/avaliacoes (lacuna, frontend)
+Lista as avaliações sinalizadas para moderação (Exclusivo para `ADMINISTRADOR`).
+Parâmetro: `status` (`PUBLICADO`, `EM_MODERACAO` ou `REMOVIDO`). Sem ele, devolve todas, da mais recente para a mais antiga.
+
+*Response (200 OK):*
+```json
+{
+  "total": 1,
+  "itens": [
+    {
+      "id": "avl_801",
+      "produto": { "id": "prd_201", "nome": "Vaso Cerâmica Raízes", "imagemPrincipal": "/produtos/vaso-ceramica.jpg" },
+      "autor": "Carlos Mendes",
+      "nota": 4,
+      "comentario": "Peça bonita. Me chama no zap que faço mais barato.",
+      "criadoEm": "2026-10-16T18:10:00Z",
+      "motivo": "LINK_OU_CONTATO",
+      "sinalizadaEm": "2026-10-16T18:10:05Z",
+      "status": "EM_MODERACAO",
+      "moderadaEm": null
+    }
+  ]
+}
+```
+`motivo`: `LINK_OU_CONTATO`, `OFENSA`, `SPAM` ou `DENUNCIA`.
+
 ---
 
 ### 2.9. Módulo: Suporte (HU-22, HU-23)
@@ -841,3 +882,58 @@ Consulta o estado da notificação simulada: `ENFILEIRADA`, `PROCESSADA` ou `FAL
 ```
 
 Uma mensagem desconhecida retorna `404 Not Found`.
+
+---
+
+### 2.11. Módulo: Perfil do administrador (lacuna)
+
+#### GET /admin/perfil
+Devolve a conta de quem administra (Exclusivo para `ADMINISTRADOR`).
+
+*Response (200 OK):*
+```json
+{
+  "nome": "Equipe Origem",
+  "email": "admin@origem.dev",
+  "funcao": "Curadoria e moderação",
+  "telefone": "",
+  "criadoEm": "2026-08-01T08:00:00Z"
+}
+```
+
+#### PUT /admin/perfil
+Atualiza nome, função e telefone. O e-mail não muda por aqui.
+
+```json
+{
+  "nome": "Marina Costa",
+  "funcao": "Curadoria",
+  "telefone": "(81) 90000-0000"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "nome": "Marina Costa",
+  "atualizadoEm": "2026-10-17T10:00:00Z"
+}
+```
+*Erro (400):* `{ "mensagem": "Informe o nome de quem administra." }`
+
+#### PUT /admin/senha
+Troca a senha da conta.
+
+```json
+{
+  "senhaAtual": "********",
+  "novaSenha": "********",
+  "confirmacao": "********"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Senha alterada. Use a nova senha no próximo acesso."
+}
+```
+*Erros (400):* senha atual vazia, nova com menos de 8 caracteres ou confirmação diferente, cada um com `{ "mensagem": "..." }`.
