@@ -51,7 +51,7 @@ export const pecasPendentes: PecaPendente[] = [
     enviadoEm: "2026-10-15T14:20:00Z",
     informacoesOrigem:
       "Barro tirado do leito seco do rio Pajeú, queimado em forno a lenha no quintal da oficina.",
-    certificado: "/certificados/zefa-ceramica-2026.pdf",
+    certificado: "Registro na Associação dos Artesãos do Pajeú, nº 2024-118",
     statusValidacao: "PENDENTE",
     justificativa: null,
     decididoEm: null,
@@ -81,7 +81,7 @@ export const pecasPendentes: PecaPendente[] = [
     enviadoEm: "2026-10-12T16:05:00Z",
     informacoesOrigem:
       "Cedro de manejo autorizado, talhado a formão. A pintura usa tinta de pigmento natural.",
-    certificado: "/certificados/damiao-entalhe-2026.pdf",
+    certificado: "Carteira de artesão SEBRAE PE, nº 11.482",
     statusValidacao: "PENDENTE",
     justificativa: null,
     decididoEm: null,
@@ -95,7 +95,7 @@ export const pecasPendentes: PecaPendente[] = [
     regiao: "Zona da Mata",
     enviadoEm: "2026-10-08T11:00:00Z",
     informacoesOrigem: "Modelado à mão com argila da Zona da Mata e pintado com engobe.",
-    certificado: "/certificados/maos-da-mata-2026.pdf",
+    certificado: "Declaração da Associação de Ceramistas da Zona da Mata",
     statusValidacao: "APROVADA",
     justificativa: "Certificado conferido e processo de queima documentado em vídeo.",
     decididoEm: "2026-10-09T10:30:00Z",

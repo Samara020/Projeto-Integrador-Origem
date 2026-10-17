@@ -31,20 +31,19 @@ function validarDados(dados: PerfilAdminEdicao): ErrosDados {
   return dados.nome.trim() ? {} : { nome: "Informe o nome de quem administra." };
 }
 
-// Mesmas mensagens do service. Confirmação vazia também não coincide: o envio vazio mostra as três.
+// Mesmas mensagens do service: o envio vazio mostra as três.
 function validarSenha(senha: AlteracaoSenha): ErrosSenha {
   const problemas: ErrosSenha = {};
   if (!senha.senhaAtual) problemas.senhaAtual = "Informe a senha atual.";
-  if (senha.novaSenha.length < 8)
-    problemas.novaSenha = "A nova senha precisa de pelo menos 8 caracteres.";
-  if (!senha.confirmacao || senha.confirmacao !== senha.novaSenha)
-    problemas.confirmacao = "As senhas não coincidem.";
+  if (senha.novaSenha.length < 8) problemas.novaSenha = "Use pelo menos 8 caracteres.";
+  if (!senha.confirmacao) problemas.confirmacao = "Confirme a nova senha.";
+  else if (senha.confirmacao !== senha.novaSenha) problemas.confirmacao = "As senhas não coincidem.";
   return problemas;
 }
 
 function Carregando() {
   return (
-    <div className="flex flex-col gap-6" aria-label="Carregando perfil do administrador" aria-busy="true">
+    <div role="status" aria-label="Carregando perfil do administrador" aria-busy="true" className="flex flex-col gap-6">
       <Esqueleto className="h-10 w-80 max-w-full" />
       <div className="grid gap-4 lg:grid-cols-3">
         <Esqueleto className="h-64" />
@@ -142,8 +141,12 @@ function Cartoes({ perfil, recarregar }: { perfil: Perfil; recarregar: () => voi
 
   async function sairDaConta() {
     setSaindo(true);
-    await sair();
-    router.replace("/entrar");
+    try {
+      await sair();
+      router.replace("/entrar");
+    } finally {
+      setSaindo(false);
+    }
   }
 
   return (

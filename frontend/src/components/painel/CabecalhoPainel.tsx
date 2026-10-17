@@ -36,7 +36,7 @@ function ItemPerfil() {
       <button
         type="button"
         onClick={() => void sair()}
-        className={`${BOTAO_ICONE} w-auto px-2`}
+        className={`${BOTAO_ICONE} min-w-10`}
         aria-label="Sair da conta"
       >
         <LogOut className="size-5" aria-hidden="true" />
@@ -51,7 +51,7 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const { usuario } = useSessao();
 
-  const linksDoAtelie = navegacao.links.map((link) => ({
+  const linksDoPainel = navegacao.links.map((link) => ({
     ...link,
     ativa:
       link.href === navegacao.inicio ? pathname === link.href : pathname.startsWith(link.href),
@@ -71,12 +71,9 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
           />
         </Link>
 
-        <nav
-          aria-label={navegacao.rotuloMenu}
-          className="order-3 w-full overflow-x-auto lg:order-none lg:w-auto"
-        >
+        <nav aria-label={navegacao.rotuloMenu} className="hidden lg:block">
           <ul className="flex min-w-max items-center gap-5 lg:gap-7">
-            {linksDoAtelie.map((link) => (
+            {linksDoPainel.map((link) => (
               <li key={link.href}>
                 <Link
                   href={link.href}
@@ -105,7 +102,7 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
             type="button"
             onClick={() => setMenuAberto(true)}
             className={`${BOTAO_ICONE} lg:hidden`}
-            aria-label={`Abrir menu${navegacao.tituloDrawer === "Ateliê" ? " do ateliê" : ""}`}
+            aria-label={navegacao.rotuloAbrirMenu}
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>
@@ -135,7 +132,7 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
               <Drawer.Body>
                 <nav aria-label={navegacao.rotuloMenu}>
                   <ul className="flex flex-col">
-                    {linksDoAtelie.map((link) => (
+                    {linksDoPainel.map((link) => (
                       <li key={link.href}>
                         <Link
                           href={link.href}

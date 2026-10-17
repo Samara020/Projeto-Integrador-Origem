@@ -40,7 +40,7 @@ function pertence(peca: PecaPendente, filtro: Filtro) {
 
 function Carregando() {
   return (
-    <div className="flex flex-col gap-4" aria-label="Carregando peças enviadas" aria-busy="true">
+    <div role="status" aria-label="Carregando peças enviadas" aria-busy="true" className="flex flex-col gap-4">
       <Esqueleto className="h-10 w-80 max-w-full" />
       {Array.from({ length: 3 }, (_, indice) => (
         <Esqueleto key={indice} className="h-40" />
@@ -51,6 +51,7 @@ function Carregando() {
 
 export default function ValidacoesAdmin() {
   const { valor, definir } = useFiltroUrl("status");
+  // Status ausente ou inválido na URL cai em Pendentes ("").
   const filtro: Filtro = FILTROS.find((item) => item.id && item.id === valor)?.id ?? "";
 
   // Uma requisição só: a tela filtra e conta localmente.
@@ -59,6 +60,8 @@ export default function ValidacoesAdmin() {
 
   const [justificativas, setJustificativas] = useState<Record<string, string>>({});
   const [errosCampo, setErrosCampo] = useState<Record<string, string>>({});
+  // Qual botão da peça foi clicado: só ele entra em carregando.
+  const [acaoEmCurso, setAcaoEmCurso] = useState<Record<string, DecisaoValidacao["status"]>>({});
 
   const todas = dados?.itens ?? [];
   const pecas = todas.filter((peca) => pertence(peca, filtro));
@@ -85,10 +88,11 @@ export default function ValidacoesAdmin() {
     }
 
     const aprovada = status === "APROVADA";
+    setAcaoEmCurso((atual) => ({ ...atual, [peca.id]: status }));
     void validarPeca(peca.id, { status, justificativa }, () => {
       toaster.create({
         type: "success",
-        title: `${peca.nome} ${aprovada ? "aprovada" : "reprovada"}`,
+        title: aprovada ? `Peça aprovada: ${peca.nome}` : `Peça reprovada: ${peca.nome}`,
         description: aprovada
           ? "A peça ganha o selo Autêntico e entra no catálogo."
           : "O artesão recebe a justificativa.",
@@ -124,7 +128,11 @@ export default function ValidacoesAdmin() {
           {pecas.length === 0 ? (
             <EstadoVazio
               titulo={vazio}
-              descricao="As peças enviadas pelos artesãos aparecem aqui."
+              descricao={
+                filtro === ""
+                  ? "Você já decidiu todas as peças enviadas."
+                  : "As peças enviadas pelos artesãos aparecem aqui."
+              }
               acao={
                 filtro === "TODAS" ? undefined : (
                   <BotaoLink href="/painel/admin/validacoes?status=TODAS" variante="secundario">
@@ -187,7 +195,7 @@ export default function ValidacoesAdmin() {
                               variante="primario"
                               larguraTotal
                               className="sm:w-auto"
-                              carregando={ocupado}
+                              carregando={ocupado && acaoEmCurso[peca.id] === "APROVADA"}
                               disabled={salvando !== null}
                               onClick={() => decidir(peca, "APROVADA")}
                             >
@@ -197,7 +205,7 @@ export default function ValidacoesAdmin() {
                               variante="contorno"
                               larguraTotal
                               className="sm:w-auto"
-                              carregando={ocupado}
+                              carregando={ocupado && acaoEmCurso[peca.id] === "REPROVADA"}
                               disabled={salvando !== null}
                               onClick={() => decidir(peca, "REPROVADA")}
                             >

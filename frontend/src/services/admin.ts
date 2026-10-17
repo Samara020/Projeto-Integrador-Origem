@@ -140,8 +140,9 @@ export const adminService = {
     await esperar();
     if (!dados.senhaAtual) throw new ApiError(400, "Informe a senha atual.");
     if (dados.novaSenha.length < 8) {
-      throw new ApiError(400, "A nova senha precisa de pelo menos 8 caracteres.");
+      throw new ApiError(400, "Use pelo menos 8 caracteres.");
     }
+    if (!dados.confirmacao) throw new ApiError(400, "Confirme a nova senha.");
     if (dados.novaSenha !== dados.confirmacao) throw new ApiError(400, "As senhas não coincidem.");
     return { mensagem: "Senha alterada. Use a nova senha no próximo acesso." };
   },

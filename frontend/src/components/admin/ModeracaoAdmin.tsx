@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { FiltroStatus } from "@/components/admin/FiltroStatus";
 import { useFiltroUrl } from "@/components/painel/useFiltroUrl";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
@@ -45,7 +46,7 @@ function pertence(avaliacao: AvaliacaoSinalizada, filtro: Filtro) {
 
 function Carregando() {
   return (
-    <div className="flex flex-col gap-4" aria-label="Carregando avaliações sinalizadas" aria-busy="true">
+    <div role="status" aria-label="Carregando avaliações sinalizadas" aria-busy="true" className="flex flex-col gap-4">
       <Esqueleto className="h-10 w-80 max-w-full" />
       {Array.from({ length: 3 }, (_, indice) => (
         <Esqueleto key={indice} className="h-40" />
@@ -56,11 +57,14 @@ function Carregando() {
 
 export default function ModeracaoAdmin() {
   const { valor, definir } = useFiltroUrl("status");
+  // Status ausente ou inválido na URL cai em Em moderação ("").
   const filtro: Filtro = FILTROS.find((item) => item.id && item.id === valor)?.id ?? "";
 
   // Uma requisição só: a tela filtra e conta localmente.
   const { dados, carregando, erro, recarregar } = useAvaliacoesSinalizadas();
   const { moderarAvaliacao, salvando, erro: erroDeAcao } = useAcoesAdmin();
+  // Qual botão da avaliação foi clicado: só ele entra em carregando.
+  const [acaoEmCurso, setAcaoEmCurso] = useState<Record<string, AcaoModeracao>>({});
 
   const todas = dados?.itens ?? [];
   const avaliacoes = todas.filter((avaliacao) => pertence(avaliacao, filtro));
@@ -73,13 +77,14 @@ export default function ModeracaoAdmin() {
 
   function moderar(avaliacao: AvaliacaoSinalizada, acao: AcaoModeracao) {
     const removida = acao === "REMOVER";
+    setAcaoEmCurso((atual) => ({ ...atual, [avaliacao.id]: acao }));
     void moderarAvaliacao(avaliacao.id, acao, () => {
       toaster.create({
         type: "success",
         title: removida ? "Avaliação removida" : "Avaliação mantida",
         description: removida
-          ? "O comentário sai da página da peça."
-          : "O comentário continua visível na página da peça.",
+          ? "Ela sai da fila e fica registrada como removida."
+          : "Ela sai da fila e fica registrada como mantida.",
       });
       recarregar();
     }).catch(() => {});
@@ -112,7 +117,11 @@ export default function ModeracaoAdmin() {
           {avaliacoes.length === 0 ? (
             <EstadoVazio
               titulo={vazio}
-              descricao="As avaliações sinalizadas pelo sistema ou pelos artesãos aparecem aqui."
+              descricao={
+                filtro === ""
+                  ? "Você já decidiu todas as avaliações sinalizadas."
+                  : "As avaliações sinalizadas pelo sistema ou pelos artesãos aparecem aqui."
+              }
               acao={
                 filtro === "TODAS" ? undefined : (
                   <BotaoLink href="/painel/admin/moderacao?status=TODAS" variante="secundario">
@@ -137,24 +146,19 @@ export default function ModeracaoAdmin() {
                           height={64}
                           className="size-16 shrink-0 rounded-raio object-cover"
                         />
-                        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex min-w-0 flex-col gap-1">
-                            <h2>
-                              <Link
-                                href={`/produto/${avaliacao.produto.id}`}
-                                className="font-titulo text-h3 font-bold text-terracota hover:text-terracota-escura"
-                              >
-                                {avaliacao.produto.nome}
-                              </Link>
-                            </h2>
-                            <p className="text-legenda text-tinta-3">
-                              {avaliacao.autor} · {formatarData(avaliacao.criadoEm)}
-                            </p>
-                            <Estrelas nota={avaliacao.nota} />
-                          </div>
-                          <div className="shrink-0">
-                            <Selo variante={selo.variante}>{selo.rotulo}</Selo>
-                          </div>
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <h2>
+                            <Link
+                              href={`/produto/${avaliacao.produto.id}`}
+                              className="font-titulo text-h3 font-bold text-terracota hover:text-terracota-escura"
+                            >
+                              {avaliacao.produto.nome}
+                            </Link>
+                          </h2>
+                          <p className="text-legenda text-tinta-3">
+                            {avaliacao.autor} · {formatarData(avaliacao.criadoEm)}
+                          </p>
+                          <Estrelas nota={avaliacao.nota} />
                         </div>
                       </div>
 
@@ -167,6 +171,7 @@ export default function ModeracaoAdmin() {
                         <p className="text-apoio text-tinta-2">
                           Sinalizada em {formatarData(avaliacao.sinalizadaEm)}
                         </p>
+                        <Selo variante={selo.variante}>{selo.rotulo}</Selo>
                       </div>
 
                       {avaliacao.status === "EM_MODERACAO" ? (
@@ -175,7 +180,7 @@ export default function ModeracaoAdmin() {
                             variante="contorno"
                             larguraTotal
                             className="sm:w-auto"
-                            carregando={ocupado}
+                            carregando={ocupado && acaoEmCurso[avaliacao.id] === "REMOVER"}
                             disabled={salvando !== null}
                             onClick={() => moderar(avaliacao, "REMOVER")}
                           >
@@ -185,7 +190,7 @@ export default function ModeracaoAdmin() {
                             variante="secundario"
                             larguraTotal
                             className="sm:w-auto"
-                            carregando={ocupado}
+                            carregando={ocupado && acaoEmCurso[avaliacao.id] === "MANTER"}
                             disabled={salvando !== null}
                             onClick={() => moderar(avaliacao, "MANTER")}
                           >

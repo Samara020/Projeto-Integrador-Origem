@@ -5,6 +5,7 @@ import type {
   DadosLogin,
   DadosRecuperarSenha,
   DadosRedefinirSenha,
+  PerfilAdminEdicao,
   RespostaMensagem,
   Sessao,
   Usuario,
@@ -23,10 +24,19 @@ export const authService = {
   },
 
   async entrar(dados: DadosLogin): Promise<Sessao> {
-    const sessao = await http<Sessao>("/auth/login", {
+    const recebida = await http<Sessao>("/auth/login", {
       metodo: "POST",
       corpo: dados,
     });
+    // Fake API: o nome salvo no perfil do admin (localStorage) vence o da API.
+    // Avaliação 2: o backend devolve o nome atualizado e este trecho sai.
+    const nomeDoPerfil =
+      recebida.usuario.papel === "ADMINISTRADOR"
+        ? lerLocal<PerfilAdminEdicao>("admin:perfil")?.nome
+        : undefined;
+    const sessao: Sessao = nomeDoPerfil
+      ? { ...recebida, usuario: { ...recebida.usuario, nome: nomeDoPerfil } }
+      : recebida;
     gravarLocal(CHAVE, sessao);
     return sessao;
   },
