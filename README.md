@@ -68,9 +68,28 @@ A recomendação parte de um baseline simples, considerando características com
 
 ## Stack
 
-* **Node.js e TypeScript:** frontend Next.js.
-* **C# e .NET 10:** API da demonstração de concorrência e fila em memória.
-* **PostgreSQL:** previsto na arquitetura, ainda não utilizado por esta demonstração.
+### Frontend
+- **Next.js e React:** construção da aplicação web.
+- **TypeScript:** tipagem estática e maior segurança no desenvolvimento.
+- **Chakra UI:** componentes e estilização da interface.
+
+### Backend principal
+- **Node.js e TypeScript:** implementação das APIs e regras de negócio.
+- **Prisma ORM:** mapeamento de dados e acesso ao banco de dados.
+- **PostgreSQL:** banco de dados relacional para usuários, artesãos, produtos, estoque, pedidos e demais informações da plataforma.
+
+### Inteligência Artificial
+- **Python:** implementação do módulo de recomendação de produtos.
+- **BentoML:** disponibilização do serviço de recomendação por API.
+
+### Concorrência
+- **C# e .NET 10:** implementação da API demonstrativa de concorrência e processamento de pedidos em fila, mantida separadamente do backend principal.
+
+### Testes e ferramentas
+- **Jest e Cypress:** ferramentas de testes, conforme os fluxos e módulos em que forem utilizados.
+- **pytest:** testes automatizados do módulo de IA.
+- **Git e GitHub:** versionamento e colaboração da equipe.
+- **Figma:** prototipação e design da interface.
 
 ## Arquitetura
 
