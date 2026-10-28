@@ -1,0 +1,27 @@
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: origem-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: origem_db
+      POSTGRES_USER: origem_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - origem_dados:/var/lib/postgresql/data
+      - ./database/sql:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U origem_user -d origem_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  origem_dados:
