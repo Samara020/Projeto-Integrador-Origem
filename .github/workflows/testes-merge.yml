@@ -1,8 +1,13 @@
-name: Testes no merge na main
+name: Testes e deploy no merge na main
 
-# Regressão completa a cada commit que chega na main. Merge de pull request e push
-# direto chegam na main como evento push, então este gatilho cobre os dois sem rodar
-# em dobro. Commits nas outras branches ficam com testes-commit.yml.
+# Cada commit que chega na main (merge de PR ou push direto, os dois chegam como push):
+#   1. regressao: Unitários, API e E2E (testes.yml).
+#   2. imagens:   build das imagens Docker multi-stage. O estágio "test" do módulo de IA
+#                 roda o pytest dentro da imagem.
+#   3. deploy:    só roda se 1 e 2 ficarem verdes (needs). Dispara os deploy hooks do Render,
+#                 que reconstrói os containers a partir deste commit.
+# Esteira vermelha = deploy não acontece. O autoDeploy do Render fica desligado (render.yaml)
+# justamente para nada ir ao ar sem passar por aqui.
 on:
   push:
     branches:
@@ -11,9 +16,47 @@ on:
 permissions:
   contents: read
 
+# Dois merges seguidos: o deploy mais novo cancela o antigo, nunca o contrário.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
 jobs:
   regressao:
     name: Regressão completa
     permissions:
       contents: read
     uses: ./.github/workflows/testes.yml
+
+  imagens:
+    name: Build das imagens Docker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build (compose)
+        run: docker compose build
+      - name: Smoke test dos containers
+        run: |
+          docker compose up -d --wait
+          curl -sf http://localhost:3001/readyz
+          curl -sf http://localhost:3000/api/categorias > /dev/null
+          docker compose down
+
+  deploy:
+    name: Deploy no Render
+    needs: [regressao, imagens]
+    runs-on: ubuntu-24.04
+    environment:
+      name: producao
+      url: ${{ vars.URL_PUBLICA }}
+    steps:
+      - name: Disparar deploy do módulo de IA
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_IA }}&ref=${{ github.sha }}"
+      - name: Disparar deploy do frontend
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}&ref=${{ github.sha }}"
+      - name: Resumo
+        run: |
+          echo "## Deploy disparado" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit \`${GITHUB_SHA::7}\` enviado ao Render." >> "$GITHUB_STEP_SUMMARY"
+          echo "URL pública: ${{ vars.URL_PUBLICA }}" >> "$GITHUB_STEP_SUMMARY"

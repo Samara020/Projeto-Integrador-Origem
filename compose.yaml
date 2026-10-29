@@ -1,0 +1,33 @@
+# Sobe o Origem inteiro do zero com um comando:
+#   docker compose up --build
+# Frontend em http://localhost:3000 · Módulo de IA em http://localhost:3001
+
+name: origem
+
+services:
+  modulo-ia:
+    build:
+      context: ./modulo-ia
+      target: runtime
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    environment:
+      # Conversa servidor-a-servidor dentro da rede do compose: usa o nome do serviço.
+      RECOMENDACAO_API_URL: http://modulo-ia:3001
+      IA_BASE_URL: http://modulo-ia:3001
+      # Chave de demonstração, já pública no README. Não é segredo.
+      RECOMENDACAO_API_KEY: origem-mockup-key
+    depends_on:
+      modulo-ia:
+        condition: service_healthy
+    restart: unless-stopped

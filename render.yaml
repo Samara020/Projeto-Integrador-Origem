@@ -1,0 +1,33 @@
+# Blueprint do Render: dois web services, cada um construído do seu Dockerfile multi-stage.
+# autoDeploy: false -> o Render não faz deploy sozinho a cada push. Quem manda é a esteira
+# (testes-merge.yml), que só chama o deploy hook com todos os testes verdes.
+services:
+  - type: web
+    name: origem-modulo-ia
+    runtime: docker
+    plan: free
+    rootDir: modulo-ia
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    autoDeploy: false
+
+  - type: web
+    name: origem-frontend
+    runtime: docker
+    plan: free
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/categorias
+    autoDeploy: false
+    envVars:
+      # Chave de demonstração, já pública no README. Não é segredo.
+      - key: RECOMENDACAO_API_KEY
+        value: origem-mockup-key
+      # Preencher no painel do Render com a URL pública do módulo de IA
+      # (ex.: https://origem-modulo-ia.onrender.com).
+      - key: RECOMENDACAO_API_URL
+        sync: false
+      - key: IA_BASE_URL
+        sync: false

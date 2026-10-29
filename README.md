@@ -411,6 +411,64 @@ O que conferir: a entrada é validada antes do processamento (RNF-02) e o erro v
 
 Mais detalhes do módulo (estratégia, fallback, testes automatizados com `pytest`) estão em [`modulo-ia/README.md`](modulo-ia/README.md).
 
+## Infraestrutura de Software · Unidade 2 (E1, E2, E3)
+
+### Integrantes
+
+Allana, Carlos, João Pedro, Lara, Leandro, Nicolas, Samara, Sérgio.
+
+### Como rodar (um comando)
+
+Requisito: Docker com Compose v2.
+
+```bash
+git clone https://github.com/Samara020/Projeto-Integrador-Origem.git
+cd Projeto-Integrador-Origem
+docker compose up --build
+```
+
+- Frontend: http://localhost:3000
+- Módulo de IA: http://localhost:3001 (health: `/readyz`)
+
+O frontend só sobe depois que o módulo de IA responde ao healthcheck (`depends_on: service_healthy`).
+
+### Testes
+
+TDD documentado em [`docs/TDD.md`](docs/TDD.md): story map → tarefas → testes por nível.
+
+| Nível | Ferramenta | Comando |
+|---|---|---|
+| Unitário | Jest + pytest | `npm run test:unit` |
+| API | Jest contra servidor real | `npm run test:api` |
+| E2E | Cypress | `npm run test:e2e` |
+
+### Pipeline e deploy
+
+| Gatilho | Workflow | O que faz |
+|---|---|---|
+| push fora da main | `testes-commit.yml` | regressão completa |
+| push/merge na main | `testes-merge.yml` | regressão + build das imagens + smoke test → **deploy** |
+| todo dia 2h | `testes-agendados.yml` | regressão completa |
+
+O job `deploy` tem `needs: [regressao, imagens]`: com qualquer teste vermelho ele nem roda. Ele dispara os deploy hooks do Render (secrets `RENDER_DEPLOY_HOOK_IA` e `RENDER_DEPLOY_HOOK_FRONTEND`), e o Render reconstrói os containers a partir do commit testado. O `autoDeploy` do Render está desligado em `render.yaml` para nada ir ao ar sem a esteira.
+
+- URL pública: **PREENCHER**
+- Execução vermelha: **link da run** · Execução verde: **link da run**
+
+### Decisões
+
+- **Multi-stage no frontend (deps → build → runtime):** a imagem final leva só o `.next/standalone`, sem código-fonte nem devDependencies. Imagem menor, menos superfície de ataque, roda como usuário `node` (sem root).
+- **Multi-stage no módulo de IA (deps → test → runtime):** o pytest roda dentro do build; se falhar, a imagem não é gerada. A imagem final não leva a pasta `tests/`.
+- **`NEXT_PUBLIC_*` como build args:** o Next grava essas variáveis no bundle no build; variáveis de servidor (`RECOMENDACAO_API_URL`) ficam como env de runtime.
+- **Healthchecks + `depends_on: service_healthy`:** evita o frontend subir antes da IA e quebrar a recomendação.
+- **Render em vez da Vercel para o E3:** o Render roda os mesmos Dockerfiles do E1, então o que testamos local é o que vai ao ar; a Vercel não roda o módulo Python/BentoML como container.
+- **Deploy por hook a partir do GitHub Actions:** o gate de qualidade fica no nosso pipeline, não na plataforma.
+- **`concurrency` no deploy:** dois merges seguidos não fazem deploys em paralelo.
+
+### Uso de IA
+
+Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `compose.yaml`, do job de deploy, do `render.yaml` e do esqueleto do `docs/TDD.md` e desta seção. O grupo revisou, testou localmente e ajustou. A seção de jornada e lições do TDD foi escrita pelo grupo.
+
 ## Figma
 
 https://www.figma.com/design/NffaSqV403jDgTUersPLO6/Origem?node-id=0-1&p=f&t=TA3HZzhVrlpQHL3w-0
