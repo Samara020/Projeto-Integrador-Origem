@@ -218,22 +218,71 @@ O projeto busca integrar, em um único produto, as contribuições das diferente
 
 ## Execução
 
-**Requisitos:** Git, Node.js 20+ e npm. Compatível com Windows, macOS e Linux.
+**Requisitos:** Git, Docker Desktop e Node.js 20+ com npm. Compatível com Windows, macOS e Linux.
+
+### 1. Clonar o repositório
 
 ```bash
 git clone https://github.com/Samara020/Projeto-Integrador-Origem.git
-cd Projeto-Integrador-Origem/frontend
+cd Projeto-Integrador-Origem
+```
+
+### 2. Configurar as variáveis de ambiente
+
+Na raiz do projeto, crie um arquivo `.env` com base no arquivo `.env.example` e configure a senha do PostgreSQL.
+
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+Edite o arquivo `.env` e substitua o valor de exemplo por uma senha local.
+
+### 3. Iniciar o banco de dados
+
+Com o Docker Desktop aberto, execute na raiz do projeto:
+
+```bash
+docker compose up -d
+```
+
+Para verificar se o contêiner está em execução:
+
+```bash
+docker compose ps
+```
+
+O PostgreSQL será disponibilizado na porta `5433` do computador.
+
+**Observação:** os scripts SQL de inicialização são executados automaticamente somente quando o volume do banco é inicializado pela primeira vez. Se o volume já existir, execute os scripts necessários manualmente, conforme descrito em `database/README.md`.
+
+### 4. Executar o frontend
+
+```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Acesse `http://localhost:3000`.
+Acesse [http://localhost:3000](http://localhost:3000).
 
-Para validar a compilação:
+### 5. Validar a compilação do frontend
+
+Na pasta `frontend`, execute:
 
 ```bash
 npm run build
 ```
+
+### 6. Encerrar o banco de dados
+
+Na raiz do projeto, execute:
+
+```bash
+docker compose down
+```
+
+Esse comando encerra os contêineres sem apagar os dados persistidos no volume do PostgreSQL.
 
 ## Módulo de IA: recomendação de produtos (AV2)
 
