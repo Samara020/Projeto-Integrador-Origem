@@ -32,6 +32,8 @@ jobs:
     name: Build das imagens Docker
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      POSTGRES_PASSWORD: ci-temporary-password
     steps:
       - uses: actions/checkout@v7
       - name: Build (compose)
