@@ -32,5 +32,5 @@ USER ia
 EXPOSE 3001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/readyz', timeout=4)" || exit 1
-# PORT vem do ambiente (o Render define a sua); 3001 é o padrão local.
+# PORT vem do ambiente; 3001 é o padrão local.
 CMD ["sh", "-c", "bentoml serve app.service:RecommendationService --host 0.0.0.0 --port ${PORT}"]
