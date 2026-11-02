@@ -496,12 +496,12 @@ TDD documentado em [`docs/TDD.md`](docs/TDD.md): story map → tarefas → teste
 | Gatilho | Workflow | O que faz |
 |---|---|---|
 | push fora da main | `testes-commit.yml` | regressão completa |
-| push/merge na main | `testes-merge.yml` | regressão + build das imagens + smoke test → **deploy** |
+| push/merge na main | `testes-merge.yml` | regressão + build das imagens + smoke test |
 | todo dia 2h | `testes-agendados.yml` | regressão completa |
 
-O job `deploy` tem `needs: [regressao, imagens]`: com qualquer teste vermelho ele nem roda. Ele dispara os deploy hooks do Render (secrets `RENDER_DEPLOY_HOOK_IA` e `RENDER_DEPLOY_HOOK_FRONTEND`), e o Render reconstrói os containers a partir do commit testado. O `autoDeploy` do Render está desligado em `render.yaml` para nada ir ao ar sem a esteira.
+O deploy do frontend é feito pela Vercel, ligada ao repositório pela integração Git. A Vercel só publica o frontend; o módulo de IA não é publicado nela.
 
-- URL pública: **PREENCHER**
+- URL pública: https://projeto-integrador-origem.vercel.app/
 - Execução vermelha: **link da run** · Execução verde: **link da run**
 
 ### Decisões
@@ -510,13 +510,12 @@ O job `deploy` tem `needs: [regressao, imagens]`: com qualquer teste vermelho el
 - **Multi-stage no módulo de IA (deps → test → runtime):** o pytest roda dentro do build; se falhar, a imagem não é gerada. A imagem final não leva a pasta `tests/`.
 - **`NEXT_PUBLIC_*` como build args:** o Next grava essas variáveis no bundle no build; variáveis de servidor (`RECOMENDACAO_API_URL`) ficam como env de runtime.
 - **Healthchecks + `depends_on: service_healthy`:** evita o frontend subir antes da IA e quebrar a recomendação.
-- **Render em vez da Vercel para o E3:** o Render roda os mesmos Dockerfiles do E1, então o que testamos local é o que vai ao ar; a Vercel não roda o módulo Python/BentoML como container.
-- **Deploy por hook a partir do GitHub Actions:** o gate de qualidade fica no nosso pipeline, não na plataforma.
-- **`concurrency` no deploy:** dois merges seguidos não fazem deploys em paralelo.
+- **Vercel só para o frontend:** o módulo de IA (Python/BentoML) não roda como container na Vercel, então ele sobe localmente com `docker compose up`. A Vercel publica apenas o frontend via integração Git.
+- **`concurrency` no `testes-merge.yml`:** dois merges seguidos não fazem o job `imagens` rodar em paralelo.
 
 ### Uso de IA
 
-Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `compose.yaml`, do job de deploy, do `render.yaml` e do esqueleto do `docs/TDD.md` e desta seção. O grupo revisou, testou localmente e ajustou. A seção de jornada e lições do TDD foi escrita pelo grupo.
+Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `compose.yaml`, do job de deploy e do esqueleto do `docs/TDD.md` e desta seção. O grupo revisou, testou localmente e ajustou. A seção de jornada e lições do TDD foi escrita pelo grupo.
 
 ## Figma
 

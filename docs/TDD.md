@@ -27,7 +27,7 @@ Atividades do usuário (linha de cima) e histórias por release (linhas de baixo
 
 ## 3. Na esteira
 
-`testes.yml` roda os três níveis em toda execução (commit, merge na main, agendado 2h). No merge na main o job `deploy` depende dos testes (`needs`), então teste vermelho barra o deploy. O Dockerfile do módulo de IA tem um estágio `test` que roda o pytest: teste vermelho também barra a imagem.
+`testes.yml` roda os três níveis em toda execução (commit, merge na main, agendado 2h). No merge na main o `testes-merge.yml` depende dos testes (`needs`), então teste vermelho barra o deploy. O Dockerfile do módulo de IA tem um estágio `test` que roda o pytest: teste vermelho também barra a imagem.
 
 ## 4. Jornada e lições aprendidas (preencher pelo grupo, para a apresentação)
 

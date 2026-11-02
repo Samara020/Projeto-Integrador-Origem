@@ -1,13 +1,11 @@
-name: Testes e deploy no merge na main
+name: Testes no merge na main
 
 # Cada commit que chega na main (merge de PR ou push direto, os dois chegam como push):
 #   1. regressao: Unitários, API e E2E (testes.yml).
 #   2. imagens:   build das imagens Docker multi-stage. O estágio "test" do módulo de IA
 #                 roda o pytest dentro da imagem.
-#   3. deploy:    só roda se 1 e 2 ficarem verdes (needs). Dispara os deploy hooks do Render,
-#                 que reconstrói os containers a partir deste commit.
-# Esteira vermelha = deploy não acontece. O autoDeploy do Render fica desligado (render.yaml)
-# justamente para nada ir ao ar sem passar por aqui.
+# O deploy do frontend é feito pela integração Git da Vercel (ligada ao repositório).
+# Este workflow só roda os testes e o build das imagens.
 on:
   push:
     branches:
@@ -44,21 +42,3 @@ jobs:
           curl -sf http://localhost:3001/readyz
           curl -sf http://localhost:3000/api/categorias > /dev/null
           docker compose down
-
-  deploy:
-    name: Deploy no Render
-    needs: [regressao, imagens]
-    runs-on: ubuntu-24.04
-    environment:
-      name: producao
-      url: ${{ vars.URL_PUBLICA }}
-    steps:
-      - name: Disparar deploy do módulo de IA
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_IA }}&ref=${{ github.sha }}"
-      - name: Disparar deploy do frontend
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}&ref=${{ github.sha }}"
-      - name: Resumo
-        run: |
-          echo "## Deploy disparado" >> "$GITHUB_STEP_SUMMARY"
-          echo "Commit \`${GITHUB_SHA::7}\` enviado ao Render." >> "$GITHUB_STEP_SUMMARY"
-          echo "URL pública: ${{ vars.URL_PUBLICA }}" >> "$GITHUB_STEP_SUMMARY"
