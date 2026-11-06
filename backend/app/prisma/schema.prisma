@@ -1,3 +1,7 @@
+// Schema alinhado a database/sql/01_create_tables.sql (fonte da verdade do banco).
+// As tabelas são criadas pelos scripts SQL; o Prisma apenas as mapeia.
+// Não use `prisma migrate` / `db push` contra estas tabelas.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,219 +11,193 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Papel {
-  COMPRADOR
-  ARTESAO
-  ADMINISTRADOR
-}
-
-enum ModalidadeProducao {
-  PECA_UNICA
-  PRONTA_ENTREGA
-  SOB_ENCOMENDA
-}
-
-enum StatusValidacao {
-  PENDENTE
-  APROVADA
-  REPROVADA
-}
-
-enum StatusAvaliacao {
-  PUBLICADO
-  EM_MODERACAO
-  REMOVIDO
-}
-
 model Usuario {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  senha     String
-  telefone  String?
-  papel     Papel    @default(COMPRADOR)
-  criadoEm  DateTime @default(now())
+  id          Int    @id @default(autoincrement()) @map("id_usuario")
+  nome        String @db.VarChar(150)
+  email       String @unique(map: "uq_usuario_email") @db.VarChar(254)
+  senha       String @db.VarChar(255)
+  telefone    String? @db.VarChar(20)
+  // COMPRADOR | ARTESAO | ADMINISTRADOR
+  usuarioTipo String @map("usuario_tipo") @db.VarChar(20)
 
-  loja          Loja?
-  carrinho      Carrinho?
-  pedidos       Pedido[]
-  avaliacoes    Avaliacao[]
-  tickets       Ticket[]
-  enderecos     EnderecoEntrega[]
+  loja       Loja[]
+  carrinho   Carrinho?
+  pedidos    Pedido[]
+  avaliacoes Avaliacao[]
+
+  @@map("usuario")
 }
 
 model Categoria {
-  id        String   @id @default(uuid())
-  nome      String
+  id        Int     @id @default(autoincrement()) @map("id_categoria")
+  nome      String  @db.VarChar(100)
   descricao String?
-  produtos  Produto[]
+
+  produtos Produto[]
+
+  @@map("categoria")
 }
 
 model Loja {
-  id        String   @id @default(uuid())
-  nome      String
+  id        Int     @id @default(autoincrement()) @map("id_loja")
+  nome      String  @db.VarChar(150)
   descricao String?
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  usuarioId String   @unique
-  produtos  Produto[]
-}
+  usuarioId Int     @map("fk_usuario_id_usuario")
 
-model Produto {
-  id                    String   @id @default(uuid())
-  nome                  String
-  descricao             String?
-  tecnica               String
-  preco                 Decimal  @db.Decimal(10, 2)
-  origem                String
-  modalidadeProducao    ModalidadeProducao
-  estoque               Int
-  pecaUnica             Boolean  @default(false)
-  statusValidacao       StatusValidacao @default(PENDENTE)
-  sku                   String?  @unique
-  informacoesOrigem     String?
-  certificado           String?
-  material              String?
-  dimensoes             String?
-  peso                  Decimal? @db.Decimal(10, 2)
-  prazoProducaoDias     Int?
-  capacidadeProducao    Int?
-  seloAtivo             Boolean  @default(false)
-  categoria             Categoria  @relation(fields: [categoriaId], references: [id])
-  categoriaId           String
-  loja                  Loja       @relation(fields: [lojaId], references: [id])
-  lojaId                String
-  imagens               Imagem[]
-  estoqueRegistro       Estoque?
-  avaliacoes            Avaliacao[]
-  itensPedido           ItemPedido[]
-  itensCarrinho         ItemCarrinho[]
-  criadoEm              DateTime   @default(now())
-  atualizadoEm          DateTime   @updatedAt
-}
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id], map: "fk_loja_usuario")
+  produtos Produto[]
 
-model Imagem {
-  id        String   @id @default(uuid())
-  url       String
-  produto   Produto @relation(fields: [produtoId], references: [id])
-  produtoId String
-}
-
-model Estoque {
-  id             String   @id @default(uuid())
-  quantidade     Int
-  pontoReposicao Int
-  produto        Produto @relation(fields: [produtoId], references: [id])
-  produtoId      String   @unique
-}
-
-model Carrinho {
-  id        String   @id @default(uuid())
-  status    String   @default("ATIVO")
-  dataCriacao DateTime @default(now())
-  usuario   Usuario @relation(fields: [usuarioId], references: [id])
-  usuarioId String   @unique
-  itens     ItemCarrinho[]
-}
-
-model ItemCarrinho {
-  id           String   @id @default(uuid())
-  quantidade   Int
-  precoUnitario Decimal @db.Decimal(10, 2)
-  carrinho     Carrinho @relation(fields: [carrinhoId], references: [id])
-  carrinhoId   String
-  produto      Produto @relation(fields: [produtoId], references: [id])
-  produtoId    String
+  @@map("loja")
 }
 
 model EnderecoEntrega {
-  id        String   @id @default(uuid())
-  cep       String
-  rua       String
-  numero    String
-  bairro    String?
-  cidade    String?
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  usuarioId String
-  pedidos   Pedido[]
+  id         Int    @id @default(autoincrement()) @map("id_endereco")
+  logradouro String @db.VarChar(200)
+  bairro     String @db.VarChar(100)
+  cidade     String @db.VarChar(100)
+  cpf        String @db.Char(11)
+
+  pedidos Pedido[]
+
+  @@map("endereco_de_entrega")
+}
+
+model Produto {
+  id                 Int     @id @default(autoincrement()) @map("id_produto")
+  nome               String  @db.VarChar(150)
+  descricao          String?
+  tecnica            String  @db.VarChar(100)
+  preco              Decimal @db.Decimal(10, 2)
+  origem             String  @db.VarChar(150)
+  modalidadeProducao String  @map("modalidade_producao") @db.VarChar(30)
+  pecaUnica          Boolean @map("peca_unica")
+  lojaId             Int     @map("fk_loja_id_loja")
+  categoriaId        Int     @map("fk_categoria_id_categoria")
+
+  loja          Loja           @relation(fields: [lojaId], references: [id], map: "fk_produto_loja")
+  categoria     Categoria      @relation(fields: [categoriaId], references: [id], map: "fk_produto_categoria")
+  estoque       Estoque?
+  imagens       Imagem[]
+  itensCarrinho ItemCarrinho[]
+  itensPedido   ItemPedido[]
+  avaliacoes    Avaliacao[]
+
+  @@map("produto")
+}
+
+model Estoque {
+  id                   Int @id @default(autoincrement()) @map("id_estoque")
+  quantidadeDisponivel Int @map("quantidade_disponivel")
+  pontoReposicao       Int @map("ponto_reposicao")
+  produtoId            Int @unique(map: "uq_estoque_produto") @map("fk_produto_id_produto")
+
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_estoque_produto")
+
+  @@map("estoque")
+}
+
+model Imagem {
+  id        Int    @id @default(autoincrement()) @map("id_imagem")
+  url       String
+  produtoId Int    @map("fk_produto_id_produto")
+
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_imagem_produto")
+
+  @@map("imagem")
+}
+
+model Carrinho {
+  id          Int      @id @default(autoincrement()) @map("id_carrinho")
+  status      String   @db.VarChar(30)
+  dataCriacao DateTime @map("data_criacao") @db.Timestamp(6)
+  usuarioId   Int      @unique(map: "uq_carrinho_usuario") @map("fk_usuario_id_usuario")
+
+  usuario Usuario        @relation(fields: [usuarioId], references: [id], map: "fk_carrinho_usuario")
+  itens   ItemCarrinho[]
+
+  @@map("carrinho")
+}
+
+model ItemCarrinho {
+  numeroItem    Int     @map("numero_item")
+  quantidade    Int
+  precoUnitario Decimal @map("preco_unitario") @db.Decimal(10, 2)
+  produtoId     Int     @map("fk_produto_id_produto")
+  carrinhoId    Int     @map("fk_carrinho_id_carrinho")
+
+  produto  Produto  @relation(fields: [produtoId], references: [id], map: "fk_item_carrinho_produto")
+  carrinho Carrinho @relation(fields: [carrinhoId], references: [id], map: "fk_item_carrinho_carrinho")
+
+  @@id([carrinhoId, numeroItem], map: "pk_item_carrinho")
+  @@map("item_carrinho")
 }
 
 model Pedido {
-  id           String   @id @default(uuid())
-  data         DateTime @default(now())
-  status       String   @default("AGUARDANDO_PAGAMENTO")
-  codigoRastreio String?
-  usuario      Usuario @relation(fields: [usuarioId], references: [id])
-  usuarioId    String
-  enderecoEntrega EnderecoEntrega @relation(fields: [enderecoEntregaId], references: [id])
-  enderecoEntregaId String
-  itens        ItemPedido[]
-  pagamento    Pagamento?
+  id                Int      @id @default(autoincrement()) @map("id_pedidos")
+  data              DateTime @db.Timestamp(6)
+  status            String   @db.VarChar(30)
+  usuarioId         Int      @map("fk_usuario_id_usuario")
+  enderecoEntregaId Int      @map("fk_endereco_de_entrega_id_endereco")
+
+  usuario         Usuario           @relation(fields: [usuarioId], references: [id], map: "fk_pedido_usuario")
+  enderecoEntrega EnderecoEntrega   @relation(fields: [enderecoEntregaId], references: [id], map: "fk_pedido_endereco")
+  itens           ItemPedido[]
+  pagamentos      Pagamento[]
+  historico       HistoricoPedido[]
+
+  @@map("pedido")
 }
 
 model ItemPedido {
-  id           String   @id @default(uuid())
-  precoUnitario Decimal @db.Decimal(10, 2)
-  subtotal     Decimal @db.Decimal(10, 2)
-  quantidade   Int
-  pedido       Pedido @relation(fields: [pedidoId], references: [id])
-  pedidoId     String
-  produto      Produto @relation(fields: [produtoId], references: [id])
-  produtoId    String
+  numeroItem    Int     @map("numero_item")
+  precoUnitario Decimal @map("preco_unitario") @db.Decimal(10, 2)
+  subtotal      Decimal @db.Decimal(10, 2)
+  quantidade    Int
+  pedidoId      Int     @map("fk_pedido_id_pedidos")
+  produtoId     Int     @map("fk_produto_id_produto")
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], map: "fk_item_pedido_pedido")
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_item_pedido_produto")
+
+  @@id([pedidoId, numeroItem], map: "pk_item_pedido")
+  @@map("item_pedido")
 }
 
 model Pagamento {
-  id           String   @id @default(uuid())
-  data         DateTime @default(now())
-  valor        Decimal @db.Decimal(10, 2)
-  status       String
-  formaPagamento String
-  pedido       Pedido @relation(fields: [pedidoId], references: [id])
-  pedidoId     String   @unique
+  id             Int      @id @default(autoincrement()) @map("id_pagamento")
+  data           DateTime @db.Timestamp(6)
+  valor          Decimal  @db.Decimal(10, 2)
+  status         String   @db.VarChar(30)
+  formaPagamento String   @map("forma_pagamento") @db.VarChar(30)
+  pedidoId       Int      @map("fk_pedido_id_pedidos")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_pagamento_pedido")
+
+  @@map("pagamento")
 }
 
 model Avaliacao {
-  id           String   @id @default(uuid())
-  nota         Int
-  comentario   String?
-  dataAvaliacao DateTime @default(now())
-  status       StatusAvaliacao @default(PUBLICADO)
-  compraVerificada Boolean @default(false)
-  respostaArtesao String?
-  usuario      Usuario @relation(fields: [usuarioId], references: [id])
-  usuarioId    String
-  produto      Produto @relation(fields: [produtoId], references: [id])
-  produtoId    String
-  pedidoId     String?
+  id            Int      @id @default(autoincrement()) @map("id_avaliacao")
+  nota          Int      @db.SmallInt
+  comentario    String?
+  dataAvaliacao DateTime @map("data_avaliacao") @db.Timestamp(6)
+  usuarioId     Int      @map("fk_usuario_id_usuario")
+  produtoId     Int      @map("fk_produto_id_produto")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_avaliacao_usuario")
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_avaliacao_produto")
+
+  @@map("avaliacao")
 }
 
-model Ticket {
-  id           String   @id @default(uuid())
-  assunto      String
-  mensagem     String
-  status       String   @default("ABERTO")
-  prioridade   String   @default("NORMAL")
-  categoria    String?
-  pedidoId     String?
-  criadoEm     DateTime @default(now())
-  usuario      Usuario @relation(fields: [usuarioId], references: [id])
-  usuarioId    String
-  mensagens    MensagemTicket[]
-}
+model HistoricoPedido {
+  id         Int      @id @default(autoincrement()) @map("id_historico")
+  status     String   @db.VarChar(30)
+  observacao String?
+  data       DateTime @db.Timestamp(6)
+  pedidoId   Int      @map("fk_pedido_id_pedidos")
 
-model MensagemTicket {
-  id        String   @id @default(uuid())
-  autor     String   @default("COMPRADOR")
-  texto     String
-  criadoEm  DateTime @default(now())
-  ticket    Ticket @relation(fields: [ticketId], references: [id])
-  ticketId  String
-}
+  pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_historico_pedido")
 
-model PerfilAdmin {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  funcao    String
-  telefone  String?
-  criadoEm  DateTime @default(now())
+  @@map("historico_pedido")
 }

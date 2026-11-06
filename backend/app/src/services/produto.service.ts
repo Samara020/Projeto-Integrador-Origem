@@ -1,5 +1,10 @@
 import { ErroApp } from "../middleware/error";
-import prisma from "../lib/prisma";
+import { toId } from "../lib/ids";
+import {
+  seloAtivoDe,
+  statusValidacaoDe,
+  validacoes,
+} from "../lib/memoria";
 import {
   categoriaRepository,
   produtoRepository,
@@ -26,6 +31,22 @@ type NovoProduto = {
   capacidadeProducao?: number | null;
 };
 
+const PLACEHOLDER = "https://storage.sistemaorigem.com/placeholder.jpg";
+
+const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDisponivel ?? 0;
+
+const skuDe = (id: number) => "ORG-" + String(id).padStart(6, "0");
+
+const situacaoDe = (quantidade: number) =>
+  quantidade === 0 ? "ESGOTADO" : quantidade < 5 ? "ESTOQUE_BAIXO" : "ATIVO";
+
+/** Peca unica nao pode ter mais de uma unidade (regra do banco). */
+const validarPecaUnica = (pecaUnica: boolean, estoque: number) => {
+  if (pecaUnica && estoque > 1) {
+    throw new ErroApp(400, "Peca unica nao pode ter estoque superior a uma unidade.");
+  }
+};
+
 export const produtoService = {
   async listar(filtros: any) {
     const [total, itens] = await produtoRepository.listar({
@@ -45,19 +66,15 @@ export const produtoService = {
         id: produto.id,
         nome: produto.nome,
         preco: Number(produto.preco),
-        imagemPrincipal:
-          produto.imagens[0]?.url ?? "https://storage.sistemaorigem.com/placeholder.jpg",
+        imagemPrincipal: produto.imagens[0]?.url ?? PLACEHOLDER,
         artesao: {
           id: produto.loja.usuario.id,
           nome: produto.loja.usuario.nome,
         },
-        seloAtivo: produto.seloAtivo,
+        seloAtivo: seloAtivoDe(produto.id),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
-        disponibilidade:
-          (produto.estoqueRegistro?.quantidade ?? produto.estoque) > 0
-            ? "DISPONIVEL"
-            : "VENDIDO",
+        disponibilidade: quantidadeDe(produto) > 0 ? "DISPONIVEL" : "VENDIDO",
       })),
     };
   },
@@ -71,15 +88,15 @@ export const produtoService = {
       nome: produto.nome,
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
-      seloAtivo: produto.seloAtivo,
+      seloAtivo: seloAtivoDe(produto.id),
       descricao: produto.descricao ?? "",
       imagens: produto.imagens.map((i: any) => i.url),
       categoria: { id: produto.categoria.id, nome: produto.categoria.nome },
       tecnica: produto.tecnica,
-      estoque: produto.estoqueRegistro?.quantidade ?? produto.estoque,
+      estoque: quantidadeDe(produto),
       totalAvaliacoes: 0,
-      dimensoes: produto.dimensoes ?? "",
-      material: produto.material ?? "",
+      dimensoes: "",
+      material: "",
       regiao: { id: produto.origem, nome: produto.origem },
       artesao: {
         id: produto.loja.usuario.id,
@@ -103,22 +120,24 @@ export const produtoService = {
   },
 
   async recomendados(produtoId: string) {
-    const produto = await produtoRepository.buscarPorId(produtoId);
+    if (!produtoId) return { produtosRecomendados: [] };
+    let produto = null;
+    try {
+      produto = await produtoRepository.buscarPorId(produtoId);
+    } catch {
+      // ID invalido: sem produto de referencia, sem recomendacoes.
+    }
     if (!produto) return { produtosRecomendados: [] };
 
-    const produtos = await produtoRepository.listar({
-      termo: undefined,
-      categoria: produto.categoriaId,
-      tecnica: undefined,
-      regiao: undefined,
+    const [, itens] = await produtoRepository.listar({
+      categoriaId: produto.categoriaId,
       pagina: 1,
-      limite: 4,
+      limite: 5,
     });
 
-    const [total, itens] = produtos;
     return {
       produtosRecomendados: itens
-        .filter((p: any) => p.id !== produtoId)
+        .filter((p: any) => p.id !== produto.id)
         .slice(0, 4)
         .map((p: any) => ({
           id: p.id,
@@ -139,6 +158,9 @@ export const produtoService = {
       });
     }
 
+    const pecaUnica = dados.modalidadeProducao === "PECA_UNICA";
+    validarPecaUnica(pecaUnica, dados.estoque);
+
     const categoria = await categoriaRepository.buscarOuCriar(dados.categoria);
 
     const produto = await produtoRepository.criar({
@@ -149,27 +171,25 @@ export const produtoService = {
       preco: dados.preco,
       origem: dados.origem,
       modalidadeProducao: dados.modalidadeProducao,
-      estoque: dados.estoque,
-      sku: dados.sku,
-      material: dados.material,
-      dimensoes: dados.dimensoes,
-      peso: dados.peso,
-      informacoesOrigem: dados.informacoesOrigem,
-      certificado: dados.certificado,
+      pecaUnica,
       lojaId: loja.id,
-      imagens: dados.imagens.length
-        ? { create: dados.imagens.map((url: string) => ({ url })) }
-        : undefined,
-      estoqueRegistro: dados.estoque > 0
-        ? { create: { quantidade: dados.estoque, pontoReposicao: 0 } }
-        : undefined,
+      imagens: dados.imagens,
+      estoque: dados.estoque,
+    });
+
+    // Novo produto aguarda curadoria (estado em memoria; o SQL nao persiste).
+    validacoes.set(produto.id, {
+      status: "PENDENTE",
+      seloAtivo: false,
+      justificativa: null,
+      decididoEm: null,
     });
 
     return {
       id: produto.id,
-      sku: produto.sku,
-      statusValidacao: produto.statusValidacao,
-      criadoEm: produto.criadoEm,
+      sku: dados.sku ?? skuDe(produto.id),
+      statusValidacao: statusValidacaoDe(produto.id),
+      criadoEm: new Date().toISOString(),
     };
   },
 
@@ -182,12 +202,27 @@ export const produtoService = {
       throw new ErroApp(403, "Voce so pode atualizar suas proprias pecas.");
     }
 
-    const atualizado = await produtoRepository.atualizar(id, dados);
+    // Somente colunas existentes no SQL; demais campos do corpo sao ignorados.
+    const permitido: Record<string, unknown> = {};
+    for (const campo of ["nome", "descricao", "tecnica", "preco", "origem", "modalidadeProducao"]) {
+      if (dados?.[campo] !== undefined) permitido[campo] = dados[campo];
+    }
+    if (permitido.modalidadeProducao !== undefined) {
+      permitido.pecaUnica = permitido.modalidadeProducao === "PECA_UNICA";
+    }
+
+    const pecaUnica = (permitido.pecaUnica as boolean | undefined) ?? produto.pecaUnica;
+    validarPecaUnica(pecaUnica, dados?.estoque ?? quantidadeDe(produto));
+
+    const atualizado = await produtoRepository.atualizar(id, permitido);
+    if (dados?.estoque !== undefined) {
+      await produtoRepository.atualizarEstoque(id, Number(dados.estoque));
+    }
 
     return {
       id: atualizado.id,
       preco: Number(atualizado.preco),
-      atualizadoEm: atualizado.atualizadoEm,
+      atualizadoEm: new Date().toISOString(),
     };
   },
 
@@ -214,22 +249,21 @@ export const produtoService = {
     const produtos = await produtoRepository.listarPorLoja(loja.id, filtros);
 
     const contagem = {
-      ATIVO: produtos.filter((p: any) => p.estoque > 0).length,
-      INATIVO: produtos.filter((p: any) => p.estoque === 0).length,
-      ESGOTADO: produtos.filter((p: any) => p.estoque === 0).length,
+      ATIVO: produtos.filter((p: any) => quantidadeDe(p) > 0).length,
+      INATIVO: produtos.filter((p: any) => quantidadeDe(p) === 0).length,
+      ESGOTADO: produtos.filter((p: any) => quantidadeDe(p) === 0).length,
       ESTOQUE_BAIXO: produtos.filter(
-        (p: any) => p.estoque > 0 && p.estoque < 5
+        (p: any) => quantidadeDe(p) > 0 && quantidadeDe(p) < 5
       ).length,
     };
 
     const itens = produtos.map((p: any) => ({
       id: p.id,
       nome: p.nome,
-      sku: p.sku ?? "ORG-" + p.id.slice(0, 6).toUpperCase(),
+      sku: skuDe(p.id),
       imagemPrincipal: p.imagens[0]?.url ?? "",
-      estoque: p.estoque,
-      situacao:
-        p.estoque === 0 ? "ESGOTADO" : p.estoque < 5 ? "ESTOQUE_BAIXO" : "ATIVO",
+      estoque: quantidadeDe(p),
+      situacao: situacaoDe(quantidadeDe(p)),
     }));
 
     return { total: itens.length, pagina: 1, limite: 20, contagem, itens };
@@ -244,36 +278,37 @@ export const produtoService = {
       throw new ErroApp(403, "Acesso negado.");
     }
 
+    validarPecaUnica(produto.pecaUnica, dados.estoque);
     await produtoRepository.atualizarEstoque(id, dados.estoque);
-    if (dados.estoque === 0) {
-      await prisma.estoque.upsert({
-        where: { produtoId: id },
-        update: { quantidade: 0 },
-        create: { produtoId: id, quantidade: 0, pontoReposicao: 0 },
-      });
-    }
 
     return { id, estoque: dados.estoque, situacao: dados.situacao };
   },
 
   async listarPendentes(filtros: { status?: string }) {
-    const produtos = await produtoRepository.listarPendentes(filtros);
+    const todos = await produtoRepository.listarTodos();
+    const produtos = todos.filter(
+      (p: any) => !filtros.status || statusValidacaoDe(p.id) === filtros.status
+    );
+
     return {
       total: produtos.length,
-      itens: produtos.map((p: any) => ({
-        id: p.id,
-        nome: p.nome,
-        imagemPrincipal: p.imagens[0]?.url ?? "",
-        artesao: { id: p.loja.usuario.id, nome: p.loja.usuario.nome },
-        tecnica: p.tecnica,
-        regiao: p.origem,
-        enviadoEm: p.criadoEm,
-        informacoesOrigem: p.informacoesOrigem ?? "",
-        certificado: p.certificado ?? null,
-        statusValidacao: p.statusValidacao,
-        justificativa: null,
-        decididoEm: null,
-      })),
+      itens: produtos.map((p: any) => {
+        const decisao = validacoes.get(p.id);
+        return {
+          id: p.id,
+          nome: p.nome,
+          imagemPrincipal: p.imagens[0]?.url ?? "",
+          artesao: { id: p.loja.usuario.id, nome: p.loja.usuario.nome },
+          tecnica: p.tecnica,
+          regiao: p.origem,
+          enviadoEm: null,
+          informacoesOrigem: "",
+          certificado: null,
+          statusValidacao: statusValidacaoDe(p.id),
+          justificativa: decisao?.justificativa ?? null,
+          decididoEm: decisao?.decididoEm ?? null,
+        };
+      }),
     };
   },
 
@@ -281,15 +316,19 @@ export const produtoService = {
     const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
-    const atualizado = await produtoRepository.validar(id, {
-      statusValidacao: dados.status,
+    // Decisao de curadoria so existe em memoria (o SQL nao tem coluna para ela).
+    const decisao = {
+      status: dados.status,
       seloAtivo: dados.status === "APROVADA",
-    });
+      justificativa: dados.justificativa ?? null,
+      decididoEm: new Date(),
+    };
+    validacoes.set(toId(id), decisao);
 
     return {
-      id: atualizado.id,
-      statusValidacao: atualizado.statusValidacao,
-      seloAtivo: atualizado.seloAtivo,
+      id: produto.id,
+      statusValidacao: decisao.status,
+      seloAtivo: decisao.seloAtivo,
     };
   },
 };

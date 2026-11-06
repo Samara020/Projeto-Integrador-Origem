@@ -36,6 +36,7 @@ CORS_ORIGIN=http://localhost:3000
 |----------|-----------|--------|
 | `DATABASE_URL` | String de conexão PostgreSQL | obrigatória |
 | `JWT_SECRET` | Chave para assinar tokens JWT | obrigatória |
+| `DATABASE_URL_TEST` | Banco usado pelos testes (apagado a cada teste) | obrigatória p/ `npm test` |
 | `JWT_EXPIRES_IN` | Expiração do token | `7d` |
 | `PORT` | Porta da API | `4000` |
 | `CORS_ORIGIN` | Origem permitida pelo CORS | `http://localhost:3000` |
@@ -47,7 +48,6 @@ CORS_ORIGIN=http://localhost:3000
 ```bash
 npm install              # instala dependências
 npx prisma generate      # gera o Prisma Client
-npx prisma migrate deploy # aplica migrações versionadas
 npm run dev              # servidor de desenvolvimento (tsx watch)
 npm run build            # compila TypeScript (tsc)
 npm start                # inicia em produção (node dist/src/index.js)
@@ -57,22 +57,38 @@ npm run test:watch       # testes em modo watch
 
 ---
 
-## Migrações
+## Banco de dados
 
-As migrações ficam em `prisma/migrations/` e são versionadas no git:
+O banco é definido pelos scripts SQL em `database/sql/`, que são a fonte da verdade. O `prisma/schema.prisma` apenas **mapeia** essas tabelas (`@@map`/`@map`); não há migrações do Prisma. **Não use** `prisma migrate` nem `prisma db push`.
 
-- `20261106152123_init/` — schema inicial (todas as tabelas)
-- `20261106160000_add_codigo_rastreio_pedido/` — campo `codigoRastreio` na tabela `Pedido`
+Ordem de criação (use `psql -f` ou `npx prisma db execute --file <arquivo> --schema prisma/schema.prisma`):
 
-Para aplicar em um banco existente:
-```bash
-npx prisma migrate deploy
-```
+1. `01_create_tables.sql`
+2. `02_integrity_rules.sql`
+3. `04_create_indexes.sql`
+4. `05_seed_dados_reais.sql` (dados de desenvolvimento)
 
-Para criar uma nova migração (ambiente interativo):
-```bash
-npx prisma migrate dev --nome_da_migracao
-```
+Alterou as tabelas? Atualize o SQL e o `schema.prisma` juntos, depois rode `npx prisma generate`.
+
+### Limitações do esquema SQL
+
+O SQL não tem tabelas ou colunas para o que segue. Esses dados ficam **em memória** (perdem-se ao reiniciar a API) ou são derivados:
+
+| Recurso | Tratamento |
+|---|---|
+| Tickets de suporte | em memória (`ticket.repository.ts`) |
+| Validação de produto / selo | em memória (`lib/memoria.ts`); produto sem registro conta como `APROVADA`, produto novo nasce `PENDENTE` |
+| Moderação de avaliações | em memória (`lib/memoria.ts`) |
+| Código de rastreio | gravado em `historico_pedido.observacao` (`Rastreio: <código>`) |
+| Perfil do admin | primeiro usuário `ADMINISTRADOR` |
+| `sku`, `material`, `dimensoes`, `peso`, `certificado`... | não persistidos |
+| Endereço de entrega | exige bairro, cidade e CPF; sem eles no checkout, usa valores neutros |
+
+IDs são `INTEGER` no banco e saem como **string** na API (`middleware/ids-texto.ts`), conforme o contrato.
+
+### Testes
+
+Os testes apagam todas as tabelas, por isso usam um banco próprio. Defina `DATABASE_URL_TEST` (diferente de `DATABASE_URL`) apontando para um banco criado com os scripts `01`, `02` e `04`.
 
 ---
 

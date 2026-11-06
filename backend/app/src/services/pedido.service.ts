@@ -7,7 +7,16 @@ import {
 } from "../repositories";
 
 export const pedidoService = {
-  async checkout(usuarioId: string, dados: { enderecoEntrega: { cep: string; rua: string; numero: string } }) {
+  async checkout(usuarioId: string, dados: {
+      enderecoEntrega: {
+        cep: string;
+        rua: string;
+        numero: string;
+        bairro?: string;
+        cidade?: string;
+        cpf?: string;
+      };
+    }) {
     const carrinho = await carrinhoRepository.buscarPorUsuarioId(usuarioId);
     if (!carrinho || carrinho.itens.length === 0) {
       throw new ErroApp(400, "Carrinho vazio.");
@@ -15,11 +24,13 @@ export const pedidoService = {
 
     let endereco = await enderecoRepository.buscarPorUsuarioId(usuarioId);
     if (!endereco) {
+      const e = dados.enderecoEntrega;
+      // O SQL exige bairro, cidade e CPF; sem eles no payload, usa valores neutros.
       endereco = await enderecoRepository.criar({
-        usuarioId,
-        cep: dados.enderecoEntrega.cep,
-        rua: dados.enderecoEntrega.rua,
-        numero: dados.enderecoEntrega.numero,
+        logradouro: `${e.rua}, ${e.numero} - CEP ${e.cep}`,
+        bairro: e.bairro ?? "Nao informado",
+        cidade: e.cidade ?? "Nao informada",
+        cpf: e.cpf ?? "00000000000",
       });
     }
 
@@ -90,7 +101,7 @@ export const pedidoService = {
         })),
         valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0),
         proximaAcao: "ACEITAR",
-        codigoRastreio: null,
+        codigoRastreio: pedidoRepository.extrairRastreio(p.historico),
       })),
     };
   },
