@@ -1,8 +1,20 @@
-import { ApiError } from "@/lib/http";
+import { ApiError, http } from "@/lib/http";
 import { adminService } from "@/services/admin";
 import { authService } from "@/services/auth";
 import type { AvaliacaoSinalizada, PecaPendente, Sessao } from "@/types";
 import { concluir, gravar, lerGravado } from "./apoio";
+
+jest.mock("@/lib/http", () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, mensagem: string) {
+      super(mensagem);
+      this.name = "ApiError";
+      this.status = status;
+    }
+  },
+  http: jest.fn(),
+}));
 
 const peca = (id: string, statusValidacao: PecaPendente["statusValidacao"] = "PENDENTE"): PecaPendente => ({
   id, nome: `Peça ${id}`, imagemPrincipal: "/produtos/vaso-ceramica.jpg", artesao: { id: "usr_906", nome: "Zefa do Pajeú" },
@@ -14,22 +26,19 @@ const avaliacao = (id: string): AvaliacaoSinalizada => ({
   nota: 4, comentario: "Me chama no zap.", criadoEm: "2026-10-16T18:10:00Z", motivo: "LINK_OU_CONTATO", sinalizadaEm: "2026-10-16T18:10:05Z",
   status: "EM_MODERACAO", moderadaEm: null,
 });
-// O jsdom não traz `fetch`: o mock entra direto no global (jest.spyOn exigiria a propriedade existir)
-// e o original volta depois de cada teste.
-const fetchOriginal = global.fetch;
+// O http() usa axios (não fetch), então mockamos http() diretamente.
+// O mock é limpo antes de cada teste via mockClear.
 const respostaHttp = (corpo: unknown) => {
-  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => corpo } as Response);
+  (http as jest.Mock).mockResolvedValue(corpo);
 };
 // Tudo que está no localStorage, numa string só (Object.values no Storage do jsdom não é confiável).
 const tudoGravado = () =>
   Array.from({ length: window.localStorage.length }, (_, i) => window.localStorage.getItem(window.localStorage.key(i) ?? "") ?? "").join(" ");
 
-beforeEach(() => { jest.useFakeTimers(); window.localStorage.clear(); });
+beforeEach(() => { jest.useFakeTimers(); window.localStorage.clear(); (http as jest.Mock).mockClear(); });
 afterEach(() => {
   jest.useRealTimers();
   jest.restoreAllMocks();
-  if (fetchOriginal) global.fetch = fetchOriginal;
-  else delete (global as { fetch?: unknown }).fetch;
 });
 
 describe("validarPeca", () => {
