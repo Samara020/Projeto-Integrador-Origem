@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  COMPRADOR
+  ARTESAO
+  ADMINISTRADOR
+}
+
+enum ModalidadeProducao {
+  PECA_UNICA
+  PRONTA_ENTREGA
+  SOB_ENCOMENDA
+}
+
+enum StatusValidacao {
+  PENDENTE
+  APROVADA
+  REPROVADA
+}
+
+enum StatusAvaliacao {
+  PUBLICADO
+  EM_MODERACAO
+  REMOVIDO
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  telefone  String?
+  papel     Papel    @default(COMPRADOR)
+  criadoEm  DateTime @default(now())
+
+  loja          Loja?
+  carrinho      Carrinho?
+  pedidos       Pedido[]
+  avaliacoes    Avaliacao[]
+  tickets       Ticket[]
+  enderecos     EnderecoEntrega[]
+}
+
+model Categoria {
+  id        String   @id @default(uuid())
+  nome      String
+  descricao String?
+  produtos  Produto[]
+}
+
+model Loja {
+  id        String   @id @default(uuid())
+  nome      String
+  descricao String?
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId String   @unique
+  produtos  Produto[]
+}
+
+model Produto {
+  id                    String   @id @default(uuid())
+  nome                  String
+  descricao             String?
+  tecnica               String
+  preco                 Decimal  @db.Decimal(10, 2)
+  origem                String
+  modalidadeProducao    ModalidadeProducao
+  estoque               Int
+  pecaUnica             Boolean  @default(false)
+  statusValidacao       StatusValidacao @default(PENDENTE)
+  sku                   String?  @unique
+  informacoesOrigem     String?
+  certificado           String?
+  material              String?
+  dimensoes             String?
+  peso                  Decimal? @db.Decimal(10, 2)
+  prazoProducaoDias     Int?
+  capacidadeProducao    Int?
+  seloAtivo             Boolean  @default(false)
+  categoria             Categoria  @relation(fields: [categoriaId], references: [id])
+  categoriaId           String
+  loja                  Loja       @relation(fields: [lojaId], references: [id])
+  lojaId                String
+  imagens               Imagem[]
+  estoqueRegistro       Estoque?
+  avaliacoes            Avaliacao[]
+  itensPedido           ItemPedido[]
+  itensCarrinho         ItemCarrinho[]
+  criadoEm              DateTime   @default(now())
+  atualizadoEm          DateTime   @updatedAt
+}
+
+model Imagem {
+  id        String   @id @default(uuid())
+  url       String
+  produto   Produto @relation(fields: [produtoId], references: [id])
+  produtoId String
+}
+
+model Estoque {
+  id             String   @id @default(uuid())
+  quantidade     Int
+  pontoReposicao Int
+  produto        Produto @relation(fields: [produtoId], references: [id])
+  produtoId      String   @unique
+}
+
+model Carrinho {
+  id        String   @id @default(uuid())
+  status    String   @default("ATIVO")
+  dataCriacao DateTime @default(now())
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId String   @unique
+  itens     ItemCarrinho[]
+}
+
+model ItemCarrinho {
+  id           String   @id @default(uuid())
+  quantidade   Int
+  precoUnitario Decimal @db.Decimal(10, 2)
+  carrinho     Carrinho @relation(fields: [carrinhoId], references: [id])
+  carrinhoId   String
+  produto      Produto @relation(fields: [produtoId], references: [id])
+  produtoId    String
+}
+
+model EnderecoEntrega {
+  id        String   @id @default(uuid())
+  cep       String
+  rua       String
+  numero    String
+  bairro    String?
+  cidade    String?
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId String
+  pedidos   Pedido[]
+}
+
+model Pedido {
+  id           String   @id @default(uuid())
+  data         DateTime @default(now())
+  status       String   @default("AGUARDANDO_PAGAMENTO")
+  codigoRastreio String?
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId    String
+  enderecoEntrega EnderecoEntrega @relation(fields: [enderecoEntregaId], references: [id])
+  enderecoEntregaId String
+  itens        ItemPedido[]
+  pagamento    Pagamento?
+}
+
+model ItemPedido {
+  id           String   @id @default(uuid())
+  precoUnitario Decimal @db.Decimal(10, 2)
+  subtotal     Decimal @db.Decimal(10, 2)
+  quantidade   Int
+  pedido       Pedido @relation(fields: [pedidoId], references: [id])
+  pedidoId     String
+  produto      Produto @relation(fields: [produtoId], references: [id])
+  produtoId    String
+}
+
+model Pagamento {
+  id           String   @id @default(uuid())
+  data         DateTime @default(now())
+  valor        Decimal @db.Decimal(10, 2)
+  status       String
+  formaPagamento String
+  pedido       Pedido @relation(fields: [pedidoId], references: [id])
+  pedidoId     String   @unique
+}
+
+model Avaliacao {
+  id           String   @id @default(uuid())
+  nota         Int
+  comentario   String?
+  dataAvaliacao DateTime @default(now())
+  status       StatusAvaliacao @default(PUBLICADO)
+  compraVerificada Boolean @default(false)
+  respostaArtesao String?
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId    String
+  produto      Produto @relation(fields: [produtoId], references: [id])
+  produtoId    String
+  pedidoId     String?
+}
+
+model Ticket {
+  id           String   @id @default(uuid())
+  assunto      String
+  mensagem     String
+  status       String   @default("ABERTO")
+  prioridade   String   @default("NORMAL")
+  categoria    String?
+  pedidoId     String?
+  criadoEm     DateTime @default(now())
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId    String
+  mensagens    MensagemTicket[]
+}
+
+model MensagemTicket {
+  id        String   @id @default(uuid())
+  autor     String   @default("COMPRADOR")
+  texto     String
+  criadoEm  DateTime @default(now())
+  ticket    Ticket @relation(fields: [ticketId], references: [id])
+  ticketId  String
+}
+
+model PerfilAdmin {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  funcao    String
+  telefone  String?
+  criadoEm  DateTime @default(now())
+}
