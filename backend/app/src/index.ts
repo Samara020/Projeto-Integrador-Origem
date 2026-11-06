@@ -6,6 +6,7 @@ import { tratarErro } from "./middleware/error";
 import { idsComoTexto } from "./middleware/ids-texto";
 import { montarRotas } from "./routes";
 import { PORT, CORS_ORIGIN } from "./config";
+import { prepararBanco } from "./lib/setup-db";
 
 export function criarApp(): Application {
   const app = express();
@@ -34,9 +35,16 @@ export function criarApp(): Application {
 const app = criarApp();
 
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
-    console.log(`API Origem rodando em http://localhost:${PORT}`);
-  });
+  prepararBanco()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`API Origem rodando em http://localhost:${PORT}`);
+      });
+    })
+    .catch((erro) => {
+      console.error("Falha ao preparar o banco:", erro);
+      process.exit(1);
+    });
 }
 
 export default app;

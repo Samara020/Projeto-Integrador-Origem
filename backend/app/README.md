@@ -36,6 +36,7 @@ CORS_ORIGIN=http://localhost:3000
 |----------|-----------|--------|
 | `DATABASE_URL` | String de conexão PostgreSQL | obrigatória |
 | `JWT_SECRET` | Chave para assinar tokens JWT | obrigatória |
+| `AUTO_SETUP_DB` | `true` cria tabelas e seed ao subir a API se o banco estiver vazio (só dev) | `false` |
 | `DATABASE_URL_TEST` | Banco usado pelos testes (apagado a cada teste) | obrigatória p/ `npm test` |
 | `JWT_EXPIRES_IN` | Expiração do token | `7d` |
 | `PORT` | Porta da API | `4000` |
