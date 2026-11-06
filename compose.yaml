@@ -13,12 +13,37 @@ services:
       - "5433:5432"
     volumes:
       - origem_dados:/var/lib/postgresql/data
-      - ./database/sql:/docker-entrypoint-initdb.d:ro
+      # Só schema e seed real. O 03_seed_teste.sql (dados fictícios) fica de fora.
+      - ./database/sql/01_create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql:ro
+      - ./database/sql/02_integrity_rules.sql:/docker-entrypoint-initdb.d/02_integrity_rules.sql:ro
+      - ./database/sql/04_create_indexes.sql:/docker-entrypoint-initdb.d/04_create_indexes.sql:ro
+      - ./database/sql/05_seed_dados_reais.sql:/docker-entrypoint-initdb.d/05_seed_dados_reais.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U origem_user -d origem_db"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/app/Dockerfile
+      target: runtime
+    environment:
+      # Se a senha tiver caracteres especiais (@ : / ? # %), codifique-os na URL (percent-encoding).
+      DATABASE_URL: postgresql://origem_user:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}@postgres:5432/origem_db
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      JWT_EXPIRES_IN: 7d
+      PORT: "4000"
+      CORS_ORIGIN: http://localhost:3000
+      # Cria tabelas/seed se o banco estiver vazio (só para desenvolvimento).
+      AUTO_SETUP_DB: "true"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   modulo-ia:
     build:

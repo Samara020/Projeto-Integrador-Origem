@@ -1,0 +1,7 @@
+*
+!backend/app/package.json
+!backend/app/package-lock.json
+!backend/app/tsconfig.json
+!backend/app/prisma
+!backend/app/src
+!database/sql
