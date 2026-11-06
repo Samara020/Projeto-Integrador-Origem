@@ -1,5 +1,6 @@
-// Único lugar do frontend que chama fetch.
+// Único lugar do frontend que chama requisicoes HTTP.
 // Avaliação 2: defina NEXT_PUBLIC_API_URL com o endereço do backend. Nada mais muda aqui.
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { lerLocal } from "@/lib/armazenamento";
 import type { Sessao } from "@/types";
 
@@ -43,39 +44,50 @@ function montarUrl(caminho: string, parametros?: Parametros, base = BASE): strin
   return `${base}${caminho}${query ? `?${query}` : ""}`;
 }
 
-export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
-  const cabecalhos: Record<string, string> = { Accept: "application/json" };
-  if (opcoes.corpo !== undefined) {
-    cabecalhos["Content-Type"] = "application/json";
-  }
+const cliente = axios.create();
 
+cliente.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const sessao = lerLocal<Sessao>("sessao");
-  if (sessao) cabecalhos.Authorization = `${sessao.tipo} ${sessao.token}`;
+  if (sessao?.token) {
+    config.headers.Authorization = `${sessao.tipo} ${sessao.token}`;
+  }
+  config.headers.Accept = "application/json";
+  return config;
+});
 
-  let resposta: Response;
+export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
+  const base = opcoes.baseUrl ?? BASE;
+  const url = montarUrl(caminho, opcoes.parametros, base);
+
+  let resposta;
   try {
-    resposta = await fetch(montarUrl(caminho, opcoes.parametros, opcoes.baseUrl), {
+    resposta = await cliente.request<T>({
+      url,
       method: opcoes.metodo ?? "GET",
-      headers: cabecalhos,
-      body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
+      data: opcoes.corpo,
       signal: opcoes.sinal,
+      headers: {
+        "Content-Type": opcoes.corpo !== undefined ? "application/json" : undefined,
+      },
     });
-  } catch (causa) {
-    if (causa instanceof DOMException && causa.name === "AbortError") {
+    return resposta.data as T;
+  } catch (causa: unknown) {
+    const erro = causa as AxiosError<{ mensagem?: string }>;
+
+    if (erro.name === "CanceledError" || (erro as any).name === "AbortError") {
       throw causa;
     }
-    throw new ApiError(0, "Sem conexão. Confira sua internet e tente de novo.");
-  }
 
-  const dados = await resposta.json().catch(() => null);
+    if (!erro.response) {
+      throw new ApiError(
+        0,
+        "Sem conexao. Confira sua internet e tente de novo."
+      );
+    }
 
-  if (!resposta.ok) {
     const mensagem =
-      dados && typeof dados.mensagem === "string"
-        ? dados.mensagem
-        : "Algo deu errado do nosso lado. Tente de novo em instantes.";
-    throw new ApiError(resposta.status, mensagem);
+      erro.response.data?.mensagem ||
+      "Algo deu errado do nosso lado. Tente de novo em instantes.";
+    throw new ApiError(erro.response.status, mensagem);
   }
-
-  return dados as T;
 }
