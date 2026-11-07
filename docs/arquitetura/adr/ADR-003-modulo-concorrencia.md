@@ -53,7 +53,3 @@ A implementação atual demonstra o controle de concorrência sem modificar o fl
 - `backend/backend/Origem.Concorrencia/README.md`
 - `backend/backend/Origem.Concorrencia/Origem.Concorrencia.csproj`
 - `frontend/src/services/pedidos.ts`
-
-## Nota sobre o registro
-
-Este ADR foi elaborado a partir da análise do código e da estrutura atual do repositório. As alternativas e os critérios apresentados representam uma avaliação arquitetural para fins de documentação. Não foi identificada evidência suficiente para afirmar que essas alternativas foram formalmente discutidas ou aprovadas pela equipe na data deste registro.
