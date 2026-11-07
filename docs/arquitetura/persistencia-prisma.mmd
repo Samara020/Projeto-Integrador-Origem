@@ -1,0 +1,51 @@
+﻿flowchart TD
+    SERVICE[Services da aplicacao] --> REPOSITORY[Repositories]
+    REPOSITORY --> OPERATIONS[Operacoes de persistencia]
+
+    subgraph PRISMA["Camada Prisma"]
+        CLIENT[Prisma Client]
+        SCHEMA[schema.prisma]
+        URL[DATABASE_URL]
+        OPERATIONS --> CLIENT
+        SCHEMA -.->|Define modelos e mapeamentos| CLIENT
+        URL -->|Configura conexao| CLIENT
+    end
+
+    CLIENT -->|Consultas e transacoes| DB[(PostgreSQL)]
+
+    subgraph SETUP["Preparacao do banco"]
+        SETUPDB[setup-db.ts]
+        SQL1[01_create_tables.sql]
+        SQL2[02_integrity_rules.sql]
+        SQL3[04_create_indexes.sql]
+        SEED[05_seed_dados_reais.sql]
+
+        SQL1 --> SETUPDB
+        SQL2 --> SETUPDB
+        SQL3 --> SETUPDB
+        SEED --> SETUPDB
+    end
+
+    SETUPDB -->|Executa comandos SQL via Prisma| CLIENT
+
+    subgraph EXAMPLES["Exemplos de operacoes no repository"]
+        COUNT[produto.count]
+        FIND[produto.findMany]
+        CREATE[produto.create]
+        UPDATE[produto.update]
+        UPSERT[estoque.upsert]
+        TRANSACTION[prisma.$transaction]
+    end
+
+    REPOSITORY -.-> EXAMPLES
+    EXAMPLES -.-> OPERATIONS
+
+    classDef application fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef prisma fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef database fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef scripts fill:#f3e8ff,stroke:#9333ea,color:#581c87
+
+    class SERVICE,REPOSITORY,OPERATIONS application
+    class CLIENT,SCHEMA,URL,COUNT,FIND,CREATE,UPDATE,UPSERT,TRANSACTION prisma
+    class DB database
+    class SETUPDB,SQL1,SQL2,SQL3,SEED scripts
