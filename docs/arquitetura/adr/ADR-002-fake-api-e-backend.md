@@ -53,7 +53,3 @@ A documentação deve preservar essa distinção para evitar afirmar que todas a
 - `frontend/src/app/api/`
 - `docs/FakeAPI.md`
 - `backend/app/src/index.ts`
-
-## Nota sobre o registro
-
-Este ADR foi elaborado a partir da análise do código e da estrutura atual do repositório. As alternativas e os critérios apresentados representam uma avaliação arquitetural para fins de documentação. Não foi identificada evidência suficiente para afirmar que essas alternativas foram formalmente discutidas ou aprovadas pela equipe na data deste registro.
