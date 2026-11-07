@@ -9,7 +9,3 @@ Esta pasta reúne a documentação da arquitetura de software identificada no re
 - [Diagrama de arquitetura](diagrama-arquitetura.mmd): representação dos principais componentes.
 - [Persistência com Prisma](persistencia-prisma.mmd): representação exclusiva do acesso e da persistência de dados.
 - [ADRs](adr/): registros das decisões arquiteturais relevantes.
-
-## Observação
-
-A documentação representa a estrutura identificada no código e nos arquivos do projeto. Componentes demonstrativos, caminhos alternativos e integrações condicionais são identificados como tais, para não confundi-los com integrações obrigatórias ou definitivas.
