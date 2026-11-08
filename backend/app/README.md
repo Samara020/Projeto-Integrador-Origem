@@ -47,29 +47,40 @@ CORS_ORIGIN=http://localhost:3000
 ## Scripts
 
 ```bash
-npm install              # instala dependências
-npx prisma generate      # gera o Prisma Client
-npm run dev              # servidor de desenvolvimento (tsx watch)
-npm run build            # compila TypeScript (tsc)
-npm start                # inicia em produção (node dist/src/index.js)
-npm test                 # roda suíte de testes (Jest, --runInBand)
-npm run test:watch       # testes em modo watch
+npm install                  # instala dependências
+npx prisma generate          # gera o Prisma Client
+npm run prisma:migrate:deploy # aplica migrações pendentes no banco
+npm run prisma:migrate:status # verifica status das migrações
+npm run dev                  # servidor de desenvolvimento (tsx watch)
+npm run build                # compila TypeScript (tsc)
+npm start                    # inicia em produção (node dist/src/index.js)
+npm test                     # roda suíte de testes (Jest, --runInBand)
+npm run test:watch           # testes em modo watch
 ```
 
 ---
 
 ## Banco de dados
 
-O banco é definido pelos scripts SQL em `database/sql/`, que são a fonte da verdade. O `prisma/schema.prisma` apenas **mapeia** essas tabelas (`@@map`/`@map`); não há migrações do Prisma. **Não use** `prisma migrate` nem `prisma db push`.
+A estrutura do banco é modelada de acordo com as especificações relacionais em `database/sql/` e versionada através de migrações do Prisma em `prisma/migrations/`.
 
-Ordem de criação (use `psql -f` ou `npx prisma db execute --file <arquivo> --schema prisma/schema.prisma`):
+### Migrações
 
-1. `01_create_tables.sql`
-2. `02_integrity_rules.sql`
-3. `04_create_indexes.sql`
-4. `05_seed_dados_reais.sql` (dados de desenvolvimento)
+- A migração inicial `20261108120000_init_database` estrutura o banco de dados completo:
+  - 14 tabelas com chaves primárias, estrangeiras e restrições `UNIQUE`;
+  - Restrições `CHECK` de integridade (CPF, preços, quantidades e notas);
+  - 12 índices de desempenho nas chaves estrangeiras (`idx_*`);
+  - Triggers e funções de integridade (`validar_estoque_peca_unica`, `validar_produto_peca_unica`, `baixar_estoque`).
 
-Alterou as tabelas? Atualize o SQL e o `schema.prisma` juntos, depois rode `npx prisma generate`.
+Comandos de migração:
+```bash
+npm run prisma:migrate:deploy # aplica migrações pendentes
+npm run prisma:migrate:status # verifica status das migrações
+npm run prisma:migrate:dev    # cria e aplica novas migrações em desenvolvimento
+```
+
+Para popular dados de desenvolvimento:
+- Carga de dados reais: execute `database/sql/05_seed_dados_reais.sql` (ou ative `AUTO_SETUP_DB=true`).
 
 ### Limitações do esquema SQL
 

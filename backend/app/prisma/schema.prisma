@@ -1,6 +1,5 @@
-// Schema alinhado a database/sql/01_create_tables.sql (fonte da verdade do banco).
-// As tabelas são criadas pelos scripts SQL; o Prisma apenas as mapeia.
-// Não use `prisma migrate` / `db push` contra estas tabelas.
+// Schema alinhado a database/sql/ (fonte de modelagem do banco relacional).
+// As migrações do Prisma gerenciam a estrutura do banco em prisma/migrations.
 
 generator client {
   provider = "prisma-client-js"
@@ -47,6 +46,7 @@ model Loja {
   usuario  Usuario   @relation(fields: [usuarioId], references: [id], map: "fk_loja_usuario")
   produtos Produto[]
 
+  @@index([usuarioId], map: "idx_loja_usuario")
   @@map("loja")
 }
 
@@ -82,6 +82,8 @@ model Produto {
   itensPedido   ItemPedido[]
   avaliacoes    Avaliacao[]
 
+  @@index([lojaId], map: "idx_produto_loja")
+  @@index([categoriaId], map: "idx_produto_categoria")
   @@map("produto")
 }
 
@@ -103,6 +105,7 @@ model Imagem {
 
   produto Produto @relation(fields: [produtoId], references: [id], map: "fk_imagem_produto")
 
+  @@index([produtoId], map: "idx_imagem_produto")
   @@map("imagem")
 }
 
@@ -129,6 +132,7 @@ model ItemCarrinho {
   carrinho Carrinho @relation(fields: [carrinhoId], references: [id], map: "fk_item_carrinho_carrinho")
 
   @@id([carrinhoId, numeroItem], map: "pk_item_carrinho")
+  @@index([produtoId], map: "idx_item_carrinho_produto")
   @@map("item_carrinho")
 }
 
@@ -145,6 +149,8 @@ model Pedido {
   pagamentos      Pagamento[]
   historico       HistoricoPedido[]
 
+  @@index([usuarioId], map: "idx_pedido_usuario")
+  @@index([enderecoEntregaId], map: "idx_pedido_endereco")
   @@map("pedido")
 }
 
@@ -160,6 +166,7 @@ model ItemPedido {
   produto Produto @relation(fields: [produtoId], references: [id], map: "fk_item_pedido_produto")
 
   @@id([pedidoId, numeroItem], map: "pk_item_pedido")
+  @@index([produtoId], map: "idx_item_pedido_produto")
   @@map("item_pedido")
 }
 
@@ -173,6 +180,7 @@ model Pagamento {
 
   pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_pagamento_pedido")
 
+  @@index([pedidoId], map: "idx_pagamento_pedido")
   @@map("pagamento")
 }
 
@@ -187,6 +195,8 @@ model Avaliacao {
   usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_avaliacao_usuario")
   produto Produto @relation(fields: [produtoId], references: [id], map: "fk_avaliacao_produto")
 
+  @@index([usuarioId], map: "idx_avaliacao_usuario")
+  @@index([produtoId], map: "idx_avaliacao_produto")
   @@map("avaliacao")
 }
 
@@ -199,5 +209,6 @@ model HistoricoPedido {
 
   pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_historico_pedido")
 
+  @@index([pedidoId], map: "idx_historico_pedido")
   @@map("historico_pedido")
 }
