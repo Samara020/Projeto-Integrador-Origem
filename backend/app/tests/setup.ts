@@ -1,5 +1,10 @@
 import prisma from "../src/lib/prisma";
+import { limparBanco } from "./helpers";
 
 afterAll(async () => {
-  await prisma.$disconnect();
+  try {
+    await limparBanco();
+  } finally {
+    await prisma.$disconnect();
+  }
 });

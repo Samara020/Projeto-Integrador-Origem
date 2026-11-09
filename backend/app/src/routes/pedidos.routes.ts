@@ -24,6 +24,9 @@ router.post(
   }
 );
 
+router.post("/:id/cancelar", autenticar, compradorApenas,
+  (req, res, next) => controller.cancelar(req, res).catch(next));
+
 router.get(
   "/comprador/pedidos",
   autenticar,

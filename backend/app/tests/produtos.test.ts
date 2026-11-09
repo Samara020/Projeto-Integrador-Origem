@@ -16,7 +16,6 @@ const app = criarApp();
 
 describe("Produtos - endpoints e persistência", () => {
   beforeEach(limparBanco);
-  afterAll(limparBanco);
 
   test("GET /produtos retorna envelope paginado só com produtos aprovados", async () => {
     const categoria = await criarCategoria();

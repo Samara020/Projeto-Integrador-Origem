@@ -481,6 +481,9 @@ O frontend só sobe depois que o módulo de IA responde ao healthcheck (`depends
 
 TDD documentado em [`docs/TDD.md`](docs/TDD.md): story map → tarefas → testes por nível.
 
+Instalação no Windows, banco isolado e execução completa: [`docs/TestesAutomatizados.md`](docs/TestesAutomatizados.md).
+`npm run test:backend` executa a API Node com PostgreSQL; `npm run test:all` reúne todas as suítes principais.
+
 | Nível | Ferramenta | Comando |
 |---|---|---|
 | Unitário | Jest + pytest | `npm run test:unit` |

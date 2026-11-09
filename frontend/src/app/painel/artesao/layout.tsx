@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AcessoPainel } from "@/components/painel/AcessoPainel";
 import { CabecalhoPainel } from "@/components/painel/CabecalhoPainel";
 import { NAVEGACAO_ARTESAO } from "@/components/painel/navegacao";
 
@@ -10,12 +11,14 @@ export default function LayoutPainelArtesao({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-1 flex-col bg-fundo">
-      <CabecalhoPainel navegacao={NAVEGACAO_ARTESAO} />
-      <div className="mx-auto flex w-full max-w-pagina flex-1 flex-col gap-4 px-margem py-6">
-        {children}
+    <AcessoPainel papel="ARTESAO">
+      <div className="flex min-h-dvh flex-1 flex-col bg-fundo">
+        <CabecalhoPainel navegacao={NAVEGACAO_ARTESAO} />
+        <div className="mx-auto flex w-full max-w-pagina flex-1 flex-col gap-4 px-margem py-6">
+          {children}
+        </div>
+        <footer className="h-16 shrink-0 bg-tinta" aria-label="Rodapé do painel" />
       </div>
-      <footer className="h-16 shrink-0 bg-tinta" aria-label="Rodapé do painel" />
-    </div>
+    </AcessoPainel>
   );
 }

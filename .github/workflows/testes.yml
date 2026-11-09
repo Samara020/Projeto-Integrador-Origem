@@ -17,6 +17,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: origem_user
+          POSTGRES_PASSWORD: ci-test-only
+          POSTGRES_DB: origem_teste
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U origem_user -d origem_teste"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
     env:
       # O frontend e os testes de API falam com o módulo de IA de verdade (integração).
       # A chave é a de demonstração do mockup, já pública no README; não é segredo.
@@ -25,6 +38,8 @@ jobs:
       RECOMENDACAO_API_KEY: origem-mockup-key
       E2E_BROWSER: chrome
       NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL_TEST: postgresql://origem_user:ci-test-only@localhost:5433/origem_teste
+      JWT_SECRET: chave-exclusiva-dos-testes-ci
 
     steps:
       - name: Baixar o código
@@ -38,6 +53,7 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             e2e/package-lock.json
+            backend/app/package-lock.json
 
       - name: Preparar Python 3.13
         uses: actions/setup-python@v7
@@ -55,9 +71,18 @@ jobs:
       - name: Instalar dependências
         run: |
           npm ci --prefix frontend
+          npm ci --prefix backend/app
+          npm run prisma:generate --prefix backend/app
           npm ci --prefix e2e
+          npm --prefix e2e exec -- cypress install
           npm --prefix e2e exec -- cypress verify
           python -m pip install -r modulo-ia/requirements.txt
+
+      - name: Preparar banco isolado de testes
+        run: npm run test:db --prefix backend/app
+
+      - name: Compilar backend
+        run: npm run build --prefix backend/app
 
       - name: Resumo da execução
         run: |
@@ -74,6 +99,10 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: npm run build
+
+      - name: Lint do frontend
+        if: ${{ !cancelled() }}
+        run: npm run lint --prefix frontend
 
       - name: Subir módulo de IA (porta 3001) e frontend (porta 3000)
         if: ${{ !cancelled() }}

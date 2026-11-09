@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { ZodError } from "zod";
 
 export class ErroApp extends Error {
   status: number;
@@ -15,6 +16,9 @@ export const tratarErro = (
   res: Response,
   _next: NextFunction
 ): Response => {
+  if (erro instanceof ZodError) {
+    return res.status(400).json({ mensagem: "Dados invalidos na requisicao." });
+  }
   if (erro instanceof ErroApp) {
     return res.status(erro.status).json({ mensagem: erro.message });
   }

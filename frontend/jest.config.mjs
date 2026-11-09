@@ -8,6 +8,7 @@ export default createJestConfig({
   displayName: "unitário",
   testEnvironment: "jsdom",
   testMatch: ["<rootDir>/tests/unit/**/*.test.ts"],
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
   reporters: [
     "default",

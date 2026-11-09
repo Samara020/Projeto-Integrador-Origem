@@ -5,6 +5,8 @@
   "scripts": {
     "test:unit": "node scripts/testes.mjs unit",
     "test:api": "node scripts/testes.mjs api",
-    "test:e2e": "node scripts/testes.mjs e2e"
+    "test:e2e": "node scripts/testes.mjs e2e",
+    "test:backend": "npm --prefix backend/app test",
+    "test:all": "node scripts/testes.mjs all"
   }
 }

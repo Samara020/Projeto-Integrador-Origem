@@ -22,8 +22,19 @@ IA_ROOT = Path(__file__).resolve().parent.parent
 BASE_URL = "http://127.0.0.1:3001"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def iniciar_servidor_bentoml():
+    # A CI já mantém o serviço para Jest e E2E. Não inicie outro na mesma porta.
+    externo = os.getenv("IA_BASE_URL")
+    if externo:
+        try:
+            resposta = requests.get(f"{externo.rstrip('/')}/readyz", timeout=5)
+            resposta.raise_for_status()
+        except requests.RequestException as erro:
+            pytest.fail(f"IA_BASE_URL indisponível: {erro}")
+        yield
+        return
+
     ambiente_servidor = os.environ.copy()
     ambiente_servidor["CATALOGO_IA"] = str(
         IA_ROOT / "data" / "catalogo_origem.json"

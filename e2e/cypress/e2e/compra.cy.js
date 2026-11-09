@@ -185,9 +185,7 @@ describe("TC13 · prevenção de pedidos duplicados", () => {
     cy.contains("h1", "Pagamento confirmado").should("be.visible");
   });
 
-  // Rodou em 2026-10-14 e falhou: gravou ['ped_552906', 'ped_552906'], dois pedidos com o mesmo id.
-  // Sem correção de produto nesta entrega. Tirar o .skip quando o checkout travar o segundo envio.
-  it.skip("duplo clique em 'Ir para pagamento' cria um pedido só (defeito do produto: checkout sem trava de envio duplicado)", () => {
+  it("duplo clique em 'Ir para pagamento' cria um pedido só", () => {
     adicionarPassaroPelaTela();
     cy.visit("/checkout");
     cy.hidratado();

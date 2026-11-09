@@ -2,7 +2,7 @@
 
 import { Leaf } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { ResumoPedido } from "@/components/carrinho/ResumoPedido";
 import { AvisoFormulario } from "@/components/conta/AvisoFormulario";
 import { Botao } from "@/components/ui/Botao";
@@ -36,6 +36,7 @@ export function FormularioEntrega({
   const [erros, setErros] = useState<Erros>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const envioEmCurso = useRef(false);
   const total = subtotal + opcaoEnvio.valor;
 
   const validarCampo = (campo: keyof EnderecoEntrega, valor: string) => {
@@ -52,6 +53,7 @@ export function FormularioEntrega({
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    if (envioEmCurso.current) return;
     const novos: Erros = {
       cep: validarCep(cep),
       rua: validarRua(rua),
@@ -60,6 +62,7 @@ export function FormularioEntrega({
     setErros(novos);
     if (Object.values(novos).some(Boolean)) return;
 
+    envioEmCurso.current = true;
     setEnviando(true);
     setFalha(null);
     try {
@@ -71,6 +74,7 @@ export function FormularioEntrega({
           : "Não foi possível criar o pedido. Tente novamente.",
       );
     } finally {
+      envioEmCurso.current = false;
       setEnviando(false);
     }
   }

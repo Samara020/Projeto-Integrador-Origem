@@ -11,6 +11,11 @@ const config: Config = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   testTimeout: 30000,
+  reporters: ["default", ["jest-junit", {
+    outputDirectory: "../../relatorios",
+    outputName: "api-backend.xml",
+    reportTestSuiteErrors: true,
+  }]],
 };
 
 export default config;

@@ -3,6 +3,8 @@ import os
 import pytest
 import requests
 
+pytestmark = pytest.mark.usefixtures("iniciar_servidor_bentoml")
+
 
 # O Next usa a porta 3000, então o serviço de IA sobe na 3001.
 BASE_URL = os.getenv("IA_BASE_URL", "http://localhost:3001")

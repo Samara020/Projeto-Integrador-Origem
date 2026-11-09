@@ -18,7 +18,11 @@ export class PedidosController {
   }
 
   async atualizarStatus(req: Request, res: Response) {
-    const resultado = await pedidoService.atualizarStatus(req.params.id, req.body);
+    const resultado = await pedidoService.atualizarStatus(req.params.id, req.body, req.usuario!.id);
     return res.json(resultado);
+  }
+
+  async cancelar(req: Request, res: Response) {
+    return res.json(await pedidoService.cancelar(req.usuario!.id, req.params.id));
   }
 }

@@ -443,6 +443,13 @@ Remove um item do carrinho.
 #### POST /pedidos/checkout
 Efetiva a criação do pedido a partir do carrinho atual.
 
+No backend Node, exige comprador autenticado. Reserva o estoque, registra endereço,
+pedido, itens e histórico e limpa o carrinho em uma única transação PostgreSQL.
+Estoque insuficiente ou produto não aprovado retorna `409` sem alterações parciais.
+O preço do catálogo no checkout é gravado nos itens e preservado depois da compra.
+Requisições simultâneas do mesmo carrinho criam no máximo um pedido; a segunda
+recebe `400` ao encontrar o carrinho vazio. O backend ainda não soma frete ao total.
+
 ```json
 {
   "enderecoEntrega": {
@@ -464,6 +471,15 @@ Efetiva a criação do pedido a partir do carrinho atual.
 #### POST /pagamentos
 Processa o pagamento do pedido criado.
 
+No backend Node, somente o comprador dono do pedido pode pagar (`403` para outra
+conta). Pagamento é simulado, sem gateway. Cartão sem token retorna `400` e mantém
+o pedido aguardando pagamento. Uma confirmação repetida com o mesmo método retorna
+a mesma transação, sem duplicar pagamento, histórico ou baixa de estoque. Método
+diferente após aprovação ou pedido cancelado retorna `409`. Pagamento e mudança
+de status são atômicos; falha de persistência reverte ambos.
+Pedidos antigos sem registro de reserva no histórico retornam `409` ao tentar
+pagar e exigem novo checkout; cancelá-los não devolve estoque que não foi reservado.
+
 ```json
 {
   "pedidoId": "ped_501",
@@ -483,6 +499,22 @@ Processa o pagamento do pedido criado.
 ---
 
 ### 2.7. Módulo: Pedidos e Logística (HU-13, HU-14, HU-18)
+
+#### POST /pedidos/{id}/cancelar
+
+Cancela a reserva de um pedido `AGUARDANDO_PAGAMENTO` do comprador autenticado.
+Retorna `200` com `{ "id": "501", "status": "CANCELADO" }`. Restaura estoque e
+registra histórico na mesma transação. Repetir o cancelamento não repõe estoque
+novamente. Retorna `401` sem sessão, `403` para outro comprador, `404` para pedido
+inexistente e `409` para pedido já pago. Não é um fluxo de estorno de pagamento.
+Expiração automática de reservas e integração com recusa de gateway permanecem
+fora da implementação atual.
+
+No backend Node, as rotas de listagem e envio abaixo usam o prefixo `/pedidos`
+(`/pedidos/comprador/pedidos`, `/pedidos/artesao/pedidos` e
+`/pedidos/artesao/pedidos/{id}/status`). A atualização aceita `status` e verifica
+a propriedade da loja; não permite enviar pedido aguardando pagamento/cancelado,
+nem alterar o status global de um pedido que contenha itens de outra loja.
 
 #### GET /comprador/pedidos
 Lista o histórico de pedidos realizados pelo comprador autenticado.

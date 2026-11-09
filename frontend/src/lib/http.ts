@@ -74,7 +74,7 @@ export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> 
   } catch (causa: unknown) {
     const erro = causa as AxiosError<{ mensagem?: string }>;
 
-    if (erro.name === "CanceledError" || (erro as any).name === "AbortError") {
+    if (erro.name === "CanceledError" || erro.name === "AbortError") {
       throw causa;
     }
 

@@ -61,7 +61,7 @@ export const pedidoRepository = {
       where: { itens: { some: { produto: { lojaId: toId(lojaId) } } } },
       orderBy: { data: "desc" },
       include: {
-        itens: { include: { produto: true } },
+        itens: { where: { produto: { lojaId: toId(lojaId) } }, include: { produto: true } },
         usuario: { select: { nome: true } },
         historico: { orderBy: { id: "desc" } },
       },

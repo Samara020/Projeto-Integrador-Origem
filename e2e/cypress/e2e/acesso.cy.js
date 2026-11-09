@@ -81,13 +81,18 @@ describe("TC08 · controle de acesso conforme o perfil", () => {
     cy.contains("h1", "Cadastrar nova peça").should("be.visible");
   });
 
-  // Rodou em 2026-10-14 e falhou: o comprador vê o formulário "Publicar peça". Sem correção de
-  // produto nesta entrega. Tirar o .skip quando o painel ganhar guarda de papel. Ver plano e achados.
-  it.skip("comprador não abre o cadastro de peça do painel do artesão (defeito do produto: painel do artesão sem guarda de papel)", () => {
+  it("comprador não abre o cadastro de peça do painel do artesão", () => {
     // visitarComo espera a hidratação: o formulário do HTML do servidor já está na tela,
     // então "não existe" aqui só passa se uma guarda de papel tirar o formulário.
     cy.visitarComo("COMPRADOR", "/painel/artesao/pecas/nova");
+    cy.contains('[role="alert"] h1', "Área restrita ao artesão").should("be.visible");
+    cy.contains("button", "Publicar peça").should("not.exist");
+  });
 
+  it("visitante no painel do artesão é enviado ao login antes de mostrar o formulário", () => {
+    cy.visit("/painel/artesao/pecas/nova");
+    cy.location("pathname").should("eq", "/entrar");
+    cy.location("search").should("eq", "?volta=%2Fpainel%2Fartesao%2Fpecas%2Fnova");
     cy.contains("button", "Publicar peça").should("not.exist");
   });
 });

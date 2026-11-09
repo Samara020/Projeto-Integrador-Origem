@@ -28,7 +28,6 @@ async function cenario() {
 
 describe("Pedidos - endpoints e persistência", () => {
   beforeEach(limparBanco);
-  afterAll(limparBanco);
 
   test("POST /pedidos/checkout cria pedido e itens persistidos", async () => {
     const { comprador, produto } = await cenario();
@@ -99,6 +98,7 @@ describe("Pedidos - endpoints e persistência", () => {
     const { comprador, artesao, produto, endereco } = await cenario();
     const pedido = await criarPedido(comprador.id, endereco.id, produto.id);
     const token = gerarToken(artesao.id, "ARTESAO");
+    await prisma.pedido.update({ where: { id: pedido.id }, data: { status: "PAGO" } });
 
     const resposta = await request(app)
       .put(`/pedidos/artesao/pedidos/${pedido.id}/status`)

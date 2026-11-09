@@ -7,6 +7,7 @@ const createJestConfig = nextJest({ dir: "./" });
 export default createJestConfig({
   displayName: "api",
   testEnvironment: "node",
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   testMatch: ["<rootDir>/tests/api/**/*.test.ts"],
   setupFilesAfterEnv: ["<rootDir>/tests/api/setup.ts"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },

@@ -49,6 +49,7 @@ const NIVEIS = {
     titulo: "Testes de API",
     suites: [
       { nome: "Jest · Fake API do frontend", ...npm("frontend", "test:api"), relatorio: "api-jest.xml" },
+      { nome: "Jest · backend e PostgreSQL", ...npm("backend/app", "test"), relatorio: "api-backend.xml" },
       { nome: "pytest · módulo de IA (HTTP)", ...pytest(["modulo-ia/tests/test_api.py"], "api-pytest.xml") },
     ],
   },
@@ -122,6 +123,11 @@ function casosQueFalharam(arquivos) {
   }
   return casos;
 }
+
+NIVEIS.all = {
+  titulo: "Todos os testes",
+  suites: [...NIVEIS.unit.suites, ...NIVEIS.api.suites, ...NIVEIS.e2e.suites],
+};
 
 const nivel = NIVEIS[process.argv[2]];
 if (!nivel) {

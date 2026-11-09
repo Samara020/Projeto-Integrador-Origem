@@ -1,28 +1,12 @@
-import { ErroApp } from "../middleware/error";
-import { pedidoRepository } from "../repositories/pedido.repository";
-import { pagamentoRepository } from "../repositories/pagamento.repository";
+import { compraRepository } from "../repositories/compra.repository";
 
 export const pagamentoService = {
-  async processar(dados: {
+  async processar(usuarioId: string, dados: {
     pedidoId: string;
     metodoPagamento: string;
     tokenCartao: string | null;
   }) {
-    const pedido = await pedidoRepository.buscarPorId(dados.pedidoId);
-    if (!pedido) throw new ErroApp(404, "Pedido nao encontrado.");
-
-    const valorTotal = pedido.itens.reduce(
-      (s: number, i: any) => s + Number(i.subtotal),
-      0
-    );
-
-    const pagamento = await pagamentoRepository.criar({
-      pedidoId: dados.pedidoId,
-      valor: valorTotal,
-      formaPagamento: dados.metodoPagamento,
-    });
-
-    await pagamentoRepository.atualizarPedido(dados.pedidoId, "PAGO");
+    const pagamento = await compraRepository.pagar(usuarioId, dados);
 
     return {
       transacaoId: pagamento.id,

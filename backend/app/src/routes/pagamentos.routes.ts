@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { autenticar } from "../middleware/auth";
+import { autenticar, compradorApenas } from "../middleware/auth";
 import { PagamentosController } from "../controllers/pagamentos.controller";
 
 const router = Router();
@@ -12,7 +12,7 @@ const schemaPagamento = z.object({
   tokenCartao: z.string().nullable(),
 });
 
-router.post("/", autenticar, (req, res, next) => {
+router.post("/", autenticar, compradorApenas, (req, res, next) => {
   schemaPagamento.parse(req.body);
   return controller.processar(req, res).catch(next);
 });

@@ -36,6 +36,10 @@ export const carrinhoService = {
     if (!carrinho) throw new ErroApp(500, "Não foi possível criar o carrinho.");
 
     const existente = await carrinhoRepository.buscarItem(carrinho.id, dados.produtoId);
+    const quantidade = (existente?.quantidade ?? 0) + dados.quantidade;
+    if (quantidade > (produto.estoque?.quantidadeDisponivel ?? 0)) {
+      throw new ErroApp(409, "Quantidade acima do estoque disponivel.");
+    }
 
     if (existente) {
       await carrinhoRepository.atualizarItem(carrinho.id, existente.numeroItem, existente.quantidade + dados.quantidade);
