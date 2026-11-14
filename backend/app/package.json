@@ -14,7 +14,8 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "test": "jest --runInBand",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "aed:benchmark": "tsx src/aed/benchmarks/analise-complexidade.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

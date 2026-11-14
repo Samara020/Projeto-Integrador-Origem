@@ -7,6 +7,7 @@ __pycache__/
 .env
 node_modules/
 relatorios/
+/aed/bin/
 e2e/cypress/screenshots/
 e2e/cypress/videos/
 e2e/cypress/downloads/
