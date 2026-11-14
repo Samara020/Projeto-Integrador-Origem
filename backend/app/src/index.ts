@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { tratarErro } from "./middleware/error";
+import { rotaNaoEncontrada, tratarErro } from "./middleware/error";
 import { idsComoTexto } from "./middleware/ids-texto";
 import { montarRotas } from "./routes";
 import { PORT, CORS_ORIGIN } from "./config";
@@ -27,6 +27,7 @@ export function criarApp(): Application {
 
   montarRotas(app);
 
+  app.use(rotaNaoEncontrada);
   app.use(tratarErro);
 
   return app;

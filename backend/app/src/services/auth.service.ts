@@ -10,20 +10,22 @@ export const authService = {
     papel: string;
     codigoConvite?: string;
   }) {
-    const existe = await usuarioRepository.buscarPorEmail(dados.email);
+    const emailNormalizado = dados.email.trim().toLowerCase();
+    const existe = await usuarioRepository.buscarPorEmail(emailNormalizado);
     if (existe) {
-      throw new ErroApp(400, "Ja existe uma conta com este e-mail.");
+      throw new ErroApp(400, "Já existe uma conta com esse e-mail.");
     }
 
     if (dados.papel === "ADMINISTRADOR") {
-      if (!dados.codigoConvite || dados.codigoConvite !== "origem-admin-2026") {
-        throw new ErroApp(403, "Codigo de convite invalido.");
+      const codigo = dados.codigoConvite?.trim().toLowerCase();
+      if (!codigo || codigo !== "origem-admin-2026") {
+        throw new ErroApp(403, "Código de convite inválido.");
       }
     }
 
     const usuario = await usuarioRepository.criar({
-      nome: dados.nome,
-      email: dados.email,
+      nome: dados.nome.trim(),
+      email: emailNormalizado,
       senha: dados.senha,
       papel: dados.papel,
     });
@@ -47,9 +49,10 @@ export const authService = {
   },
 
   async login(dados: { email: string; senha: string }) {
-    const usuario = await usuarioRepository.buscarPorEmail(dados.email);
+    const emailNormalizado = dados.email.trim().toLowerCase();
+    const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
     if (!usuario || usuario.senha !== dados.senha) {
-      throw new ErroApp(401, "E-mail ou senha invalidos.");
+      throw new ErroApp(401, "E-mail ou senha incorretos.");
     }
 
     const token = gerarToken({
