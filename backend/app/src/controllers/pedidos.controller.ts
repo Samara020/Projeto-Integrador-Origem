@@ -12,13 +12,22 @@ export class PedidosController {
     return res.json(resultado);
   }
 
+  async buscar(req: Request, res: Response) {
+    const resultado = await pedidoService.buscarDoComprador(req.usuario!.id, req.params.id);
+    return res.json(resultado);
+  }
+
   async listarRecebidos(req: Request, res: Response) {
     const resultado = await pedidoService.listarRecebidosPorArtesao(req.usuario!.id);
     return res.json(resultado);
   }
 
   async atualizarStatus(req: Request, res: Response) {
-    const resultado = await pedidoService.atualizarStatus(req.params.id, req.body);
+    const resultado = await pedidoService.atualizarStatus(
+      req.usuario!.id,
+      req.params.id,
+      req.body
+    );
     return res.json(resultado);
   }
 }

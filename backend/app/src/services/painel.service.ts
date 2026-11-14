@@ -1,5 +1,6 @@
 import { ErroApp } from "../middleware/error";
 import { seloAtivoDe } from "../lib/memoria";
+import prisma from "../lib/prisma";
 import { lojaRepository, produtoRepository } from "../repositories";
 import { adminRepository } from "../repositories/admin.repository";
 
@@ -154,5 +155,23 @@ export const adminService = {
 export const catalogoService = {
   async categorias() {
     return (await import("../repositories/categoria.repository")).categoriaRepository.listar();
+  },
+
+  async tecnicas() {
+    const produtos = await prisma.produto.findMany({
+      select: { tecnica: true },
+      distinct: ["tecnica"],
+      orderBy: { tecnica: "asc" },
+    });
+    return produtos.map((p) => ({ id: p.tecnica, nome: p.tecnica }));
+  },
+
+  async regioes() {
+    const produtos = await prisma.produto.findMany({
+      select: { origem: true },
+      distinct: ["origem"],
+      orderBy: { origem: "asc" },
+    });
+    return produtos.map((p) => ({ id: p.origem, nome: p.origem }));
   },
 };

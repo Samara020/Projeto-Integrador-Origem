@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Request, Response, NextFunction, Router } from "express";
 import { z } from "zod";
 import { autenticar, artesaoApenas } from "../middleware/auth";
 import prisma from "../lib/prisma";
@@ -6,35 +6,9 @@ import { toId } from "../lib/ids";
 import { ErroApp } from "../middleware/error";
 
 const router = Router();
+export const rotasDiretasArtesao = Router();
 
-router.get("/:id/perfil", async (req, res, next) => {
-  try {
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: toId(req.params.id) },
-      include: { loja: { orderBy: { id: "asc" }, take: 1, include: { produtos: { include: { imagens: { take: 1 } } } } } },
-    });
-    const loja = usuario?.loja[0];
-    if (!usuario || !loja) throw new ErroApp(404, "Artesao nao encontrado.");
-
-    return res.json({
-      id: usuario.id,
-      nome: usuario.nome,
-      nomeLoja: loja.nome,
-      biografia: loja.descricao ?? "",
-      regiao: "Pernambuco",
-      produtos: loja.produtos.map((p: any) => ({
-        id: p.id,
-        nome: p.nome,
-        preco: Number(p.preco),
-        imagemPrincipal: p.imagens[0]?.url ?? "",
-      })),
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/artesao/perfil", autenticar, artesaoApenas, async (req, res, next) => {
+const handlerGetMeuPerfil = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const usuario = await prisma.usuario.findUnique({
       where: { id: toId(req.usuario!.id) },
@@ -56,9 +30,9 @@ router.get("/artesao/perfil", autenticar, artesaoApenas, async (req, res, next) 
   } catch (err) {
     next(err);
   }
-});
+};
 
-router.put("/artesao/perfil", autenticar, artesaoApenas, async (req, res, next) => {
+const handlerPutMeuPerfil = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dados = z
       .object({
@@ -98,6 +72,43 @@ router.put("/artesao/perfil", autenticar, artesaoApenas, async (req, res, next) 
   } catch (err) {
     next(err);
   }
-});
+};
+
+const handlerGetPerfilPublico = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: toId(req.params.id) },
+      include: { loja: { orderBy: { id: "asc" }, take: 1, include: { produtos: { include: { imagens: { take: 1 } } } } } },
+    });
+    const loja = usuario?.loja[0];
+    if (!usuario || !loja) throw new ErroApp(404, "Artesao nao encontrado.");
+
+    return res.json({
+      id: usuario.id,
+      nome: usuario.nome,
+      nomeLoja: loja.nome,
+      biografia: loja.descricao ?? "",
+      regiao: "Pernambuco",
+      produtos: loja.produtos.map((p: any) => ({
+        id: p.id,
+        nome: p.nome,
+        preco: Number(p.preco),
+        imagemPrincipal: p.imagens[0]?.url ?? "",
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Rotas sob /artesaos (ex: /artesaos/artesao/perfil)
+router.get("/artesao/perfil", autenticar, artesaoApenas, handlerGetMeuPerfil);
+router.put("/artesao/perfil", autenticar, artesaoApenas, handlerPutMeuPerfil);
+router.get("/:id/perfil", handlerGetPerfilPublico);
+
+// Rotas sob /artesao (ex: /artesao/perfil, como no ContratoDeAPI)
+rotasDiretasArtesao.get("/perfil", autenticar, artesaoApenas, handlerGetMeuPerfil);
+rotasDiretasArtesao.put("/perfil", autenticar, artesaoApenas, handlerPutMeuPerfil);
+rotasDiretasArtesao.get("/:id/perfil", handlerGetPerfilPublico);
 
 export default router;

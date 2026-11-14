@@ -63,4 +63,11 @@ export const carrinhoRepository = {
   limpar(carrinhoId: Id) {
     return prisma.itemCarrinho.deleteMany({ where: { carrinhoId: toId(carrinhoId) } });
   },
+
+  atualizarStatus(carrinhoId: Id, status: string) {
+    return prisma.carrinho.update({
+      where: { id: toId(carrinhoId) },
+      data: { status },
+    });
+  },
 };

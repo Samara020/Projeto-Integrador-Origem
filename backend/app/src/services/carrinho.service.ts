@@ -35,6 +35,10 @@ export const carrinhoService = {
 
     if (!carrinho) throw new ErroApp(500, "Não foi possível criar o carrinho.");
 
+    if (carrinho.status !== "ATIVO") {
+      await carrinhoRepository.atualizarStatus(carrinho.id, "ATIVO");
+    }
+
     const existente = await carrinhoRepository.buscarItem(carrinho.id, dados.produtoId);
 
     if (existente) {
