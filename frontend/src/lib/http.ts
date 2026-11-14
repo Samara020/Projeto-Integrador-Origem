@@ -1,10 +1,26 @@
 // Único lugar do frontend que chama requisicoes HTTP.
 // Avaliação 2: defina NEXT_PUBLIC_API_URL com o endereço do backend. Nada mais muda aqui.
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
-import { lerLocal } from "@/lib/armazenamento";
+import { apagarLocal, lerLocal } from "@/lib/armazenamento";
+import { limparDestinoVolta } from "@/lib/destino";
 import type { Sessao } from "@/types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+function obterBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return (
+      process.env.API_BASE_URL ??
+      process.env.BACKEND_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "http://localhost:4000"
+    );
+  }
+  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+}
+
+const BASE = obterBaseUrl();
+if (typeof window !== "undefined") {
+  console.log("[Origem HTTP] Conectado ao backend:", BASE);
+}
 
 export class ApiError extends Error {
   status: number;
@@ -26,7 +42,45 @@ type Opcoes = {
   baseUrl?: string;
 };
 
+function normalizarCaminhoBackend(caminho: string): string {
+  if (
+    caminho.startsWith("/produtos/admin/") ||
+    caminho.startsWith("/produtos/artesao/") ||
+    caminho.startsWith("/painel/") ||
+    caminho.startsWith("/avaliacoes/")
+  ) {
+    return caminho;
+  }
+
+  if (caminho.startsWith("/admin/produtos/")) {
+    return `/produtos${caminho}`;
+  }
+  if (caminho === "/artesao/pecas" || caminho.startsWith("/artesao/pecas/")) {
+    return `/produtos${caminho}`;
+  }
+  if (
+    caminho.startsWith("/admin/perfil") ||
+    caminho.startsWith("/admin/senha") ||
+    caminho.startsWith("/admin/painel/") ||
+    caminho.startsWith("/artesao/painel/") ||
+    caminho.startsWith("/artesao/envio/") ||
+    caminho.startsWith("/envios/")
+  ) {
+    return `/painel${caminho}`;
+  }
+  if (
+    caminho === "/admin/avaliacoes" ||
+    caminho.startsWith("/admin/avaliacoes/") ||
+    /^\/produtos\/[^/]+\/avaliacoes$/.test(caminho)
+  ) {
+    return `/avaliacoes${caminho}`;
+  }
+
+  return caminho;
+}
+
 function montarUrl(caminho: string, parametros?: Parametros, base = BASE): string {
+  const caminhoFinal = base !== "/api" ? normalizarCaminhoBackend(caminho) : caminho;
   const busca = new URLSearchParams();
   for (const [chave, valor] of Object.entries(parametros ?? {})) {
     if (valor !== undefined && valor !== "" && valor !== false) {
@@ -41,7 +95,7 @@ function montarUrl(caminho: string, parametros?: Parametros, base = BASE): strin
   }
 
   const query = busca.toString();
-  return `${base}${caminho}${query ? `?${query}` : ""}`;
+  return `${base}${caminhoFinal}${query ? `?${query}` : ""}`;
 }
 
 const cliente = axios.create();
@@ -55,8 +109,36 @@ cliente.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+cliente.interceptors.response.use(
+  (resposta) => resposta,
+  (erro: AxiosError) => {
+    const url = erro.config?.url ?? "";
+    const ehRotaDeAuth =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/recuperar-senha");
+
+    if (erro.response?.status === 401 && !ehRotaDeAuth && typeof window !== "undefined") {
+      const pathname = window.location.pathname;
+      const naPaginaDeEntrada =
+        pathname === "/entrar" ||
+        pathname.startsWith("/entrar/") ||
+        pathname === "/cadastro" ||
+        pathname.startsWith("/cadastro/");
+
+      if (!naPaginaDeEntrada) {
+        apagarLocal("sessao");
+        const destino = limparDestinoVolta(pathname + window.location.search);
+        const url = destino ? `/entrar?volta=${encodeURIComponent(destino)}` : "/entrar";
+        window.location.href = url;
+      }
+    }
+    return Promise.reject(erro);
+  },
+);
+
 export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
-  const base = opcoes.baseUrl ?? BASE;
+  const base = opcoes.baseUrl ?? obterBaseUrl();
   const url = montarUrl(caminho, opcoes.parametros, base);
 
   let resposta;
@@ -74,20 +156,30 @@ export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> 
   } catch (causa: unknown) {
     const erro = causa as AxiosError<{ mensagem?: string }>;
 
-    if (erro.name === "CanceledError" || (erro as any).name === "AbortError") {
+    if (erro.name === "CanceledError" || (erro as { name?: string }).name === "AbortError") {
       throw causa;
+    }
+
+    const status = erro.response?.status ?? 0;
+    const mensagem =
+      erro.response?.data?.mensagem ||
+      erro.message ||
+      "Algo deu errado do nosso lado. Tente de novo em instantes.";
+
+    if (typeof window !== "undefined") {
+      console.error(
+        `[Origem HTTP Erro] ${opcoes.metodo ?? "GET"} ${url} (${status}):`,
+        erro.response?.data ?? erro.message,
+      );
     }
 
     if (!erro.response) {
       throw new ApiError(
         0,
-        "Sem conexao. Confira sua internet e tente de novo."
+        "Sem conexao com o backend. Confira se o backend está rodando na porta 4000 e tente de novo."
       );
     }
 
-    const mensagem =
-      erro.response.data?.mensagem ||
-      "Algo deu errado do nosso lado. Tente de novo em instantes.";
-    throw new ApiError(erro.response.status, mensagem);
+    throw new ApiError(status, mensagem);
   }
 }

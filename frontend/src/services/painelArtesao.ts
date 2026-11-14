@@ -3,6 +3,7 @@
 // os pedidos do comprador: Route Handler em deploy serverless não guarda estado.
 import { apagarLocal, gravarLocal, lerLocal } from "@/lib/armazenamento";
 import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
 import type {
   ConfiguracoesEnvio,
   CotacaoFrete,
@@ -136,6 +137,25 @@ export const painelArtesaoService = {
       throw new ApiError(400, "A quantidade em estoque não pode ser negativa.");
     }
 
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        await http(`/artesao/pecas/${encodeURIComponent(id)}/estoque`, {
+          metodo: "PUT",
+          corpo: { estoque, pausada: pausar },
+        });
+        const lista = await this.pecas();
+        const base = lista.itens.find((peca) => peca.id === id);
+        if (base) return base;
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     const atual = alteracoesDePecas();
     const anterior = atual[id];
     const pausada = pausar ?? anterior?.pausada ?? false;
@@ -147,8 +167,7 @@ export const painelArtesaoService = {
     return { ...base, estoque, situacao: situacaoDe(estoque, pausada) };
   },
 
-  // Rascunho da peça: só na Avaliação 1, enquanto não existe endpoint de
-  // rascunho no contrato. some assim que a peça é publicada.
+  // Rascunho da peça
   rascunho(): NovoProduto | null {
     return lerLocal<NovoProduto>(CHAVE_RASCUNHO);
   },
@@ -162,6 +181,41 @@ export const painelArtesaoService = {
     if (!peca.nome.trim()) throw new ApiError(400, "Dê um nome à peça.");
     if (peca.preco <= 0) throw new ApiError(400, "Informe o preço da peça.");
     if (peca.imagens.length === 0) throw new ApiError(400, "Adicione ao menos uma foto.");
+
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        const criada = await http<ProdutoCriado>("/produtos", {
+          metodo: "POST",
+          corpo: {
+            nome: peca.nome.trim(),
+            descricao: peca.descricao,
+            categoria: peca.categoria,
+            tecnica: peca.tecnica,
+            origem: peca.origem,
+            preco: peca.preco,
+            modalidadeProducao: peca.modalidadeProducao,
+            estoque: peca.estoque,
+            prazoProducaoDias: peca.prazoProducaoDias ?? null,
+            capacidadeProducao: peca.capacidadeProducao ?? null,
+            imagens: peca.imagens,
+            material: peca.material,
+            dimensoes: peca.dimensoes,
+            peso: peca.peso,
+            informacoesOrigem: peca.informacoesOrigem,
+            certificado: peca.certificado,
+          },
+        });
+        apagarLocal(CHAVE_RASCUNHO);
+        return criada;
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
 
     const criadas = pecasCriadas();
     const numero = 400 + criadas.length;
@@ -186,6 +240,20 @@ export const painelArtesaoService = {
 
   // DELETE /produtos/{id}
   async removerPeca(id: string): Promise<void> {
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        await http(`/produtos/${encodeURIComponent(id)}`, {
+          metodo: "DELETE",
+        });
+        return;
+      } catch {}
+    }
+
     const jaRemovida = pecasRemovidas();
     if (!jaRemovida.includes(id)) gravarLocal(CHAVE_PECAS_REMOVIDAS, [...jaRemovida, id]);
   },
@@ -213,6 +281,25 @@ export const painelArtesaoService = {
       throw new ApiError(400, "Informe o código de rastreio para marcar como enviado.");
     }
 
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        await http(`/artesao/pedidos/${encodeURIComponent(id)}/status`, {
+          metodo: "PUT",
+          corpo: { statusProducao, codigoRastreioCorreios: codigoRastreio },
+        });
+        const lista = await this.pedidos();
+        const base = lista.pedidosRecebidos.find((p) => p.id === id);
+        if (base) return base;
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     const atual = alteracoesDePedidos();
     atual[id] = { statusProducao, codigoRastreio: codigoRastreio ?? null };
     gravarLocal(CHAVE_PEDIDOS, atual);
@@ -237,6 +324,22 @@ export const painelArtesaoService = {
     if (!perfil.nomeArtistico.trim()) throw new ApiError(400, "Informe seu nome artístico.");
     if (!perfil.regiao.trim()) throw new ApiError(400, "Informe a região onde você produz.");
     if (!perfil.biografia.trim()) throw new ApiError(400, "Conte um pouco da sua história.");
+
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        return await http<PerfilArtesaoAtualizado>("/artesao/perfil", {
+          metodo: "PUT",
+          corpo: perfil,
+        });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
 
     gravarLocal(CHAVE_PERFIL, perfil);
     return {
@@ -268,6 +371,23 @@ export const painelArtesaoService = {
     const restantes = atual.filter((item) => item.id !== opcaoId);
     if (!opcao.ativa && restantes.every((item) => !item.ativa)) {
       throw new ApiError(400, "Mantenha pelo menos uma opção de envio ativa.");
+    }
+
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ARTESAO" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        await http("/artesao/envio/configuracoes", {
+          metodo: "PUT",
+          corpo: { opcaoId, ativa: !opcao.ativa },
+        });
+        return { ...opcao, ativa: !opcao.ativa };
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
     }
 
     const alteracoes = lerLocal<Record<string, boolean>>(CHAVE_ENVIO) ?? {};

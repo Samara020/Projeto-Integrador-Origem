@@ -54,13 +54,38 @@ function moderacoes(): Record<string, ModeracaoLocal> {
 export const adminService = {
   // GET /admin/painel/metricas
   async metricas(sinal?: AbortSignal): Promise<MetricasAdmin> {
-    const remota = await http<MetricasAdmin>("/admin/painel/metricas", { sinal });
+    const remota = await http<
+      MetricasAdmin & {
+        volumeTransacionadoGlobal?: number;
+        totalUsuarios?: number;
+      }
+    >("/admin/painel/metricas", { sinal });
     const decididas = Object.keys(validacoes()).length;
     const moderadas = Object.keys(moderacoes()).length;
     return {
-      ...remota,
-      validacoesPendentes: Math.max(remota.validacoesPendentes - decididas, 0),
-      denunciasPendentes: Math.max(remota.denunciasPendentes - moderadas, 0),
+      totalUsuarios: remota.totalUsuarios ?? 0,
+      totalArtesaos: remota.totalArtesaos ?? 0,
+      volumeTransacionadoGlobal: remota.volumeTransacionadoGlobal ?? 0,
+      totalVendas: remota.totalVendas ?? 0,
+      variacaoVendas: remota.variacaoVendas ?? 0,
+      totalArtesaosAtivos: remota.totalArtesaosAtivos ?? 0,
+      novosArtesaosNoMes: remota.novosArtesaosNoMes ?? 0,
+      totalProdutos: remota.totalProdutos ?? 0,
+      novosProdutos: remota.novosProdutos ?? 0,
+      ticketsSuporte: remota.ticketsSuporte ?? 0,
+      ticketsUrgentes: remota.ticketsUrgentes ?? 0,
+      validacoesPendentes: Math.max(
+        (remota.validacoesPendentes ?? 0) - decididas,
+        0,
+      ),
+      vendasPorRegiao: remota.vendasPorRegiao ?? [],
+      categoriasMaisVendidas: remota.categoriasMaisVendidas ?? [],
+      denunciasPendentes: Math.max(
+        (remota.denunciasPendentes ?? 0) - moderadas,
+        0,
+      ),
+      usuariosRecentes: remota.usuariosRecentes ?? [],
+      atividadesRecentes: remota.atividadesRecentes ?? [],
     };
   },
 
@@ -83,9 +108,23 @@ export const adminService = {
   },
 
   // PUT /admin/produtos/{id}/validacao
-  // Leitura, checagem e gravação ficam juntas, depois da espera: duas abas em sequência recebem 409.
-  // Clique simultâneo em duas abas (janela de microssegundos) não é serializado nesta avaliação; o backend garante isso na Avaliação 2.
   async validarPeca(id: string, decisao: DecisaoValidacao): Promise<ResultadoValidacao> {
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ADMINISTRADOR" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        return await http<ResultadoValidacao>(`/admin/produtos/${encodeURIComponent(id)}/validacao`, {
+          metodo: "PUT",
+          corpo: decisao,
+        });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     await esperar();
     const justificativa = decisao.justificativa.trim();
     if (decisao.status === "REPROVADA" && justificativa.length < 10) {
@@ -118,6 +157,22 @@ export const adminService = {
 
   // PUT /admin/avaliacoes/{id}/moderar
   async moderarAvaliacao(id: string, acao: AcaoModeracao): Promise<ResultadoModeracao> {
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ADMINISTRADOR" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        return await http<ResultadoModeracao>(`/admin/avaliacoes/${encodeURIComponent(id)}/moderar`, {
+          metodo: "PUT",
+          corpo: { acao },
+        });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     await esperar();
     const atual = moderacoes();
     if (atual[id]) throw new ApiError(409, "Esta avaliação já foi moderada.");
@@ -141,10 +196,27 @@ export const adminService = {
 
     gravarOuFalhar(CHAVE_PERFIL, { nome, funcao: dados.funcao.trim(), telefone: dados.telefone.trim() });
     authService.atualizarNome(nome);
+
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ADMINISTRADOR" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        await http<PerfilAdminAtualizado>("/admin/perfil", {
+          metodo: "PUT",
+          corpo: dados,
+        });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     return { nome, atualizadoEm: new Date().toISOString() };
   },
 
-  // PUT /admin/senha (lacuna). A senha nunca é gravada.
+  // PUT /admin/senha (lacuna).
   async alterarSenha(dados: AlteracaoSenha): Promise<RespostaMensagem> {
     await esperar();
     if (!dados.senhaAtual) throw new ApiError(400, "Informe a senha atual.");
@@ -153,7 +225,21 @@ export const adminService = {
     }
     if (!dados.confirmacao) throw new ApiError(400, "Confirme a nova senha.");
     if (dados.novaSenha !== dados.confirmacao) throw new ApiError(400, "As senhas não coincidem.");
-    // Avaliação 2: o backend grava a senha e a mensagem volta a "Senha alterada. Use a nova senha no próximo acesso."
+
+    const sessao = authService.sessaoAtual();
+    if (
+      sessao?.token &&
+      sessao.usuario.papel === "ADMINISTRADOR" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      try {
+        return await http<RespostaMensagem>("/admin/senha", {
+          metodo: "PUT",
+          corpo: dados,
+        });
+      } catch {}
+    }
+
     return {
       mensagem:
         "Senha conferida. Nesta demonstração a troca não fica gravada; continue entrando com a senha atual.",

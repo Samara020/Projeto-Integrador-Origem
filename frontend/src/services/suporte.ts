@@ -1,7 +1,8 @@
 // Suporte (HU-22) e triagem inteligente (HU-23), simulados no navegador.
 // Avaliação 2: abrir() e listar() viram POST e GET /suporte/tickets; a triagem vira o módulo de IA.
 import { gravarLocal, lerLocal } from "@/lib/armazenamento";
-import { ApiError } from "@/lib/http";
+import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
 import type { ArtigoAjuda, CategoriaSuporte, MensagemTicket, NovoTicket, StatusTicket, Ticket } from "@/types";
 
 const CHAVE = "tickets";
@@ -107,6 +108,21 @@ export const suporteService = {
   },
   // POST /suporte/tickets: abre o chamado e a Jurema responde na hora.
   async abrir(novo: NovoTicket): Promise<Ticket> {
+    const sessao = authService.sessaoAtual();
+    if (sessao?.token) {
+      try {
+        await http("/suporte/tickets", {
+          metodo: "POST",
+          corpo: {
+            assunto: novo.assunto.trim(),
+            mensagem: novo.mensagem.trim(),
+            pedidoId: novo.pedidoId || undefined,
+            prioridade: novo.prioridade ?? "NORMAL",
+          },
+        });
+      } catch {}
+    }
+
     await esperar();
     if (novo.assunto.trim().length < 3) throw new ApiError(400, "Diga o assunto em poucas palavras.");
     if (novo.mensagem.trim().length < 5) throw new ApiError(400, "Conte um pouco mais do que aconteceu.");
