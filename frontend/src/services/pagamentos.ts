@@ -1,7 +1,6 @@
-// Fake API: o pagamento é simulado no navegador, sem guardar dados de cartão.
-// Avaliação 2: trocar o miolo por http("/pagamentos") mantendo a assinatura.
 import { gravarLocal, lerLocal } from "@/lib/armazenamento";
-import { ApiError } from "@/lib/http";
+import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
 import type {
   DadosPagamento,
   PagamentoProcessado,
@@ -9,16 +8,17 @@ import type {
 } from "@/types";
 
 const CHAVE_PEDIDOS = "pedidos";
-const ATRASO_MS = 700;
 
-function esperar(): Promise<void> {
-  return new Promise((resolver) => setTimeout(resolver, ATRASO_MS));
-}
-
+// POST /pagamentos (comprador autenticado usa o backend real; visitante fica no fluxo local).
 export const pagamentosService = {
-  // POST /pagamentos
   async processar(dados: DadosPagamento): Promise<PagamentoProcessado> {
-    await esperar();
+    const sessao = authService.sessaoAtual();
+    if (sessao?.token && process.env.NEXT_PUBLIC_API_URL) {
+      return http<PagamentoProcessado>("/pagamentos", {
+        metodo: "POST",
+        corpo: dados,
+      });
+    }
 
     const pedidos = lerLocal<PedidoResumo[]>(CHAVE_PEDIDOS) ?? [];
     const pedido = pedidos.find((item) => item.id === dados.pedidoId);

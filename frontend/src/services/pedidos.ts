@@ -1,4 +1,3 @@
-// Fake API: pedidos no localStorage, pelo mesmo motivo do carrinho.
 // Assinatura do backend: ContratoDeAPI.md, 2.6 e 2.7.
 import { apagarLocal, gravarLocal, lerLocal } from "@/lib/armazenamento";
 import { ApiError, http } from "@/lib/http";
@@ -44,6 +43,15 @@ function idDaTentativa(carrinho: Carrinho, usuario: string): string {
   return id;
 }
 
+function ehCompradorAutenticado(): boolean {
+  const sessao = authService.sessaoAtual();
+  return Boolean(
+    sessao?.token &&
+      sessao.usuario.papel === "COMPRADOR" &&
+      process.env.NEXT_PUBLIC_API_URL,
+  );
+}
+
 export const pedidosService = {
   opcaoEnvioPadrao(): OpcaoEnvio {
     return ENVIO_PADRAO;
@@ -57,6 +65,23 @@ export const pedidosService = {
     }
     if (!endereco.cep || !endereco.rua || !endereco.numero) {
       throw new ApiError(400, "Preencha o endereço de entrega.");
+    }
+
+    if (ehCompradorAutenticado()) {
+      const criado = await http<PedidoCriado>("/pedidos/checkout", {
+        metodo: "POST",
+        corpo: {
+          enderecoEntrega: {
+            cep: endereco.cep,
+            rua: endereco.rua,
+            numero: endereco.numero,
+            bairro: endereco.bairro || "Centro",
+            cidade: endereco.cidade || "Recife",
+            cpf: endereco.cpf || undefined,
+          },
+        },
+      });
+      return criado;
     }
 
     const itemDemonstracao = carrinho.itens.find(
@@ -110,6 +135,9 @@ export const pedidosService = {
 
   // GET /comprador/pedidos
   async listar(): Promise<RespostaPedidos> {
+    if (ehCompradorAutenticado()) {
+      return await http<RespostaPedidos>("/comprador/pedidos");
+    }
     return {
       pedidos: (lerLocal<PedidoResumo[]>(CHAVE) ?? []).map((pedido) => ({
         ...pedido,
