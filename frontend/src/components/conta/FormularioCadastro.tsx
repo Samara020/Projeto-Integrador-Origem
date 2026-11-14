@@ -117,6 +117,7 @@ export function FormularioCadastro() {
       });
       router.push(destinoAposEntrar(papel, voltaDaUrl()));
     } catch (causa) {
+      console.error("[Origem Cadastro Erro] Falha ao criar conta:", causa);
       setFalha(
         causa instanceof ApiError
           ? causa.message

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GuardaPapelPage } from "@/components/seguranca/GuardaPapelPage";
 import PerfilArtesao from "@/components/painel/PerfilArtesao";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function PaginaPerfilArtesao() {
-  return <PerfilArtesao />;
+  return (
+    <GuardaPapelPage papel="ARTESAO">
+      <PerfilArtesao />
+    </GuardaPapelPage>
+  );
 }

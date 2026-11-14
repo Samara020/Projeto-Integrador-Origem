@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AvisoFormulario } from "@/components/conta/AvisoFormulario";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Campo } from "@/components/ui/Campo";
@@ -22,6 +22,20 @@ export function FormularioLogin() {
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const busca = window.location.search;
+    if (busca && busca.includes("volta=")) {
+      const destinoLimpo = voltaDaUrl();
+      if (!destinoLimpo) {
+        const params = new URLSearchParams(busca);
+        params.delete("volta");
+        const resto = params.toString();
+        window.history.replaceState(null, "", window.location.pathname + (resto ? `?${resto}` : ""));
+      }
+    }
+  }, []);
+
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const novos: Erros = {
@@ -37,6 +51,7 @@ export function FormularioLogin() {
       const sessao = await entrar({ email: email.trim().toLowerCase(), senha });
       router.push(destinoAposEntrar(sessao.usuario.papel, voltaDaUrl()));
     } catch (causa) {
+      console.error("[Origem Login Erro] Falha ao realizar login:", causa);
       setFalha(
         causa instanceof ApiError
           ? causa.message
@@ -119,8 +134,8 @@ export function FormularioLogin() {
       {/* Só enquanto a Fake API estiver ligada. Sai na Avaliação 2. */}
       {!process.env.NEXT_PUBLIC_API_URL && (
         <p className="rounded-raio bg-superficie-2 px-3 py-2 text-legenda text-tinta-2">
-          Contas de demonstração (senha origem123): comprador@origem.dev ou
-          admin@origem.dev.
+          Contas de demonstração (senha origem123): comprador@origem.dev,
+          artesao@origem.dev ou admin@origem.dev.
         </p>
       )}
     </form>

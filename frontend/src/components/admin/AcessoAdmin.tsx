@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { useSessao } from "@/hooks/useSessao";
+import { limparDestinoVolta } from "@/lib/destino";
 
 // Guarda de tela. Quem protege o dado de verdade é o backend (403 em /admin/*) na Avaliação 2.
 export function AcessoAdmin({ children }: { children: ReactNode }) {
@@ -17,8 +18,9 @@ export function AcessoAdmin({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (semConta) {
       // Volta para a tela pedida, com o filtro da URL. A busca é lida aqui para dispensar useSearchParams.
-      const volta = `${pathname}${window.location.search}`;
-      router.replace(`/entrar?volta=${encodeURIComponent(volta)}`);
+      const destino = limparDestinoVolta(`${pathname}${window.location.search}`);
+      const url = destino ? `/entrar?volta=${encodeURIComponent(destino)}` : "/entrar";
+      router.replace(url);
     }
   }, [semConta, router, pathname]);
 

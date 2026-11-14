@@ -12,10 +12,10 @@ export async function POST(request: Request) {
     return erroJson(400, "Informe e-mail e senha.");
   }
 
-  const usuario = usuarios.find(
-    (u) => u.email === corpo.email.trim().toLowerCase(),
-  );
-  if (!usuario || corpo.senha !== SENHA_DEMO) {
+  const email = corpo.email.trim().toLowerCase();
+  const usuario = usuarios.find((u) => u.email === email);
+  const ehContaDemo = ["comprador@origem.dev", "artesao@origem.dev", "admin@origem.dev"].includes(email);
+  if (!usuario || (ehContaDemo ? corpo.senha !== SENHA_DEMO : corpo.senha.length < 8)) {
     return erroJson(401, "E-mail ou senha incorretos.");
   }
 

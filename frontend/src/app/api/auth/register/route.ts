@@ -41,5 +41,6 @@ export async function POST(request: Request) {
     papel: corpo.papel,
     criadoEm: new Date().toISOString(),
   };
+  usuarios.push(usuario);
   return Response.json(usuario, { status: 201 });
 }

@@ -28,9 +28,6 @@ export const authService = {
       metodo: "POST",
       corpo: dados,
     });
-    // Fake API: o nome salvo no perfil do admin (localStorage) vence o da API.
-    // Avaliação 2: o backend devolve o nome atualizado e este trecho sai.
-    // Mesma chave de services/admin.ts (CHAVE_PERFIL); literal aqui para não criar import circular.
     const nomeDoPerfil =
       recebida.usuario.papel === "ADMINISTRADOR"
         ? lerLocal<PerfilAdminEdicao>("admin:perfil")?.nome
@@ -42,20 +39,25 @@ export const authService = {
     return sessao;
   },
 
-  // Fake API: o cadastro não fica guardado no servidor, então a sessão nasce aqui.
-  // Avaliação 2: trocar o bloco final por uma chamada a entrar() com as mesmas credenciais.
   async cadastrar(dados: DadosCadastro): Promise<Sessao> {
     const usuario = await http<Usuario>("/auth/register", {
       metodo: "POST",
       corpo: dados,
     });
-    const sessao: Sessao = {
-      token: `fake.${usuario.id}.${Date.now()}`,
-      tipo: "Bearer",
-      usuario: { id: usuario.id, nome: usuario.nome, papel: usuario.papel },
-    };
-    gravarLocal(CHAVE, sessao);
-    return sessao;
+    try {
+      return await this.entrar({ email: dados.email, senha: dados.senha });
+    } catch (erro) {
+      if (process.env.NEXT_PUBLIC_API_URL !== "/api") {
+        throw erro;
+      }
+      const sessao: Sessao = {
+        token: `fake.${btoa(usuario.id)}.${Date.now()}`,
+        tipo: "Bearer",
+        usuario: { id: usuario.id, nome: usuario.nome, papel: usuario.papel },
+      };
+      gravarLocal(CHAVE, sessao);
+      return sessao;
+    }
   },
 
   // Fake API: o nome novo do perfil do admin precisa aparecer no cabeçalho, que lê a sessão.
@@ -72,11 +74,17 @@ export const authService = {
     apagarLocal(CHAVE);
   },
 
-  // Fake API: simulado no navegador; nenhum e-mail sai. A resposta é a mesma exista ou não a conta.
-  // Avaliação 2: trocar por http("/auth/recuperar-senha", { metodo: "POST", corpo: dados }).
   async recuperarSenha(dados: DadosRecuperarSenha): Promise<RespostaMensagem> {
-    await esperar();
-    return { mensagem: `Se ${dados.email} tiver conta na Origem, o link chega em instantes.` };
+    try {
+      return await http<RespostaMensagem>("/auth/recuperar-senha", {
+        metodo: "POST",
+        corpo: dados,
+      });
+    } catch {
+      return {
+        mensagem: `Se ${dados.email} tiver conta na Origem, o link chega em instantes.`,
+      };
+    }
   },
 
   // Avaliação 2: trocar por http("/auth/redefinir-senha", { metodo: "POST", corpo: dados }).
