@@ -29,4 +29,14 @@ export class CatalogoController {
     const resultado = await catalogoService.categorias();
     return res.json(resultado);
   }
+
+  async tecnicas(req: Request, res: Response) {
+    const resultado = await catalogoService.tecnicas();
+    return res.json(resultado);
+  }
+
+  async regioes(req: Request, res: Response) {
+    const resultado = await catalogoService.regioes();
+    return res.json(resultado);
+  }
 }

@@ -8,6 +8,11 @@ type FiltrosProduto = {
   categoriaId?: Id;
   tecnica?: string;
   regiao?: string;
+  disponivel?: boolean;
+  destaque?: boolean;
+  precoMax?: number;
+  pecaUnica?: boolean;
+  ordenar?: string;
   pagina: number;
   limite: number;
 };
@@ -30,6 +35,14 @@ export const produtoRepository = {
 
     if (filtros.termo) {
       onde.nome = { contains: filtros.termo, mode: "insensitive" };
+      // Busca de produtos não exibe produtos esgotados/vendidos
+      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
+    }
+    if (filtros.disponivel) {
+      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
+    }
+    if (filtros.destaque) {
+      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
     }
     if (filtros.categoria) {
       onde.categoria = { nome: filtros.categoria };
@@ -43,6 +56,19 @@ export const produtoRepository = {
     if (filtros.regiao) {
       onde.origem = filtros.regiao;
     }
+    if (filtros.precoMax !== undefined) {
+      onde.preco = { lte: filtros.precoMax };
+    }
+    if (filtros.pecaUnica) {
+      onde.pecaUnica = true;
+    }
+
+    let orderBy: Record<string, "asc" | "desc"> = { id: "desc" };
+    if (filtros.ordenar === "menor-preco") {
+      orderBy = { preco: "asc" };
+    } else if (filtros.ordenar === "maior-preco") {
+      orderBy = { preco: "desc" };
+    }
 
     const p = Math.max(filtros.pagina, 1);
     const l = Math.min(Math.max(filtros.limite, 1), 50);
@@ -53,7 +79,7 @@ export const produtoRepository = {
         where: onde,
         skip: (p - 1) * l,
         take: l,
-        orderBy: { id: "desc" },
+        orderBy,
         include: { ...inclusaoPadrao, imagens: { take: 1 } },
       }),
     ]);

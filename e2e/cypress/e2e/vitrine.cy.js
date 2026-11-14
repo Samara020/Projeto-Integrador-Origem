@@ -32,6 +32,14 @@ describe("TC03 · exibição e busca de produtos disponíveis", () => {
     cy.contains("button", "Limpar filtros").should("be.visible");
   });
 
+  it("busca por peça vendida não exibe produtos indisponíveis no catálogo", () => {
+    cy.visit("/catalogo?termo=pavão");
+    cy.hidratado();
+
+    cy.contains("Matriz Entalhada Pavão").should("not.exist");
+    cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
+  });
+
   it("filtro 'Só peças disponíveis' tira a peça reservada da busca", () => {
     cy.visit("/catalogo?termo=carranca");
     cy.hidratado();

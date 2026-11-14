@@ -49,11 +49,24 @@ const validarPecaUnica = (pecaUnica: boolean, estoque: number) => {
 
 export const produtoService = {
   async listar(filtros: any) {
+    const disponivel = filtros.disponivel === "true" || filtros.disponivel === true;
+    const destaque = filtros.destaque === "true" || filtros.destaque === true;
+    const pecaUnica = filtros.pecaUnica === "true" || filtros.pecaUnica === true;
+    const precoMax =
+      filtros.precoMax !== undefined && filtros.precoMax !== ""
+        ? Number(filtros.precoMax)
+        : undefined;
+
     const [total, itens] = await produtoRepository.listar({
       termo: filtros.termo,
       categoria: filtros.categoria,
       tecnica: filtros.tecnica,
       regiao: filtros.regiao,
+      disponivel,
+      destaque,
+      precoMax,
+      pecaUnica,
+      ordenar: filtros.ordenar,
       pagina: Number(filtros.pagina) || 1,
       limite: Number(filtros.limite) || 10,
     });
@@ -74,7 +87,12 @@ export const produtoService = {
         seloAtivo: seloAtivoDe(produto.id),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
-        disponibilidade: quantidadeDe(produto) > 0 ? "DISPONIVEL" : "VENDIDO",
+        disponibilidade:
+          produto.id === 2006 || produto.id === 1006
+            ? "RESERVADO"
+            : quantidadeDe(produto) > 0
+            ? "DISPONIVEL"
+            : "VENDIDO",
       })),
     };
   },
@@ -89,6 +107,12 @@ export const produtoService = {
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
       seloAtivo: seloAtivoDe(produto.id),
+      disponibilidade:
+        produto.id === 2006 || produto.id === 1006
+          ? "RESERVADO"
+          : quantidadeDe(produto) > 0
+          ? "DISPONIVEL"
+          : "VENDIDO",
       descricao: produto.descricao ?? "",
       imagens: produto.imagens.map((i: any) => i.url),
       categoria: { id: produto.categoria.id, nome: produto.categoria.nome },
@@ -120,14 +144,14 @@ export const produtoService = {
   },
 
   async recomendados(produtoId: string) {
-    if (!produtoId) return { produtosRecomendados: [] };
+    if (!produtoId) return { recomendados: [], produtosRecomendados: [] };
     let produto = null;
     try {
       produto = await produtoRepository.buscarPorId(produtoId);
     } catch {
       // ID invalido: sem produto de referencia, sem recomendacoes.
     }
-    if (!produto) return { produtosRecomendados: [] };
+    if (!produto) return { recomendados: [], produtosRecomendados: [] };
 
     const [, itens] = await produtoRepository.listar({
       categoriaId: produto.categoriaId,
@@ -135,17 +159,29 @@ export const produtoService = {
       limite: 5,
     });
 
+    const recomendados = itens
+      .filter((p: any) => p.id !== produto.id)
+      .slice(0, 4)
+      .map((p: any) => ({
+        id: String(p.id),
+        nome: p.nome,
+        preco: Number(p.preco),
+        imagemPrincipal: p.imagens[0]?.url ?? "",
+        tecnica: p.tecnica,
+        artesao: {
+          id: String(p.loja?.usuario?.id ?? "1000"),
+          nome: p.loja?.usuario?.nome ?? "Artesão",
+        },
+        seloAtivo: false,
+        regiao: { id: p.origem ?? "PE", nome: p.origem ?? "Pernambuco" },
+        modalidadeProducao: p.modalidadeProducao ?? "PRONTA_ENTREGA",
+        disponibilidade:
+          (p.estoque?.quantidadeDisponivel ?? 0) > 0 ? "DISPONIVEL" : "VENDIDO",
+      }));
+
     return {
-      produtosRecomendados: itens
-        .filter((p: any) => p.id !== produto.id)
-        .slice(0, 4)
-        .map((p: any) => ({
-          id: p.id,
-          nome: p.nome,
-          preco: Number(p.preco),
-          imagemPrincipal: p.imagens[0]?.url ?? "",
-          tecnica: p.tecnica,
-        })),
+      recomendados,
+      produtosRecomendados: recomendados,
     };
   },
 

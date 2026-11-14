@@ -30,6 +30,13 @@ describe("TC03 · busca por termo e filtros", () => {
     expect(itens.map((p) => p.id)).toContain("prd_201");
   });
 
+  test("busca por termo deixa de fora peças vendidas ('pavao' não traz 'Matriz Entalhada Pavão')", () => {
+    const { itens, total } = listarProdutos({ termo: "pavao" });
+
+    expect(itens.map((p) => p.id)).not.toContain("prd_208");
+    expect(total).toBe(0);
+  });
+
   test("termo sem correspondência devolve envelope vazio", () => {
     expect(listarProdutos({ termo: "termo-que-nao-existe-xyz" })).toEqual({
       total: 0,
