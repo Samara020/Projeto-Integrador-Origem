@@ -47,6 +47,27 @@ const validarPecaUnica = (pecaUnica: boolean, estoque: number) => {
   }
 };
 
+/**
+ * Busca a peca e garante que ela pertence a loja do artesao logado.
+ * Centraliza a checagem de posse usada em atualizar, inativar e atualizarEstoque.
+ * Lanca 404 se a peca nao existir e 403 (com a mensagem informada) se for de outra loja.
+ */
+const buscarProdutoDoArtesao = async (
+  id: string,
+  usuarioId: string,
+  mensagemSemPermissao: string
+) => {
+  const produto = await produtoRepository.buscarPorId(id);
+  if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
+
+  const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
+  if (!loja || produto.lojaId !== loja.id) {
+    throw new ErroApp(403, mensagemSemPermissao);
+  }
+
+  return produto;
+};
+
 export const produtoService = {
   async listar(filtros: any) {
     const disponivel = filtros.disponivel === "true" || filtros.disponivel === true;
@@ -230,13 +251,11 @@ export const produtoService = {
   },
 
   async atualizar(id: string, dados: any, usuarioId: string) {
-    const produto = await produtoRepository.buscarPorId(id);
-    if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-
-    const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
-    if (!loja || produto.lojaId !== loja.id) {
-      throw new ErroApp(403, "Voce so pode atualizar suas proprias pecas.");
-    }
+    const produto = await buscarProdutoDoArtesao(
+      id,
+      usuarioId,
+      "Voce so pode atualizar suas proprias pecas."
+    );
 
     // Somente colunas existentes no SQL; demais campos do corpo sao ignorados.
     const permitido: Record<string, unknown> = {};
@@ -263,13 +282,7 @@ export const produtoService = {
   },
 
   async inativar(id: string, usuarioId: string) {
-    const produto = await produtoRepository.buscarPorId(id);
-    if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-
-    const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
-    if (!loja || produto.lojaId !== loja.id) {
-      throw new ErroApp(403, "Voce so pode inativar suas proprias pecas.");
-    }
+    await buscarProdutoDoArtesao(id, usuarioId, "Voce so pode inativar suas proprias pecas.");
 
     await produtoRepository.inativar(id);
 
@@ -306,13 +319,7 @@ export const produtoService = {
   },
 
   async atualizarEstoque(id: string, dados: { estoque: number; situacao: string }, usuarioId: string) {
-    const produto = await produtoRepository.buscarPorId(id);
-    if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-
-    const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
-    if (!loja || produto.lojaId !== loja.id) {
-      throw new ErroApp(403, "Acesso negado.");
-    }
+    const produto = await buscarProdutoDoArtesao(id, usuarioId, "Acesso negado.");
 
     validarPecaUnica(produto.pecaUnica, dados.estoque);
     await produtoRepository.atualizarEstoque(id, dados.estoque);
