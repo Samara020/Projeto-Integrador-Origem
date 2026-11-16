@@ -26,8 +26,7 @@ function ehCompradorAutenticado(): boolean {
   const sessao = authService.sessaoAtual();
   return Boolean(
     sessao?.token &&
-      sessao.usuario.papel === "COMPRADOR" &&
-      process.env.NEXT_PUBLIC_API_URL,
+      sessao.usuario.papel === "COMPRADOR",
   );
 }
 
@@ -35,11 +34,7 @@ export const carrinhoService = {
   // GET /carrinho
   async obter(): Promise<Carrinho> {
     if (ehCompradorAutenticado()) {
-      try {
-        return await http<Carrinho>("/carrinho");
-      } catch {
-        return montar(ler());
-      }
+      return http<Carrinho>("/carrinho");
     }
     return montar(ler());
   },
@@ -47,15 +42,10 @@ export const carrinhoService = {
   // POST /carrinho/itens
   async adicionar(produto: ProdutoResumo, quantidade = 1): Promise<Carrinho> {
     if (ehCompradorAutenticado()) {
-      try {
-        await http<{ mensagem: string }>("/carrinho/itens", {
-          metodo: "POST",
-          corpo: { produtoId: produto.id, quantidade },
-        });
-        return await this.obter();
-      } catch {
-        // Fallback para modo local se o backend falhar
-      }
+      await http("/carrinho/itens", {
+        metodo: "POST", corpo: { produtoId: produto.id, quantidade },
+      });
+      return this.obter();
     }
 
     const itens = ler();
@@ -80,15 +70,17 @@ export const carrinhoService = {
     quantidade: number,
   ): Promise<Carrinho> {
     if (ehCompradorAutenticado()) {
-      if (quantidade > 0) {
+      const atual = await this.obter();
+      const anterior = atual.itens.find((item) => item.produtoId === produtoId)?.quantidade ?? 0;
+      const diferenca = quantidade - anterior;
+      if (quantidade > 0 && diferenca > 0) {
         await http<{ mensagem: string }>("/carrinho/itens", {
           metodo: "POST",
-          corpo: { produtoId, quantidade },
+          corpo: { produtoId, quantidade: diferenca },
         });
-      } else {
-        await http(`/carrinho/itens/${encodeURIComponent(produtoId)}`, {
-          metodo: "DELETE",
-        });
+      } else if (diferenca < 0) {
+        await http(`/carrinho/itens/${encodeURIComponent(produtoId)}`, { metodo: "DELETE" });
+        if (quantidade > 0) await http("/carrinho/itens", { metodo: "POST", corpo: { produtoId, quantidade } });
       }
       return this.obter();
     }
@@ -115,8 +107,8 @@ export const carrinhoService = {
   },
 
   async esvaziar(): Promise<Carrinho> {
-    const itens = ler();
     if (ehCompradorAutenticado()) {
+      const { itens } = await this.obter();
       for (const item of itens) {
         await http(`/carrinho/itens/${encodeURIComponent(item.produtoId)}`, {
           metodo: "DELETE",
