@@ -12,7 +12,7 @@ import { ApiError } from "@/lib/http";
 import { validarCep, validarNumero, validarRua } from "@/lib/validacao";
 import type { EnderecoEntrega, OpcaoEnvio } from "@/types";
 
-type Erros = Partial<Record<keyof EnderecoEntrega, string>>;
+type Erros = Partial<Record<"cep" | "rua" | "numero", string>>;
 
 function formatarCep(valor: string) {
   const digitos = valor.replace(/\D/g, "").slice(0, 8);
@@ -38,7 +38,7 @@ export function FormularioEntrega({
   const [enviando, setEnviando] = useState(false);
   const total = subtotal + opcaoEnvio.valor;
 
-  const validarCampo = (campo: keyof EnderecoEntrega, valor: string) => {
+  const validarCampo = (campo: "cep" | "rua" | "numero", valor: string) => {
     const validadores = {
       cep: validarCep,
       rua: validarRua,

@@ -1,10 +1,55 @@
 // TC06, TC07 e TC10: checkout cria o pedido com os dados do carrinho e o pagamento
 // atualiza o status (services/pedidos.ts e services/pagamentos.ts).
-import { ApiError } from "@/lib/http";
+// TC06 ramo autenticado: checkout NÃO esvazia o carrinho antes do pagamento aprovado,
+// e falha de pagamento preserva os itens.
+import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
+import { carrinhoService } from "@/services/carrinho";
 import { pagamentosService } from "@/services/pagamentos";
 import { pedidosService } from "@/services/pedidos";
 import type { EnderecoEntrega, ItemCarrinho, PedidoResumo } from "@/types";
 import { concluir, gravar, lerGravado } from "./apoio";
+
+jest.mock("@/lib/http", () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, mensagem: string) {
+      super(mensagem);
+      this.name = "ApiError";
+      this.status = status;
+    }
+  },
+  http: jest.fn(),
+}));
+jest.mock("@/services/auth", () => ({
+  authService: { sessaoAtual: jest.fn() },
+}));
+
+const mockedHttp = http as jest.Mock;
+const mockedSessao = authService.sessaoAtual as jest.Mock;
+
+const PEDIDO_CRIADO = { pedidoId: "ped_000001", status: "AGUARDANDO_PAGAMENTO", valorTotal: 318 };
+
+function autenticarComoComprador() {
+  process.env.NEXT_PUBLIC_API_URL = "http://localhost:4000";
+  mockedSessao.mockReturnValue({
+    token: "tok",
+    tipo: "Bearer",
+    usuario: { id: "usr_1", nome: "Comprador", papel: "COMPRADOR" },
+  });
+}
+
+function desautenticar() {
+  delete process.env.NEXT_PUBLIC_API_URL;
+  mockedSessao.mockReturnValue(null);
+}
+
+beforeEach(() => {
+  mockedHttp.mockReset();
+  mockedSessao.mockReset();
+  desautenticar();
+  window.localStorage.clear();
+});
 
 const ENDERECO: EnderecoEntrega = { cep: "50030-230", rua: "Rua da Aurora", numero: "100" };
 
@@ -159,5 +204,57 @@ describe("TC07 · pagamentosService.processar atualiza o status do pedido", () =
       concluir(pagamentosService.processar({ pedidoId: "ped_999999", metodoPagamento: "PIX", tokenCartao: null })),
     ).rejects.toMatchObject({ status: 404, message: "Pedido não encontrado." });
     expect(lerGravado<PedidoResumo[]>("pedidos")).toEqual([PEDIDO, OUTRO]);
+  });
+});
+
+describe("TC06 · checkout autenticado (ramo backend real)", () => {
+  let obterSpy: ReturnType<typeof jest.spyOn>;
+  let esvaziarSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(() => {
+    autenticarComoComprador();
+    obterSpy = jest.spyOn(carrinhoService, "obter").mockResolvedValue({
+      itens: ITENS,
+      valorTotal: 318,
+    });
+    esvaziarSpy = jest.spyOn(carrinhoService, "esvaziar");
+  });
+
+  afterEach(() => {
+    obterSpy.mockRestore();
+    esvaziarSpy.mockRestore();
+    desautenticar();
+  });
+
+  test("checkout cria o pedido via backend e NÃO esvazia o carrinho antes do pagamento", async () => {
+    mockedHttp.mockResolvedValue(PEDIDO_CRIADO);
+
+    const criado = await pedidosService.checkout(ENDERECO);
+
+    expect(mockedHttp).toHaveBeenCalledTimes(1);
+    expect(mockedHttp.mock.calls[0][0]).toBe("/pedidos/checkout");
+    expect(mockedHttp.mock.calls[0][1].metodo).toBe("POST");
+    expect(criado).toEqual(PEDIDO_CRIADO);
+    expect(esvaziarSpy).not.toHaveBeenCalled();
+  });
+
+  test("checkout com carrinho vazio é recusado sem chamar o backend", async () => {
+    obterSpy.mockResolvedValue({ itens: [], valorTotal: 0 });
+
+    await expect(pedidosService.checkout(ENDERECO)).rejects.toMatchObject({
+      status: 400,
+      message: "Seu carrinho está vazio.",
+    });
+    expect(mockedHttp).not.toHaveBeenCalled();
+    expect(esvaziarSpy).not.toHaveBeenCalled();
+  });
+
+  test("checkout com endereço incompleto é recusado sem chamar o backend", async () => {
+    await expect(pedidosService.checkout({ ...ENDERECO, cep: "" })).rejects.toMatchObject({
+      status: 400,
+      message: "Preencha o endereço de entrega.",
+    });
+    expect(mockedHttp).not.toHaveBeenCalled();
+    expect(esvaziarSpy).not.toHaveBeenCalled();
   });
 });

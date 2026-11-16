@@ -195,6 +195,9 @@ export type EnderecoEntrega = {
   cep: string;
   rua: string;
   numero: string;
+  bairro?: string;
+  cidade?: string;
+  cpf?: string;
 };
 
 export type OpcaoEnvio = {
@@ -328,6 +331,8 @@ export type NovoProduto = {
   informacoesOrigem: string;
   certificado: string;
   imagens: string[];
+  prazoProducaoDias?: number | null;
+  capacidadeProducao?: number | null;
 };
 
 export type ProdutoCriado = {

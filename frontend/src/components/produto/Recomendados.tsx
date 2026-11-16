@@ -11,7 +11,7 @@ export function Recomendados({ produtoId }: { produtoId: string }) {
   const { dados, carregando, erro, recarregar } = useRecomendados(produtoId);
 
   // Sem recomendação a seção some: ela é um extra, não o motivo da página.
-  if (dados && dados.recomendados.length === 0) return null;
+  if (dados && (!dados.recomendados || dados.recomendados.length === 0)) return null;
 
   return (
     <section aria-labelledby="recomendados-titulo" className="flex flex-col gap-4">
@@ -23,7 +23,7 @@ export function Recomendados({ produtoId }: { produtoId: string }) {
       </h2>
       {carregando && <ProdutoGradeEsqueleto quantidade={4} />}
       {erro && <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />}
-      {dados && <ProdutoGrade produtos={dados.recomendados} />}
+      {dados && <ProdutoGrade produtos={dados.recomendados ?? []} />}
     </section>
   );
 }

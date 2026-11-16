@@ -16,6 +16,7 @@ const lora = Lora({
   subsets: ["latin"],
   weight: ["700"],
   display: "swap",
+  preload: false,
 });
 
 const descricao =

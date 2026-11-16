@@ -31,6 +31,22 @@ describe("TC01 · login com dados válidos leva cada perfil à sua área", () =>
     cy.location("pathname").should("eq", "/painel/admin");
     cy.contains("h1", "O pulso do marketplace, em um só lugar.").should("be.visible");
   });
+
+  it("comprador se cadastra e cai na vitrine autenticado", () => {
+    const timestamp = Date.now();
+    cy.visit("/cadastro");
+    cy.hidratado();
+
+    cy.get("#cadastro-nome").type("Novo Comprador");
+    cy.get("#cadastro-email").type(`comprador.${timestamp}@origem.dev`);
+    cy.get("#cadastro-senha").type("origem123", { log: false });
+    cy.get('input[type="checkbox"]').check();
+    cy.contains("button[type=submit]", "Criar minha conta").click();
+
+    cy.location("pathname").should("eq", "/");
+    cy.lerLocal("sessao").should("not.be.null");
+    cy.lerLocal("sessao").its("usuario.papel").should("eq", "COMPRADOR");
+  });
 });
 
 describe("TC11 · login com credenciais inválidas", () => {
@@ -81,13 +97,10 @@ describe("TC08 · controle de acesso conforme o perfil", () => {
     cy.contains("h1", "Cadastrar nova peça").should("be.visible");
   });
 
-  // Rodou em 2026-10-14 e falhou: o comprador vê o formulário "Publicar peça". Sem correção de
-  // produto nesta entrega. Tirar o .skip quando o painel ganhar guarda de papel. Ver plano e achados.
-  it.skip("comprador não abre o cadastro de peça do painel do artesão (defeito do produto: painel do artesão sem guarda de papel)", () => {
-    // visitarComo espera a hidratação: o formulário do HTML do servidor já está na tela,
-    // então "não existe" aqui só passa se uma guarda de papel tirar o formulário.
+  it("comprador não abre o cadastro de peça do painel do artesão", () => {
     cy.visitarComo("COMPRADOR", "/painel/artesao/pecas/nova");
 
     cy.contains("button", "Publicar peça").should("not.exist");
+    cy.contains('[role="alert"] h1', "Área restrita").should("be.visible");
   });
 });

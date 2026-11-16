@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GuardaPapelPage } from "@/components/seguranca/GuardaPapelPage";
 import TransporteArtesao from "@/components/painel/TransporteArtesao";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function PaginaTransporteArtesao() {
-  return <TransporteArtesao />;
+  return (
+    <GuardaPapelPage papel="ARTESAO">
+      <TransporteArtesao />
+    </GuardaPapelPage>
+  );
 }

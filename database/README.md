@@ -28,11 +28,11 @@ Os scripts estão localizados em `database/sql/`.
 
 | Arquivo | Finalidade |
 |---|---|
-| `create_tables.sql` | Cria as 14 tabelas e suas restrições estruturais. |
-| `integrity_rules.sql` | Define funções e gatilhos de integridade. |
-| `create_indexes.sql` | Cria 12 índices adicionais. |
-| `seed_teste.sql` | Insere dados fictícios para validar relacionamentos e consultas. |
-| `create_tables_backup.sql` | Cópia de segurança da versão inicial do esquema. Não faz parte da sequência normal de execução. |
+| `01_create_tables.sql` | Cria as 14 tabelas e suas restrições estruturais. |
+| `02_integrity_rules.sql` | Define funções e gatilhos de integridade. |
+| `04_create_indexes.sql` | Cria 12 índices adicionais. |
+| `03_seed_teste.sql` | Insere dados fictícios para validar relacionamentos e consultas. |
+| `sql_backup/create_tables_backup.sql` | Cópia de segurança da versão inicial do esquema. Não faz parte da sequência normal de execução. |
 
 **Importante:** antes de executar qualquer script, confira seu conteúdo e o banco selecionado. Scripts de criação podem falhar quando executados sobre objetos existentes ou causar inconsistências quando alterados para contornar erros.
 
@@ -101,10 +101,10 @@ docker exec origem-postgres psql -U origem_user -d origem_teste -c "\dt"
 
 A sequência de preparação do esquema é:
 
-1. `create_tables.sql`;
-2. `integrity_rules.sql`;
-3. `create_indexes.sql`;
-4. `seed_teste.sql`, para inserir os dados sintéticos.
+1. `01_create_tables.sql`;
+2. `02_integrity_rules.sql`;
+3. `04_create_indexes.sql`;
+4. `03_seed_teste.sql`, para inserir os dados sintéticos.
 
 Os três primeiros scripts preparam a estrutura do banco. O quarto insere os registros utilizados na validação dos relacionamentos.
 
@@ -117,19 +117,19 @@ O parâmetro `ON_ERROR_STOP=1` faz com que o `psql` interrompa o processamento d
 ### 7.1. Criar as tabelas
 
 ```powershell
-Get-Content .\database\sql\create_tables.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
+Get-Content .\database\sql\01_create_tables.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
 ```
 
 ### 7.2. Criar as funções e os gatilhos
 
 ```powershell
-Get-Content .\database\sql\integrity_rules.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
+Get-Content .\database\sql\02_integrity_rules.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
 ```
 
 ### 7.3. Criar os índices
 
 ```powershell
-Get-Content .\database\sql\create_indexes.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
+Get-Content .\database\sql\04_create_indexes.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
 ```
 
 ### 7.4. Inserir os dados sintéticos
@@ -137,15 +137,15 @@ Get-Content .\database\sql\create_indexes.sql | docker exec -i origem-postgres p
 Execute somente após preparar a estrutura:
 
 ```powershell
-Get-Content .\database\sql\seed_teste.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
+Get-Content .\database\sql\03_seed_teste.sql | docker exec -i origem-postgres psql -U origem_user -d origem_teste -v ON_ERROR_STOP=1
 ```
 
 ### 7.5. Cuidados durante a execução
 
 - Os comandos pressupõem os nomes de contêiner, usuário, banco e arquivos apresentados neste documento.
 - Execute os scripts de criação apenas em um ambiente preparado para recebê-los.
-- Não execute `create_tables_backup.sql` na sequência normal.
-- O script `seed_teste.sql` utiliza identificadores fixos. Não o execute repetidamente sem preparar um banco limpo ou remover os registros anteriores respeitando as dependências entre tabelas.
+- Não execute `sql_backup/create_tables_backup.sql` na sequência normal.
+- O script `03_seed_teste.sql` utiliza identificadores fixos. Não o execute repetidamente sem preparar um banco limpo ou remover os registros anteriores respeitando as dependências entre tabelas.
 - Não redirecione os comandos de teste para `origem_db`.
 - `ON_ERROR_STOP=1` interrompe o processamento em caso de erro, mas não garante o desfazimento automático de todas as operações anteriores.
 - Uma execução sem erros deve ser complementada pelas consultas de verificação apresentadas na seção seguinte.
@@ -168,7 +168,7 @@ docker exec origem-postgres psql -U origem_user -d origem_teste -c "SELECT COUNT
 docker exec origem-postgres psql -U origem_user -d origem_teste -c "\dt"
 ```
 
-Confira os nomes das tabelas exibidas e compare-os com os definidos em `create_tables.sql`.
+Confira os nomes das tabelas exibidas e compare-os com os definidos em `01_create_tables.sql`.
 
 ### 8.3. Contar as chaves estrangeiras
 
@@ -192,7 +192,7 @@ Essa consulta permite verificar as restrições `CHECK` registradas no esquema. 
 docker exec origem-postgres psql -U origem_user -d origem_teste -c "SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;"
 ```
 
-A consulta apresenta os índices existentes. Para conferir os 12 índices adicionais, compare os nomes retornados com `create_indexes.sql`, sem confundir esses índices com os criados automaticamente para chaves primárias e restrições de unicidade.
+A consulta apresenta os índices existentes. Para conferir os 12 índices adicionais, compare os nomes retornados com `04_create_indexes.sql`, sem confundir esses índices com os criados automaticamente para chaves primárias e restrições de unicidade.
 
 ### 8.6. Listar as funções relacionadas ao estoque
 
@@ -266,7 +266,7 @@ Os testes devem utilizar os nomes reais de tabelas e colunas definidos nos scrip
 
 ## 12. Validação com dados sintéticos
 
-O script `seed_teste.sql` insere registros fictícios para verificar se as principais entidades estão relacionadas corretamente.
+O script `03_seed_teste.sql` insere registros fictícios para verificar se as principais entidades estão relacionadas corretamente.
 
 ### 12.1. Dados utilizados
 

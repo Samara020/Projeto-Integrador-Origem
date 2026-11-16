@@ -39,12 +39,40 @@ describe("TC08 · ?volta= não abre área de outro papel nem site externo", () =
       expect(destinoAposEntrar("COMPRADOR", volta)).toBe("/");
     },
   );
+  test("ignora voltas que apontam para /entrar ou /cadastro para evitar loops", () => {
+    expect(destinoAposEntrar("COMPRADOR", "/entrar")).toBe("/");
+    expect(destinoAposEntrar("ADMINISTRADOR", "/cadastro")).toBe("/painel/admin");
+  });
+
+  test("desempacota voltas aninhadas com /entrar?volta=...", () => {
+    expect(
+      destinoAposEntrar(
+        "ADMINISTRADOR",
+        "/entrar?volta=%2Fentrar%3Fvolta%3D%252Fpainel%252Fadmin",
+      ),
+    ).toBe("/painel/admin");
+    expect(
+      destinoAposEntrar(
+        "COMPRADOR",
+        "/entrar?volta=%2Fentrar%3Fvolta%3D%252Fpainel%252Fadmin",
+      ),
+    ).toBe("/");
+  });
 });
 
 describe("voltaDaUrl", () => {
   test("lê o ?volta= da barra de endereço", () => {
     window.history.pushState({}, "", "/entrar?volta=%2Fcheckout");
     expect(voltaDaUrl()).toBe("/checkout");
+  });
+
+  test("desempacota parâmetro volta sujo ou aninhado da URL", () => {
+    window.history.pushState(
+      {},
+      "",
+      "/entrar?volta=%2Fentrar%3Fvolta%3D%252Fpainel%252Fadmin",
+    );
+    expect(voltaDaUrl()).toBe("/painel/admin");
   });
 
   test("sem ?volta= devolve null", () => {

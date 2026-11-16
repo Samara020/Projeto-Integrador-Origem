@@ -7,7 +7,7 @@ const createJestConfig = nextJest({ dir: "./" });
 export default createJestConfig({
   displayName: "unitário",
   testEnvironment: "jsdom",
-  testMatch: ["<rootDir>/tests/unit/**/*.test.ts"],
+  testMatch: ["<rootDir>/tests/unit/**/*.test.{ts,tsx}"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
   reporters: [
     "default",

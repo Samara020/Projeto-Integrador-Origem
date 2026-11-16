@@ -1,0 +1,217 @@
+// Schema alinhado a database/sql/ (fonte de modelagem do banco relacional).
+// As migrações do Prisma gerenciam a estrutura do banco em prisma/migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id          Int    @id @default(autoincrement()) @map("id_usuario")
+  nome        String @db.VarChar(150)
+  email       String @unique(map: "uq_usuario_email") @db.VarChar(254)
+  senha       String @db.VarChar(255)
+  telefone    String? @db.VarChar(20)
+  // COMPRADOR | ARTESAO | ADMINISTRADOR
+  usuarioTipo String @map("usuario_tipo") @db.VarChar(20)
+
+  loja       Loja[]
+  carrinho   Carrinho?
+  pedidos    Pedido[]
+  avaliacoes Avaliacao[]
+
+  @@map("usuario")
+}
+
+model Categoria {
+  id        Int     @id @default(autoincrement()) @map("id_categoria")
+  nome      String  @db.VarChar(100)
+  descricao String?
+
+  produtos Produto[]
+
+  @@map("categoria")
+}
+
+model Loja {
+  id        Int     @id @default(autoincrement()) @map("id_loja")
+  nome      String  @db.VarChar(150)
+  descricao String?
+  usuarioId Int     @map("fk_usuario_id_usuario")
+
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id], map: "fk_loja_usuario")
+  produtos Produto[]
+
+  @@index([usuarioId], map: "idx_loja_usuario")
+  @@map("loja")
+}
+
+model EnderecoEntrega {
+  id         Int    @id @default(autoincrement()) @map("id_endereco")
+  logradouro String @db.VarChar(200)
+  bairro     String @db.VarChar(100)
+  cidade     String @db.VarChar(100)
+  cpf        String @db.Char(11)
+
+  pedidos Pedido[]
+
+  @@map("endereco_de_entrega")
+}
+
+model Produto {
+  id                 Int     @id @default(autoincrement()) @map("id_produto")
+  nome               String  @db.VarChar(150)
+  descricao          String?
+  tecnica            String  @db.VarChar(100)
+  preco              Decimal @db.Decimal(10, 2)
+  origem             String  @db.VarChar(150)
+  modalidadeProducao String  @map("modalidade_producao") @db.VarChar(30)
+  pecaUnica          Boolean @map("peca_unica")
+  pausado            Boolean @default(false)
+  excluido           Boolean @default(false)
+  lojaId             Int     @map("fk_loja_id_loja")
+  categoriaId        Int     @map("fk_categoria_id_categoria")
+
+  loja          Loja           @relation(fields: [lojaId], references: [id], map: "fk_produto_loja")
+  categoria     Categoria      @relation(fields: [categoriaId], references: [id], map: "fk_produto_categoria")
+  estoque       Estoque?
+  imagens       Imagem[]
+  itensCarrinho ItemCarrinho[]
+  itensPedido   ItemPedido[]
+  avaliacoes    Avaliacao[]
+
+  @@index([lojaId], map: "idx_produto_loja")
+  @@index([categoriaId], map: "idx_produto_categoria")
+  @@index([lojaId, excluido, pausado], map: "idx_produto_visibilidade")
+  @@map("produto")
+}
+
+model Estoque {
+  id                   Int @id @default(autoincrement()) @map("id_estoque")
+  quantidadeDisponivel Int @map("quantidade_disponivel")
+  pontoReposicao       Int @map("ponto_reposicao")
+  produtoId            Int @unique(map: "uq_estoque_produto") @map("fk_produto_id_produto")
+
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_estoque_produto")
+
+  @@map("estoque")
+}
+
+model Imagem {
+  id        Int    @id @default(autoincrement()) @map("id_imagem")
+  url       String
+  produtoId Int    @map("fk_produto_id_produto")
+
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_imagem_produto")
+
+  @@index([produtoId], map: "idx_imagem_produto")
+  @@map("imagem")
+}
+
+model Carrinho {
+  id          Int      @id @default(autoincrement()) @map("id_carrinho")
+  status      String   @db.VarChar(30)
+  dataCriacao DateTime @map("data_criacao") @db.Timestamp(6)
+  usuarioId   Int      @unique(map: "uq_carrinho_usuario") @map("fk_usuario_id_usuario")
+
+  usuario Usuario        @relation(fields: [usuarioId], references: [id], map: "fk_carrinho_usuario")
+  itens   ItemCarrinho[]
+
+  @@map("carrinho")
+}
+
+model ItemCarrinho {
+  numeroItem    Int     @map("numero_item")
+  quantidade    Int
+  precoUnitario Decimal @map("preco_unitario") @db.Decimal(10, 2)
+  produtoId     Int     @map("fk_produto_id_produto")
+  carrinhoId    Int     @map("fk_carrinho_id_carrinho")
+
+  produto  Produto  @relation(fields: [produtoId], references: [id], map: "fk_item_carrinho_produto")
+  carrinho Carrinho @relation(fields: [carrinhoId], references: [id], map: "fk_item_carrinho_carrinho")
+
+  @@id([carrinhoId, numeroItem], map: "pk_item_carrinho")
+  @@index([produtoId], map: "idx_item_carrinho_produto")
+  @@map("item_carrinho")
+}
+
+model Pedido {
+  id                Int      @id @default(autoincrement()) @map("id_pedidos")
+  data              DateTime @db.Timestamp(6)
+  status            String   @db.VarChar(30)
+  usuarioId         Int      @map("fk_usuario_id_usuario")
+  enderecoEntregaId Int      @map("fk_endereco_de_entrega_id_endereco")
+
+  usuario         Usuario           @relation(fields: [usuarioId], references: [id], map: "fk_pedido_usuario")
+  enderecoEntrega EnderecoEntrega   @relation(fields: [enderecoEntregaId], references: [id], map: "fk_pedido_endereco")
+  itens           ItemPedido[]
+  pagamentos      Pagamento[]
+  historico       HistoricoPedido[]
+
+  @@index([usuarioId], map: "idx_pedido_usuario")
+  @@index([enderecoEntregaId], map: "idx_pedido_endereco")
+  @@map("pedido")
+}
+
+model ItemPedido {
+  numeroItem    Int     @map("numero_item")
+  precoUnitario Decimal @map("preco_unitario") @db.Decimal(10, 2)
+  subtotal      Decimal @db.Decimal(10, 2)
+  quantidade    Int
+  pedidoId      Int     @map("fk_pedido_id_pedidos")
+  produtoId     Int     @map("fk_produto_id_produto")
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], map: "fk_item_pedido_pedido")
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_item_pedido_produto")
+
+  @@id([pedidoId, numeroItem], map: "pk_item_pedido")
+  @@index([produtoId], map: "idx_item_pedido_produto")
+  @@map("item_pedido")
+}
+
+model Pagamento {
+  id             Int      @id @default(autoincrement()) @map("id_pagamento")
+  data           DateTime @db.Timestamp(6)
+  valor          Decimal  @db.Decimal(10, 2)
+  status         String   @db.VarChar(30)
+  formaPagamento String   @map("forma_pagamento") @db.VarChar(30)
+  pedidoId       Int      @map("fk_pedido_id_pedidos")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_pagamento_pedido")
+
+  @@index([pedidoId], map: "idx_pagamento_pedido")
+  @@map("pagamento")
+}
+
+model Avaliacao {
+  id            Int      @id @default(autoincrement()) @map("id_avaliacao")
+  nota          Int      @db.SmallInt
+  comentario    String?
+  dataAvaliacao DateTime @map("data_avaliacao") @db.Timestamp(6)
+  usuarioId     Int      @map("fk_usuario_id_usuario")
+  produtoId     Int      @map("fk_produto_id_produto")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_avaliacao_usuario")
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_avaliacao_produto")
+
+  @@index([usuarioId], map: "idx_avaliacao_usuario")
+  @@index([produtoId], map: "idx_avaliacao_produto")
+  @@map("avaliacao")
+}
+
+model HistoricoPedido {
+  id         Int      @id @default(autoincrement()) @map("id_historico")
+  status     String   @db.VarChar(30)
+  observacao String?
+  data       DateTime @db.Timestamp(6)
+  pedidoId   Int      @map("fk_pedido_id_pedidos")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], map: "fk_historico_pedido")
+
+  @@index([pedidoId], map: "idx_historico_pedido")
+  @@map("historico_pedido")
+}

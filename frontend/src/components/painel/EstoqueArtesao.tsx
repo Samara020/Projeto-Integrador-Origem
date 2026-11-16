@@ -19,6 +19,7 @@ const FILTROS: { id: SituacaoPeca | ""; nome: string }[] = [
   { id: "ATIVO", nome: "Ativos" },
   { id: "INATIVO", nome: "Inativos" },
   { id: "ESGOTADO", nome: "Esgotados" },
+  { id: "ESTOQUE_BAIXO", nome: "Estoque baixo" },
 ];
 
 const ROTULO_SITUACAO: Record<SituacaoPeca, string> = {
@@ -37,13 +38,17 @@ const VARIANTE_SITUACAO: Record<SituacaoPeca, "sucesso" | "neutro" | "erro" | "a
 
 export default function EstoqueArtesao() {
   const { valor: filtro, definir } = useFiltroUrl("situacao");
-  const situacao = FILTROS.find((item) => item.id === filtro)?.id || undefined;
+  const filtroValido = FILTROS.some((item) => item.id === filtro);
+  const situacao = (filtroValido && filtro !== "" ? filtro : undefined) as SituacaoPeca | undefined;
+  const filtroAtivo = filtroValido ? filtro : "";
+
   const { dados, carregando, erro, recarregar } = usePecasArtesao(situacao);
-  const { alterarEstoque, removerPeca, salvando, erro: erroDeAcao } = useAcoesArtesao();
+  const { alterarEstoque, removerPeca, salvando, erro: erroDeAcao, limparErro } = useAcoesArtesao();
 
   const [editando, setEditando] = useState<string | null>(null);
   const [novoEstoque, setNovoEstoque] = useState("");
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [erroValidacao, setErroValidacao] = useState<string | null>(null);
 
   const contagem = dados?.contagem;
   const pecas = dados?.itens ?? [];
@@ -51,37 +56,91 @@ export default function EstoqueArtesao() {
   function contagemDe(id: SituacaoPeca | "") {
     if (!id) {
       if (!contagem) return 0;
-      return contagem.ATIVO + contagem.INATIVO + contagem.ESGOTADO + contagem.ESTOQUE_BAIXO;
+      return (
+        (contagem.ATIVO ?? 0) +
+        (contagem.INATIVO ?? 0) +
+        (contagem.ESGOTADO ?? 0) +
+        (contagem.ESTOQUE_BAIXO ?? 0)
+      );
     }
     return contagem?.[id] ?? 0;
   }
 
   function abrirAjuste(peca: PecaEstoque) {
+    limparErro();
+    setErroValidacao(null);
     setEditando(peca.id);
     setConfirmando(null);
     setNovoEstoque(String(peca.estoque));
   }
 
+  function fecharAjuste() {
+    setEditando(null);
+    setErroValidacao(null);
+    limparErro();
+  }
+
+  function abrirExclusao(peca: PecaEstoque) {
+    limparErro();
+    setErroValidacao(null);
+    setConfirmando(peca.id);
+    setEditando(null);
+  }
+
+  function fecharExclusao() {
+    setConfirmando(null);
+    limparErro();
+  }
+
   async function salvarAjuste(peca: PecaEstoque) {
-    const quantidade = Number(novoEstoque);
-    if (!Number.isInteger(quantidade) || quantidade < 0) return;
-    await alterarEstoque(peca.id, quantidade, undefined, () => {
-      setEditando(null);
-      recarregar();
-    }).catch(() => {});
+    const valorTrimmed = novoEstoque.trim();
+    if (valorTrimmed === "") {
+      setErroValidacao("Informe a quantidade em estoque.");
+      return;
+    }
+    const quantidade = Number(valorTrimmed);
+    if (!Number.isInteger(quantidade) || quantidade < 0) {
+      setErroValidacao("A quantidade deve ser um número inteiro maior ou igual a zero.");
+      return;
+    }
+
+    limparErro();
+    setErroValidacao(null);
+
+    try {
+      await alterarEstoque(peca.id, quantidade, undefined, () => {
+        setEditando((atual) => (atual === peca.id ? null : atual));
+        recarregar();
+      });
+    } catch {
+      // Erro exibido na UI via erroDeAcao
+    }
   }
 
   async function alternarPausa(peca: PecaEstoque) {
-    await alterarEstoque(peca.id, peca.estoque, peca.situacao !== "INATIVO", recarregar).catch(
-      () => {},
-    );
+    limparErro();
+    try {
+      await alterarEstoque(
+        peca.id,
+        peca.estoque,
+        peca.situacao !== "INATIVO",
+        recarregar,
+      );
+    } catch {
+      // Erro exibido na UI via erroDeAcao
+    }
   }
 
   async function confirmarExclusao(peca: PecaEstoque) {
-    await removerPeca(peca.id, () => {
-      setConfirmando(null);
-      recarregar();
-    }).catch(() => {});
+    limparErro();
+    try {
+      await removerPeca(peca.id, () => {
+        setConfirmando((atual) => (atual === peca.id ? null : atual));
+        recarregar();
+      });
+    } catch {
+      // Erro exibido na UI via erroDeAcao
+    }
   }
 
   return (
@@ -99,14 +158,18 @@ export default function EstoqueArtesao() {
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTROS.map((item) => {
-          const ativo = filtro === item.id;
+          const ativo = filtroAtivo === item.id;
           return (
             <button
               key={item.id || "todos"}
               type="button"
               aria-pressed={ativo}
-              onClick={() => definir(item.id ?? "")}
-              className={`inline-flex h-9 items-center rounded-full px-3 text-apoio font-bold transition-colors duration-150 ${
+              onClick={() => {
+                limparErro();
+                setErroValidacao(null);
+                definir(item.id ?? "");
+              }}
+              className={`inline-flex min-h-[40px] h-10 items-center rounded-full px-3 text-apoio font-bold transition-colors duration-150 ${
                 ativo
                   ? "bg-terracota text-white"
                   : "border border-borda bg-superficie text-tinta-2 hover:border-borda-forte hover:text-tinta"
@@ -117,6 +180,12 @@ export default function EstoqueArtesao() {
           );
         })}
       </div>
+
+      {erroValidacao ? (
+        <p role="alert" className="text-apoio text-erro">
+          {erroValidacao}
+        </p>
+      ) : null}
 
       {erroDeAcao ? (
         <p role="alert" className="text-apoio text-erro">
@@ -224,7 +293,7 @@ export default function EstoqueArtesao() {
                         <div className="flex flex-wrap items-center justify-end gap-3 text-apoio">
                           <Botao
                             variante="fantasma"
-                            onClick={() => (aberta ? setEditando(null) : abrirAjuste(peca))}
+                            onClick={() => (aberta ? fecharAjuste() : abrirAjuste(peca))}
                             aria-expanded={aberta}
                           >
                             Ajustar estoque
@@ -232,16 +301,13 @@ export default function EstoqueArtesao() {
                           <Botao
                             variante="fantasma"
                             onClick={() => alternarPausa(peca)}
-                            carregando={salvando === `estoque:${peca.id}`}
+                            carregando={salvando === `pausa:${peca.id}`}
                           >
                             {peca.situacao === "INATIVO" ? "Retomar" : "Pausar"}
                           </Botao>
                           <Botao
                             variante="fantasma"
-                            onClick={() => {
-                              setConfirmando(peca.id);
-                              setEditando(null);
-                            }}
+                            onClick={() => (excluir ? fecharExclusao() : abrirExclusao(peca))}
                             aria-expanded={excluir}
                           >
                             Excluir
@@ -267,18 +333,21 @@ export default function EstoqueArtesao() {
                                       step={1}
                                       inputMode="numeric"
                                       value={novoEstoque}
-                                      onChange={(evento) => setNovoEstoque(evento.target.value)}
+                                      onChange={(evento) => {
+                                        setNovoEstoque(evento.target.value);
+                                        if (erroValidacao) setErroValidacao(null);
+                                      }}
                                       dica="Zero deixa a peça esgotada."
                                     />
                                   </div>
                                   <div className="flex gap-2 sm:pt-7">
                                     <Botao
                                       onClick={() => salvarAjuste(peca)}
-                                      carregando={salvando === `estoque:${peca.id}`}
+                                      carregando={salvando === `ajuste:${peca.id}`}
                                     >
                                       Salvar
                                     </Botao>
-                                    <Botao variante="secundario" onClick={() => setEditando(null)}>
+                                    <Botao variante="secundario" onClick={fecharAjuste}>
                                       Cancelar
                                     </Botao>
                                   </div>
@@ -299,7 +368,7 @@ export default function EstoqueArtesao() {
                                     </Botao>
                                     <Botao
                                       variante="secundario"
-                                      onClick={() => setConfirmando(null)}
+                                      onClick={fecharExclusao}
                                     >
                                       Cancelar
                                     </Botao>

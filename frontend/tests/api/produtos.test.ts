@@ -50,6 +50,14 @@ describe("TC03 · GET /api/produtos", () => {
     expect(ids(corpo)).toContain("prd_201");
   });
 
+  test("busca por peça vendida devolve envelope vazio (peça vendida não entra na busca)", async () => {
+    const { status, corpo } = await get<Paginado>("/api/produtos?termo=pavao");
+
+    expect(status).toBe(200);
+    expect(ids(corpo)).not.toContain("prd_208");
+    expect(corpo.total).toBe(0);
+  });
+
   test("busca sem resultado devolve envelope vazio", async () => {
     const { status, corpo } = await get<Paginado>("/api/produtos?termo=termo-que-nao-existe-xyz");
 

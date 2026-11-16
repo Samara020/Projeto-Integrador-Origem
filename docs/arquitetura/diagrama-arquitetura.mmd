@@ -1,0 +1,41 @@
+﻿flowchart TD
+    USER[Usuario] --> FRONT[Frontend Next.js / React / TypeScript]
+    FRONT --> HTTP[Cliente HTTP Axios]
+    HTTP --> CONFIG{NEXT_PUBLIC_API_URL}
+
+    CONFIG -->|Backend configurado| EXPRESS[API Express]
+    CONFIG -->|Padrao /api| FAKE[Fake API Next.js]
+
+    subgraph BACKEND["Backend principal - Node.js / TypeScript"]
+        EXPRESS --> MIDDLEWARE[Middlewares: Helmet, CORS, JSON e IDs]
+        MIDDLEWARE --> ROUTES[Rotas Express]
+        ROUTES --> PRODUCT_ROUTE[ Rota /produtos ]
+        PRODUCT_ROUTE --> CONTROLLER[ProdutosController]
+        CONTROLLER --> SERVICE[produtoService]
+        SERVICE --> REPOSITORY[produtoRepository]
+        REPOSITORY --> PRISMA[Prisma Client]
+        EXPRESS -.-> ERROR[Middleware global de erros]
+    end
+
+    PRISMA --> DB[(PostgreSQL)]
+
+    PRISMA -.->|Resultado da consulta| REPOSITORY
+    REPOSITORY -.->|Dados| SERVICE
+    SERVICE -.->|Resultado do negocio| CONTROLLER
+    CONTROLLER -.->|Resposta HTTP| EXPRESS
+    ERROR -.->|Resposta de erro| EXPRESS
+    EXPRESS -.->|Resposta HTTP| HTTP
+    HTTP -.-> FRONT
+
+    FAKE --> MOCK[Mocks e dados locais]
+    MOCK -.-> FRONT
+
+    classDef frontend fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef backend fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef database fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef auxiliary fill:#f3e8ff,stroke:#9333ea,color:#581c87
+
+    class USER,FRONT,HTTP frontend
+    class EXPRESS,MIDDLEWARE,ROUTES,PRODUCT_ROUTE,CONTROLLER,SERVICE,REPOSITORY,ERROR backend
+    class PRISMA,DB database
+    class FAKE,MOCK,CONFIG auxiliary

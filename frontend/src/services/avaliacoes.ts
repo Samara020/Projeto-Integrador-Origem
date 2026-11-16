@@ -1,7 +1,6 @@
-// Fake API: a avaliação nova fica no navegador. Quem lê a peça continua vendo as da API.
-// Avaliação 2: criar() vira http("/avaliacoes", { metodo: "POST", corpo: dados }) e minhas() vira GET.
 import { gravarLocal, lerLocal } from "@/lib/armazenamento";
-import { ApiError } from "@/lib/http";
+import { ApiError, http } from "@/lib/http";
+import { authService } from "@/services/auth";
 import type { AvaliacaoCriada, MinhaAvaliacao, NovaAvaliacao } from "@/types";
 
 const CHAVE = "avaliacoes-minhas";
@@ -22,6 +21,34 @@ export const avaliacoesService = {
     dados: NovaAvaliacao,
     peca: { nome: string; imagemPrincipal: string },
   ): Promise<AvaliacaoCriada> {
+    const sessao = authService.sessaoAtual();
+    if (sessao?.token && process.env.NEXT_PUBLIC_API_URL) {
+      try {
+        const criada = await http<AvaliacaoCriada>("/avaliacoes", {
+          metodo: "POST",
+          corpo: {
+            pedidoId: dados.pedidoId,
+            produtoId: dados.produtoId,
+            nota: dados.nota,
+            comentario: dados.comentario,
+          },
+        });
+        gravarLocal(CHAVE, [
+          {
+            ...dados,
+            ...criada,
+            criadoEm: new Date().toISOString(),
+            nomeProduto: peca.nome,
+            imagemPrincipal: peca.imagemPrincipal,
+          },
+          ...ler(),
+        ]);
+        return criada;
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+      }
+    }
+
     await esperar();
     if (dados.nota < 1 || dados.nota > 5) throw new ApiError(400, "Escolha de 1 a 5 estrelas.");
     if (dados.comentario.trim().length < 10) {
@@ -41,6 +68,12 @@ export const avaliacoesService = {
 
   // GET /comprador/avaliacoes (lacuna)
   async minhas(): Promise<MinhaAvaliacao[]> {
+    const sessao = authService.sessaoAtual();
+    if (sessao?.token && process.env.NEXT_PUBLIC_API_URL) {
+      try {
+        return await http<MinhaAvaliacao[]>("/avaliacoes/comprador/avaliacoes");
+      } catch {}
+    }
     return ler();
   },
 };

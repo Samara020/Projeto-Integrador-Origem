@@ -1,7 +1,9 @@
 // TC01, TC11 e TC06: particionamento de equivalência e valor-limite dos campos de
 // login, cadastro e checkout (lib/validacao.ts). undefined = campo aceito.
 import {
+  validarCadastro,
   validarCep,
+  validarConvite,
   validarCvv,
   validarEmail,
   validarNome,
@@ -11,6 +13,7 @@ import {
   validarSenhaLogin,
   validarSenhaNova,
   validarValidadeCartao,
+  type DadosCadastro,
 } from "@/lib/validacao";
 
 describe("TC01/TC11 · e-mail e senha do login", () => {
@@ -50,6 +53,83 @@ describe("TC01 · cadastro de conta", () => {
     ["", "Use pelo menos 8 caracteres."],
   ])("validarSenhaNova: limite de 8 caracteres (%j)", (valor, esperado) => {
     expect(validarSenhaNova(valor)).toBe(esperado);
+  });
+});
+
+// Regras do formulário de cadastro por perfil. As mensagens são as mesmas que a tela
+// /cadastro já mostrava quando a validação morava dentro do componente.
+describe("TC01 · regras do cadastro por perfil", () => {
+  const valido: DadosCadastro = {
+    papel: "COMPRADOR",
+    nome: "Ana Souza",
+    email: "ana@origem.dev",
+    senha: "12345678",
+    tecnica: "",
+    regiao: "",
+    convite: "",
+    termos: true,
+  };
+  const vazio = { nome: "", email: "", senha: "", termos: false };
+  const errosBasicos = {
+    nome: "Digite seu nome completo.",
+    email: "Digite seu e-mail.",
+    senha: "Use pelo menos 8 caracteres.",
+    termos: "Aceite os termos para criar a conta.",
+  };
+
+  test("comprador válido passa sem técnica, região nem convite", () => {
+    expect(validarCadastro(valido)).toEqual({});
+  });
+
+  test("formulário vazio de comprador aponta nome, e-mail, senha e termos", () => {
+    expect(validarCadastro({ ...valido, ...vazio })).toEqual(errosBasicos);
+  });
+
+  test("formulário vazio de artesão também exige técnica e região", () => {
+    expect(validarCadastro({ ...valido, ...vazio, papel: "ARTESAO" })).toEqual({
+      ...errosBasicos,
+      tecnica: "Escolha sua técnica principal.",
+      regiao: "Escolha a região onde você produz.",
+    });
+  });
+
+  test("formulário vazio de administrador também exige o convite", () => {
+    expect(validarCadastro({ ...valido, ...vazio, papel: "ADMINISTRADOR" })).toEqual({
+      ...errosBasicos,
+      convite: "Digite o código de convite.",
+    });
+  });
+
+  test("artesão com técnica e região passa", () => {
+    expect(
+      validarCadastro({ ...valido, papel: "ARTESAO", tecnica: "ceramica", regiao: "agreste" }),
+    ).toEqual({});
+  });
+
+  test("artesão sem região só aponta a região", () => {
+    expect(validarCadastro({ ...valido, papel: "ARTESAO", tecnica: "ceramica" })).toEqual({
+      regiao: "Escolha a região onde você produz.",
+    });
+  });
+
+  test("administrador com convite passa", () => {
+    expect(
+      validarCadastro({ ...valido, papel: "ADMINISTRADOR", convite: "ORIGEM-2026" }),
+    ).toEqual({});
+  });
+
+  test("termos desmarcados barram qualquer perfil", () => {
+    expect(validarCadastro({ ...valido, termos: false })).toEqual({
+      termos: "Aceite os termos para criar a conta.",
+    });
+  });
+
+  test.each([
+    ["ORIGEM-2026", undefined],
+    ["", "Digite o código de convite."],
+    ["   ", "Digite o código de convite."],
+  ])("validarConvite(%j) devolve %j", (valor, esperado) => {
+    expect(validarConvite(valor)).toBe(esperado);
   });
 });
 

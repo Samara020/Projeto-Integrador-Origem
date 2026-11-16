@@ -462,10 +462,6 @@ Mais detalhes do módulo (estratégia, fallback, testes automatizados com `pytes
 
 ## Infraestrutura de Software · Unidade 2 (E1, E2, E3)
 
-### Integrantes
-
-Allana, Carlos, João Pedro, Lara, Leandro, Nicolas, Samara, Sérgio.
-
 ### Como rodar (um comando)
 
 Requisito: Docker com Compose v2.

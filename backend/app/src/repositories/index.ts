@@ -1,0 +1,11 @@
+export { usuarioRepository } from "./usuario.repository";
+export { categoriaRepository } from "./categoria.repository";
+export { lojaRepository } from "./loja.repository";
+export { produtoRepository } from "./produto.repository";
+export { carrinhoRepository } from "./carrinho.repository";
+export { pedidoRepository } from "./pedido.repository";
+export { enderecoRepository } from "./endereco.repository";
+export { pagamentoRepository } from "./pagamento.repository";
+export { avaliacaoRepository } from "./avaliacao.repository";
+export { ticketRepository } from "./ticket.repository";
+export { adminRepository } from "./admin.repository";

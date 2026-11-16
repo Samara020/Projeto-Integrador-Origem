@@ -96,6 +96,7 @@ export function listarProdutos(
         ].join(" "),
       );
       if (!alvo.includes(termo)) return false;
+      if (p.disponibilidade === "VENDIDO") return false;
     }
     if (filtros.categoria && p.categoriaId !== filtros.categoria) return false;
     if (filtros.tecnica && p.tecnicaId !== filtros.tecnica) return false;

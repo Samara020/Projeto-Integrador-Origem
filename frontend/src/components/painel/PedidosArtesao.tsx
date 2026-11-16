@@ -1,18 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Cartao, TituloSecao } from "@/components/painel/CartaoPainel";
+import { TituloSecao } from "@/components/painel/CartaoPainel";
+import { PedidoArtesaoCard, ROTULO_STATUS } from "@/components/painel/PedidoArtesaoCard";
 import { useFiltroUrl } from "@/components/painel/useFiltroUrl";
 import { Botao } from "@/components/ui/Botao";
-import { Campo } from "@/components/ui/Campo";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Selecao } from "@/components/ui/Selecao";
-import { Selo } from "@/components/ui/Selo";
 import { toaster } from "@/components/ui/toaster";
 import { useAcoesArtesao, usePedidosArtesao } from "@/hooks/usePainelArtesao";
-import { formatarData, formatarMoeda, plural } from "@/lib/formato";
+import { plural } from "@/lib/formato";
 import type { PedidoRecebido, ProximaAcaoPedido, StatusProducao } from "@/types";
 
 const FILTROS: { id: StatusProducao | ""; nome: string }[] = [
@@ -29,35 +28,6 @@ const PERIODOS = [
   { id: "30", nome: "Últimos 30 dias" },
   { id: "0", nome: "Todo o período" },
 ];
-
-const ROTULO_STATUS: Record<StatusProducao, string> = {
-  NOVO: "Novo",
-  EM_PRODUCAO: "Em produção",
-  PRONTO: "Pronto",
-  ENVIADO: "Enviado",
-  ENTREGUE: "Entregue",
-  CANCELADO: "Cancelado",
-};
-
-const VARIANTE_STATUS: Record<
-  StatusProducao,
-  "sucesso" | "neutro" | "destaque" | "aviso" | "erro"
-> = {
-  NOVO: "destaque",
-  EM_PRODUCAO: "aviso",
-  PRONTO: "sucesso",
-  ENVIADO: "neutro",
-  ENTREGUE: "neutro",
-  CANCELADO: "erro",
-};
-
-const ROTULO_ACAO: Record<ProximaAcaoPedido, string> = {
-  ACEITAR: "Aceitar pedido",
-  MARCAR_PRONTO: "Marcar como pronto",
-  INFORMAR_RASTREIO: "Informar rastreio",
-  VER_RASTREIO: "Ver rastreio",
-  NENHUMA: "",
-};
 
 const PROXIMO_STATUS: Partial<Record<ProximaAcaoPedido, StatusProducao>> = {
   ACEITAR: "EM_PRODUCAO",
@@ -229,101 +199,19 @@ export default function PedidosArtesao() {
               const aberto = expandido === pedido.id;
               return (
                 <li key={pedido.id}>
-                  <Cartao>
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-apoio font-bold text-terracota">#{pedido.id}</p>
-                          <Selo variante={VARIANTE_STATUS[pedido.statusProducao]}>
-                            {ROTULO_STATUS[pedido.statusProducao]}
-                          </Selo>
-                        </div>
-                        <p className="text-apoio text-tinta-3">
-                          {formatarData(pedido.criadoEm)} · {pedido.comprador.nome} ·{" "}
-                          {pedido.comprador.local}
-                        </p>
-                        <ul className="flex flex-col gap-1">
-                          {pedido.itens.map((item) => (
-                            <li key={item.produtoId} className="text-corpo text-tinta">
-                              {item.nome} <span className="text-tinta-2">× {item.quantidade}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="font-lora text-lg text-tinta">
-                          {formatarMoeda(pedido.valorTotal)}
-                        </p>
-                      </div>
-
-                      {pedido.proximaAcao === "NENHUMA" ? (
-                        <p className="text-apoio text-tinta-3">
-                          {pedido.statusProducao === "ENTREGUE"
-                            ? "Pedido entregue. Obrigado!"
-                            : "Nenhuma ação necessária."}
-                        </p>
-                      ) : (
-                        <Botao
-                          variante={
-                            pedido.proximaAcao === "INFORMAR_RASTREIO" ? "primario" : "contorno"
-                          }
-                          onClick={() => abrir(pedido.proximaAcao, pedido)}
-                          carregando={salvando === `pedido:${pedido.id}`}
-                          aria-expanded={aberto}
-                        >
-                          {ROTULO_ACAO[pedido.proximaAcao]}
-                        </Botao>
-                      )}
-                    </div>
-
-                    {aberto ? (
-                      <div className="mt-4 border-t border-borda pt-4">
-                        {pedido.proximaAcao === "INFORMAR_RASTREIO" ? (
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                            <div className="sm:w-72">
-                              <Campo
-                                id={`rastreio-${pedido.id}`}
-                                rotulo="Código de rastreio"
-                                value={rastreio[pedido.id] ?? ""}
-                                onChange={(evento) =>
-                                  setRastreio((atual) => ({
-                                    ...atual,
-                                    [pedido.id]: evento.target.value,
-                                  }))
-                                }
-                                placeholder="BR458012973RG"
-                                dica="A transportadora informa esse código."
-                              />
-                            </div>
-                            <div className="flex gap-2 sm:pt-7">
-                              <Botao
-                                onClick={() => salvarRastreio(pedido)}
-                                carregando={salvando === `pedido:${pedido.id}`}
-                                disabled={!(rastreio[pedido.id] ?? "").trim()}
-                              >
-                                Salvar rastreio
-                              </Botao>
-                              <Botao variante="secundario" onClick={() => setExpandido(null)}>
-                                Cancelar
-                              </Botao>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-corpo text-tinta">
-                              Código do pedido #{pedido.id}:{" "}
-                              <span className="font-bold">{pedido.codigoRastreio ?? "—"}</span>
-                            </p>
-                            <Botao
-                              variante="fantasma"
-                              onClick={() => copiarRastreio(pedido)}
-                              disabled={!pedido.codigoRastreio}
-                            >
-                              Copiar código
-                            </Botao>
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                  </Cartao>
+                  <PedidoArtesaoCard
+                    pedido={pedido}
+                    aberto={aberto}
+                    codigoRastreio={rastreio[pedido.id] ?? ""}
+                    salvando={salvando === `pedido:${pedido.id}`}
+                    aoAbrir={abrir}
+                    aoAlterarRastreio={(pedidoId, codigo) =>
+                      setRastreio((atual) => ({ ...atual, [pedidoId]: codigo }))
+                    }
+                    aoSalvarRastreio={salvarRastreio}
+                    aoCancelarRastreio={() => setExpandido(null)}
+                    aoCopiarRastreio={copiarRastreio}
+                  />
                 </li>
               );
             })}
