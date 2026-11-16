@@ -108,12 +108,7 @@ export const produtoService = {
         seloAtivo: seloAtivoDe(produto.id),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
-        disponibilidade:
-          produto.id === 2006 || produto.id === 1006
-            ? "RESERVADO"
-            : quantidadeDe(produto) > 0
-            ? "DISPONIVEL"
-            : "VENDIDO",
+        disponibilidade: disponibilidadeDe(produto),
       })),
     };
   },
@@ -128,12 +123,7 @@ export const produtoService = {
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
       seloAtivo: seloAtivoDe(produto.id),
-      disponibilidade:
-        produto.id === 2006 || produto.id === 1006
-          ? "RESERVADO"
-          : quantidadeDe(produto) > 0
-          ? "DISPONIVEL"
-          : "VENDIDO",
+      disponibilidade: disponibilidadeDe(produto),
       descricao: produto.descricao ?? "",
       imagens: produto.imagens.map((i: any) => i.url),
       categoria: { id: produto.categoria.id, nome: produto.categoria.nome },
@@ -284,7 +274,13 @@ export const produtoService = {
   async inativar(id: string, usuarioId: string) {
     await buscarProdutoDoArtesao(id, usuarioId, "Voce so pode inativar suas proprias pecas.");
 
-    await produtoRepository.inativar(id);
+    const produtoId = toId(id);
+    const pedidosVinculados = await produtoRepository.contarItensPedido(produtoId);
+    if (pedidosVinculados === 0) {
+      await produtoRepository.excluirFisicamente(produtoId);
+    } else {
+      await produtoRepository.inativarLogicamente(produtoId);
+    }
 
     return { mensagem: "Produto inativado com sucesso." };
   },
@@ -292,39 +288,91 @@ export const produtoService = {
   async listarPeloArtesao(usuarioId: string, filtros: { situacao?: string }) {
     const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
     if (!loja) {
-      return { total: 0, pagina: 1, limite: 20, contagem: {}, itens: [] };
+      return {
+        total: 0,
+        pagina: 1,
+        limite: 20,
+        contagem: { ATIVO: 0, INATIVO: 0, ESGOTADO: 0, ESTOQUE_BAIXO: 0 },
+        itens: [],
+      };
     }
 
-    const produtos = await produtoRepository.listarPorLoja(loja.id, filtros);
+    const todosProdutos = await produtoRepository.listarPorLoja(loja.id, {});
 
     const contagem = {
-      ATIVO: produtos.filter((p: any) => quantidadeDe(p) > 0).length,
-      INATIVO: produtos.filter((p: any) => quantidadeDe(p) === 0).length,
-      ESGOTADO: produtos.filter((p: any) => quantidadeDe(p) === 0).length,
-      ESTOQUE_BAIXO: produtos.filter(
-        (p: any) => quantidadeDe(p) > 0 && quantidadeDe(p) < 5
+      ATIVO: todosProdutos.filter(
+        (p: any) => situacaoDe(quantidadeDe(p), p.pausado) === "ATIVO"
+      ).length,
+      INATIVO: todosProdutos.filter(
+        (p: any) => situacaoDe(quantidadeDe(p), p.pausado) === "INATIVO"
+      ).length,
+      ESGOTADO: todosProdutos.filter(
+        (p: any) => situacaoDe(quantidadeDe(p), p.pausado) === "ESGOTADO"
+      ).length,
+      ESTOQUE_BAIXO: todosProdutos.filter(
+        (p: any) => situacaoDe(quantidadeDe(p), p.pausado) === "ESTOQUE_BAIXO"
       ).length,
     };
 
-    const itens = produtos.map((p: any) => ({
+    const produtosFiltrados = filtros.situacao
+      ? todosProdutos.filter(
+          (p: any) => situacaoDe(quantidadeDe(p), p.pausado) === filtros.situacao
+        )
+      : todosProdutos;
+
+    const itens = produtosFiltrados.map((p: any) => ({
       id: p.id,
       nome: p.nome,
       sku: skuDe(p.id),
-      imagemPrincipal: p.imagens[0]?.url ?? "",
+      imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
       estoque: quantidadeDe(p),
-      situacao: situacaoDe(quantidadeDe(p)),
+      situacao: situacaoDe(quantidadeDe(p), p.pausado),
     }));
 
     return { total: itens.length, pagina: 1, limite: 20, contagem, itens };
   },
 
-  async atualizarEstoque(id: string, dados: { estoque: number; situacao: string }, usuarioId: string) {
+  async atualizarEstoque(
+    id: string,
+    dados: { estoque?: number; situacao?: string; pausada?: boolean },
+    usuarioId: string
+  ) {
     const produto = await buscarProdutoDoArtesao(id, usuarioId, "Acesso negado.");
 
-    validarPecaUnica(produto.pecaUnica, dados.estoque);
-    await produtoRepository.atualizarEstoque(id, dados.estoque);
+    const produtoId = toId(id);
 
-    return { id, estoque: dados.estoque, situacao: dados.situacao };
+    // 1. Validar e resolver pausa (sem persistir ainda)
+    let novoPausado: boolean | undefined = undefined;
+    if (dados.pausada !== undefined) {
+      novoPausado = Boolean(dados.pausada);
+    } else if (dados.situacao !== undefined) {
+      novoPausado = dados.situacao === "INATIVO";
+    }
+
+    // 2. Validar quantidade e regra de peça única ANTES de qualquer escrita
+    let novoEstoque: number | undefined = undefined;
+    if (dados.estoque !== undefined) {
+      const qtd = Number(dados.estoque);
+      if (!Number.isInteger(qtd) || qtd < 0) {
+        throw new ErroApp(400, "A quantidade em estoque deve ser um número inteiro maior ou igual a zero.");
+      }
+      validarPecaUnica(produto.pecaUnica, qtd);
+      novoEstoque = qtd;
+    }
+
+    // 3. Persistência atômica somente se todas as validações passaram
+    if (novoPausado !== undefined || novoEstoque !== undefined) {
+      await produtoRepository.atualizarEstoqueEPausa(produtoId, {
+        pausado: novoPausado,
+        estoque: novoEstoque,
+      });
+    }
+
+    const estoqueFinal = novoEstoque ?? quantidadeDe(produto);
+    const pausadoFinal = novoPausado ?? produto.pausado;
+    const situacaoCalculada = situacaoDe(estoqueFinal, pausadoFinal);
+
+    return { id: String(produto.id), estoque: estoqueFinal, situacao: situacaoCalculada };
   },
 
   async listarPendentes(filtros: { status?: string }) {
@@ -340,7 +388,7 @@ export const produtoService = {
         return {
           id: p.id,
           nome: p.nome,
-          imagemPrincipal: p.imagens[0]?.url ?? "",
+          imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
           artesao: { id: p.loja.usuario.id, nome: p.loja.usuario.nome },
           tecnica: p.tecnica,
           regiao: p.origem,

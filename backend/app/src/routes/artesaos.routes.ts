@@ -4,9 +4,11 @@ import { autenticar, artesaoApenas } from "../middleware/auth";
 import prisma from "../lib/prisma";
 import { toId } from "../lib/ids";
 import { ErroApp } from "../middleware/error";
+import { ProdutosController } from "../controllers/produtos.controller";
 
 const router = Router();
 export const rotasDiretasArtesao = Router();
+const produtosController = new ProdutosController();
 
 const handlerGetMeuPerfil = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -110,5 +112,11 @@ router.get("/:id/perfil", handlerGetPerfilPublico);
 rotasDiretasArtesao.get("/perfil", autenticar, artesaoApenas, handlerGetMeuPerfil);
 rotasDiretasArtesao.put("/perfil", autenticar, artesaoApenas, handlerPutMeuPerfil);
 rotasDiretasArtesao.get("/:id/perfil", handlerGetPerfilPublico);
+rotasDiretasArtesao.get("/pecas", autenticar, artesaoApenas, (req, res, next) =>
+  produtosController.listarPeloArtesao(req, res).catch(next)
+);
+rotasDiretasArtesao.put("/pecas/:id/estoque", autenticar, artesaoApenas, (req, res, next) =>
+  produtosController.atualizarEstoque(req, res).catch(next)
+);
 
 export default router;

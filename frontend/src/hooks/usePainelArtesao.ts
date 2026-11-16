@@ -43,11 +43,15 @@ export function useRascunhoPeca() {
   return useConsulta("artesao:rascunho", async () => painelArtesaoService.rascunho());
 }
 
-// Escrita: o botão entra em carregando, o service grava no localStorage e a
+// Escrita: o botão entra em carregando, o service chama o backend e a
 // consulta é recarregada para a lista voltar com o dado novo.
 export function useAcoesArtesao() {
   const [salvando, setSalvando] = useState<string | null>(null);
   const [erro, setErro] = useState<ApiError | null>(null);
+
+  const limparErro = useCallback(() => {
+    setErro(null);
+  }, []);
 
   const executar = useCallback(async <T>(chave: string, acao: () => Promise<T>): Promise<T> => {
     setSalvando(chave);
@@ -69,15 +73,25 @@ export function useAcoesArtesao() {
   return {
     salvando,
     erro,
+    limparErro,
 
     async salvarRascunho(peca: NovoProduto, depois: () => void) {
       await executar("rascunho", () => painelArtesaoService.salvarRascunho(peca));
-      depois();
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
     },
 
     async criarPeca(peca: NovoProduto, depois: () => void) {
-      await executar("criar-peca", () => painelArtesaoService.criarPeca(peca));
-      depois();
+      const criada = await executar("criar-peca", () => painelArtesaoService.criarPeca(peca));
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
+      return criada;
     },
 
     async alterarEstoque(
@@ -86,10 +100,16 @@ export function useAcoesArtesao() {
       pausar: boolean | undefined,
       depois: () => void,
     ) {
-      await executar(`estoque:${id}`, () =>
+      const chave = pausar !== undefined ? `pausa:${id}` : `ajuste:${id}`;
+      const atualizado = await executar(chave, () =>
         painelArtesaoService.alterarEstoque(id, estoque, pausar),
       );
-      depois();
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
+      return atualizado;
     },
 
     async atualizarPedido(
@@ -101,23 +121,43 @@ export function useAcoesArtesao() {
       const atualizado = await executar(`pedido:${id}`, () =>
         painelArtesaoService.atualizarPedido(id, statusProducao, codigoRastreio),
       );
-      depois();
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
       return atualizado;
     },
 
     async removerPeca(id: string, depois: () => void) {
       await executar(`remover:${id}`, () => painelArtesaoService.removerPeca(id));
-      depois();
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
     },
 
     async salvarPerfil(perfil: PerfilArtesaoEdicao, depois: () => void) {
-      await executar("perfil", () => painelArtesaoService.salvarPerfil(perfil));
-      depois();
+      const atualizado = await executar("perfil", () => painelArtesaoService.salvarPerfil(perfil));
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
+      return atualizado;
     },
 
     async alternarOpcaoEnvio(opcaoId: string, depois: () => void) {
-      await executar(`envio:${opcaoId}`, () => painelArtesaoService.alternarOpcaoEnvio(opcaoId));
-      depois();
+      const atualizado = await executar(`envio:${opcaoId}`, () =>
+        painelArtesaoService.alternarOpcaoEnvio(opcaoId),
+      );
+      try {
+        depois();
+      } catch (err) {
+        console.error("Erro no callback pós-sucesso:", err);
+      }
+      return atualizado;
     },
   };
 }

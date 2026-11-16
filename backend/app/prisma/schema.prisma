@@ -71,6 +71,8 @@ model Produto {
   origem             String  @db.VarChar(150)
   modalidadeProducao String  @map("modalidade_producao") @db.VarChar(30)
   pecaUnica          Boolean @map("peca_unica")
+  pausado            Boolean @default(false)
+  excluido           Boolean @default(false)
   lojaId             Int     @map("fk_loja_id_loja")
   categoriaId        Int     @map("fk_categoria_id_categoria")
 
@@ -84,6 +86,7 @@ model Produto {
 
   @@index([lojaId], map: "idx_produto_loja")
   @@index([categoriaId], map: "idx_produto_categoria")
+  @@index([lojaId, excluido, pausado], map: "idx_produto_visibilidade")
   @@map("produto")
 }
 

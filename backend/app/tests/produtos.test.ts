@@ -201,4 +201,97 @@ describe("Produtos - endpoints e persistência", () => {
     expect(resposta.body.produtosComparados).toHaveLength(2);
     expect(resposta.body.produtosComparados[0].tecnica).toBeDefined();
   });
+
+  test("GET /artesao/pecas retorna contagens exclusivas mesmo com filtro aplicado", async () => {
+    const categoria = await criarCategoria();
+    const artesao = await criarUsuarioArtesao();
+    const token = gerarToken(artesao.id, "ARTESAO");
+    const loja = await criarLoja(artesao.id);
+
+    // 1 ATIVO (estoque >= 5)
+    await criarProduto(categoria.id, loja.id, { nome: "Peça Ativa", estoque: 10 });
+    // 1 ESTOQUE_BAIXO (1 a 4)
+    await criarProduto(categoria.id, loja.id, { nome: "Peça Baixa", estoque: 3 });
+    // 1 ESGOTADO (estoque === 0)
+    await criarProduto(categoria.id, loja.id, { nome: "Peça Esgotada", estoque: 0 });
+    // 1 INATIVO (pausada)
+    const pPausado = await criarProduto(categoria.id, loja.id, { nome: "Peça Pausada", estoque: 8 });
+
+    // Pausar a 4ª peça via endpoint
+    await request(app)
+      .put(`/artesao/pecas/${pPausado.id}/estoque`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ estoque: 8, pausada: true })
+      .expect(200);
+
+    // Consultar filtrando apenas por ESTOQUE_BAIXO
+    const resposta = await request(app)
+      .get("/artesao/pecas?situacao=ESTOQUE_BAIXO")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(resposta.body.total).toBe(1);
+    expect(resposta.body.itens[0].nome).toBe("Peça Baixa");
+    // As contagens devem refletir o total geral das 4 peças, não apenas o item filtrado
+    expect(resposta.body.contagem).toEqual({
+      ATIVO: 1,
+      INATIVO: 1,
+      ESGOTADO: 1,
+      ESTOQUE_BAIXO: 1,
+    });
+  });
+
+  test("PUT /artesao/pecas/:id/estoque atualiza estoque e pausa", async () => {
+    const categoria = await criarCategoria();
+    const artesao = await criarUsuarioArtesao();
+    const token = gerarToken(artesao.id, "ARTESAO");
+    const loja = await criarLoja(artesao.id);
+
+    const produto = await criarProduto(categoria.id, loja.id, { nome: "Vaso Barro", estoque: 10 });
+
+    // Ajustar estoque para 3 -> ESTOQUE_BAIXO
+    const respAjuste = await request(app)
+      .put(`/artesao/pecas/${produto.id}/estoque`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ estoque: 3 })
+      .expect(200);
+
+    expect(respAjuste.body.estoque).toBe(3);
+    expect(respAjuste.body.situacao).toBe("ESTOQUE_BAIXO");
+
+    // Pausar peça -> INATIVO
+    const respPausa = await request(app)
+      .put(`/artesao/pecas/${produto.id}/estoque`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ estoque: 3, pausada: true })
+      .expect(200);
+
+    expect(respPausa.body.situacao).toBe("INATIVO");
+
+    // Retomar peça -> ESTOQUE_BAIXO
+    const respRetomada = await request(app)
+      .put(`/artesao/pecas/${produto.id}/estoque`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ estoque: 3, pausada: false })
+      .expect(200);
+
+    expect(respRetomada.body.situacao).toBe("ESTOQUE_BAIXO");
+  });
+
+  test("DELETE /produtos/:id remove fisicamente quando sem pedido vinculado", async () => {
+    const categoria = await criarCategoria();
+    const artesao = await criarUsuarioArtesao();
+    const token = gerarToken(artesao.id, "ARTESAO");
+    const loja = await criarLoja(artesao.id);
+
+    const produto = await criarProduto(categoria.id, loja.id, { nome: "Peça Avulsa", estoque: 2 });
+
+    await request(app)
+      .delete(`/produtos/${produto.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    // Produto não deve mais existir no banco nem nas listagens
+    await request(app).get(`/produtos/${produto.id}`).expect(404);
+  });
 });

@@ -31,7 +31,15 @@ export const produtoRepository = {
       .filter(([, v]) => v.status !== "APROVADA")
       .map(([id]) => id);
 
-    const onde: Record<string, unknown> = { id: { notIn: naoAprovados } };
+    const onde: Record<string, unknown> = {
+      excluido: false,
+      ...(naoAprovados.length > 0 ? { id: { notIn: naoAprovados } } : {}),
+    };
+
+    if (filtros.disponivel) {
+      onde.pausado = false;
+      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
+    }
 
     if (filtros.termo) {
       onde.nome = { contains: filtros.termo, mode: "insensitive" };
@@ -86,8 +94,8 @@ export const produtoRepository = {
   },
 
   buscarPorId(id: Id) {
-    return prisma.produto.findUnique({
-      where: { id: toId(id) },
+    return prisma.produto.findFirst({
+      where: { id: toId(id), excluido: false },
       include: { ...inclusaoPadrao, imagens: true },
     });
   },
@@ -151,8 +159,28 @@ export const produtoRepository = {
     return this.atualizarEstoque(id, 0);
   },
 
+  contarItensPedido(id: Id) {
+    return prisma.itemPedido.count({
+      where: { produtoId: toId(id) },
+    });
+  },
+
+  async excluirFisicamente(id: Id) {
+    const produtoId = toId(id);
+    return prisma.$transaction(async (tx) => {
+      await tx.itemCarrinho.deleteMany({ where: { produtoId } });
+      await tx.avaliacao.deleteMany({ where: { produtoId } });
+      await tx.imagem.deleteMany({ where: { produtoId } });
+      await tx.estoque.deleteMany({ where: { produtoId } });
+      return tx.produto.delete({ where: { id: produtoId } });
+    });
+  },
+
   listarPorLoja(lojaId: Id, filtros: { situacao?: string }) {
-    const onde: Record<string, unknown> = { lojaId: toId(lojaId) };
+    const onde: Record<string, unknown> = {
+      lojaId: toId(lojaId),
+      excluido: false,
+    };
     if (filtros.situacao === "ESTOQUE_BAIXO") {
       onde.estoque = { is: { quantidadeDisponivel: { lt: 5 } } };
     }
@@ -161,6 +189,48 @@ export const produtoRepository = {
       orderBy: { id: "asc" },
       include: { imagens: { take: 1 }, estoque: true },
     });
+  },
+
+  atualizarPausa(id: Id, pausado: boolean) {
+    return prisma.produto.update({
+      where: { id: toId(id) },
+      data: { pausado },
+    });
+  },
+
+  atualizarEstoqueEPausa(id: Id, dados: { estoque?: number; pausado?: boolean }) {
+    const produtoId = toId(id);
+    const updates: any[] = [];
+    if (dados.pausado !== undefined) {
+      updates.push(
+        prisma.produto.update({
+          where: { id: produtoId },
+          data: { pausado: dados.pausado },
+        })
+      );
+    }
+    if (dados.estoque !== undefined) {
+      updates.push(
+        prisma.estoque.upsert({
+          where: { produtoId },
+          update: { quantidadeDisponivel: dados.estoque },
+          create: { produtoId, quantidadeDisponivel: dados.estoque, pontoReposicao: 0 },
+        })
+      );
+    }
+    if (updates.length === 0) return Promise.resolve([]);
+    return prisma.$transaction(updates);
+  },
+
+  inativarLogicamente(id: Id) {
+    const produtoId = toId(id);
+    return prisma.$transaction([
+      prisma.produto.update({
+        where: { id: produtoId },
+        data: { excluido: true, pausado: false },
+      }),
+      this.atualizarEstoque(produtoId, 0),
+    ]);
   },
 
   atualizarEstoque(id: Id, quantidade: number) {
@@ -172,8 +242,17 @@ export const produtoRepository = {
     });
   },
 
+  catalogoParaRecomendacao() {
+    return prisma.produto.findMany({
+      where: { excluido: false, pausado: false },
+      orderBy: { id: "asc" },
+      include: { ...inclusaoPadrao, imagens: { take: 1 } },
+    });
+  },
+
   listarTodos() {
     return prisma.produto.findMany({
+      where: { excluido: false },
       orderBy: { id: "desc" },
       include: {
         loja: { include: { usuario: { select: { id: true, nome: true } } } },
