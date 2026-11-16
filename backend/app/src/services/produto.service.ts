@@ -37,8 +37,22 @@ const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDispon
 
 const skuDe = (id: number) => "ORG-" + String(id).padStart(6, "0");
 
-const situacaoDe = (quantidade: number) =>
-  quantidade === 0 ? "ESGOTADO" : quantidade < 5 ? "ESTOQUE_BAIXO" : "ATIVO";
+const disponibilidadeDe = (produto: any) =>
+  quantidadeDe(produto) > 0 ? "DISPONIVEL" : "VENDIDO";
+
+const situacaoDe = (quantidade: number, pausado = false) =>
+  pausado
+    ? "INATIVO"
+    : quantidade === 0
+      ? "ESGOTADO"
+      : quantidade < 5
+        ? "ESTOQUE_BAIXO"
+        : "ATIVO";
+
+const dadosDoArtesao = (loja: any) => ({
+  id: loja.usuario.id,
+  nome: loja.usuario.nome,
+});
 
 /** Peca unica nao pode ter mais de uma unidade (regra do banco). */
 const validarPecaUnica = (pecaUnica: boolean, estoque: number) => {
@@ -101,10 +115,7 @@ export const produtoService = {
         nome: produto.nome,
         preco: Number(produto.preco),
         imagemPrincipal: produto.imagens[0]?.url ?? PLACEHOLDER,
-        artesao: {
-          id: produto.loja.usuario.id,
-          nome: produto.loja.usuario.nome,
-        },
+        artesao: dadosDoArtesao(produto.loja),
         seloAtivo: seloAtivoDe(produto.id),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
@@ -134,8 +145,7 @@ export const produtoService = {
       material: "",
       regiao: { id: produto.origem, nome: produto.origem },
       artesao: {
-        id: produto.loja.usuario.id,
-        nome: produto.loja.usuario.nome,
+        ...dadosDoArtesao(produto.loja),
         loja: produto.loja.nome,
       },
     };
@@ -389,7 +399,7 @@ export const produtoService = {
           id: p.id,
           nome: p.nome,
           imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
-          artesao: { id: p.loja.usuario.id, nome: p.loja.usuario.nome },
+          artesao: dadosDoArtesao(p.loja),
           tecnica: p.tecnica,
           regiao: p.origem,
           enviadoEm: null,
