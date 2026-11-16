@@ -30,7 +30,6 @@ export function useCheckout() {
     });
     if (processado.status === "APROVADO") {
       await carrinho.esvaziar();
-      pedidosService.encerrarTentativaDemonstracao();
     }
     setPagamento(processado);
     return processado;
