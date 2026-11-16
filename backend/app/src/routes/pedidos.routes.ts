@@ -81,7 +81,6 @@ const schemaStatus = z
     message: "Informe o codigo de rastreio para marcar como enviado.",
   });
 
-// POST /pedidos/checkout
 router.post(
   "/checkout",
   autenticar,
@@ -90,7 +89,6 @@ router.post(
   (req, res, next) => controller.checkout(req, res).catch(next)
 );
 
-// GET /pedidos/comprador/pedidos
 router.get(
   "/comprador/pedidos",
   autenticar,
@@ -98,7 +96,6 @@ router.get(
   (req, res, next) => controller.listar(req, res).catch(next)
 );
 
-// GET /pedidos/artesao/pedidos
 router.get(
   "/artesao/pedidos",
   autenticar,
@@ -106,7 +103,6 @@ router.get(
   (req, res, next) => controller.listarRecebidos(req, res).catch(next)
 );
 
-// PUT /pedidos/artesao/pedidos/:id/status
 router.put(
   "/artesao/pedidos/:id/status",
   autenticar,
@@ -115,7 +111,6 @@ router.put(
   (req, res, next) => controller.atualizarStatus(req, res).catch(next)
 );
 
-// GET /pedidos/:id (consulta detalhada do comprador)
 router.get(
   "/:id",
   autenticar,

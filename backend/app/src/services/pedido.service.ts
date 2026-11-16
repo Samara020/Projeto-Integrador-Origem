@@ -4,7 +4,7 @@ import {
   pedidoRepository,
 } from "../repositories";
 
-const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];
+const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];0
 
 function obterProximaAcao(status: string, codigoRastreio?: string | null): string {
   if (status === "ENVIADO" && codigoRastreio) return "VER_RASTREIO";
