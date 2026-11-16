@@ -14,9 +14,12 @@ import { useSessao } from "@/hooks/useSessao";
 import { destinoAposEntrar, voltaDaUrl } from "@/lib/destino";
 import { ApiError } from "@/lib/http";
 import {
+  validarCadastro,
+  validarConvite,
   validarEmail,
   validarNome,
   validarSenhaNova,
+  type ErrosCadastro,
 } from "@/lib/validacao";
 import type { Papel } from "@/types";
 
@@ -47,20 +50,6 @@ const PERFIS: {
   },
 ];
 
-type Erros = {
-  nome?: string;
-  email?: string;
-  senha?: string;
-  tecnica?: string;
-  regiao?: string;
-  convite?: string;
-  termos?: string;
-};
-
-function validarConvite(valor: string): string | undefined {
-  if (!valor.trim()) return "Digite o código de convite.";
-}
-
 export function FormularioCadastro() {
   const router = useRouter();
   const { cadastrar } = useSessao();
@@ -75,7 +64,7 @@ export function FormularioCadastro() {
   const [regiao, setRegiao] = useState("");
   const [convite, setConvite] = useState("");
   const [termos, setTermos] = useState(false);
-  const [erros, setErros] = useState<Erros>({});
+  const [erros, setErros] = useState<ErrosCadastro>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -85,15 +74,16 @@ export function FormularioCadastro() {
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    const novos: Erros = {
-      nome: validarNome(nome),
-      email: validarEmail(email),
-      senha: validarSenhaNova(senha),
-      tecnica: artesao && !tecnica ? "Escolha sua técnica principal." : undefined,
-      regiao: artesao && !regiao ? "Escolha a região onde você produz." : undefined,
-      convite: administrador ? validarConvite(convite) : undefined,
-      termos: termos ? undefined : "Aceite os termos para criar a conta.",
-    };
+    const novos = validarCadastro({
+      papel,
+      nome,
+      email,
+      senha,
+      tecnica,
+      regiao,
+      convite,
+      termos,
+    });
     setErros(novos);
     if (Object.values(novos).some(Boolean)) return;
 

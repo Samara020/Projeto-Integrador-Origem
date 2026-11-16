@@ -1,3 +1,5 @@
+import type { Papel } from "@/types";
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validarNome(valor: string): string | undefined {
@@ -15,6 +17,50 @@ export function validarSenhaLogin(valor: string): string | undefined {
 
 export function validarSenhaNova(valor: string): string | undefined {
   if (valor.length < 8) return "Use pelo menos 8 caracteres.";
+}
+
+export function validarConvite(valor: string): string | undefined {
+  if (!valor.trim()) return "Digite o código de convite.";
+}
+
+export type DadosCadastro = {
+  papel: Papel;
+  nome: string;
+  email: string;
+  senha: string;
+  tecnica: string;
+  regiao: string;
+  convite: string;
+  termos: boolean;
+};
+
+export type ErrosCadastro = {
+  nome?: string;
+  email?: string;
+  senha?: string;
+  tecnica?: string;
+  regiao?: string;
+  convite?: string;
+  termos?: string;
+};
+
+// Todas as regras do cadastro num lugar só. Técnica e região valem para o artesão;
+// o convite, para o administrador. Campo sem erro fica undefined.
+export function validarCadastro(dados: DadosCadastro): ErrosCadastro {
+  const artesao = dados.papel === "ARTESAO";
+  const administrador = dados.papel === "ADMINISTRADOR";
+
+  return {
+    nome: validarNome(dados.nome),
+    email: validarEmail(dados.email),
+    senha: validarSenhaNova(dados.senha),
+    tecnica:
+      artesao && !dados.tecnica ? "Escolha sua técnica principal." : undefined,
+    regiao:
+      artesao && !dados.regiao ? "Escolha a região onde você produz." : undefined,
+    convite: administrador ? validarConvite(dados.convite) : undefined,
+    termos: dados.termos ? undefined : "Aceite os termos para criar a conta.",
+  };
 }
 
 export function validarCep(valor: string): string | undefined {
