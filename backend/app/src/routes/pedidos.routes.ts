@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { autenticar, artesaoApenas, compradorApenas } from "../middleware/auth";
-import { validarCorpo } from "../middleware/validacao";
+import { obrigatorio, validarCorpo } from "../middleware/validacao";
 import { PedidosController } from "../controllers/pedidos.controller";
 
 const router = Router();
@@ -12,17 +12,17 @@ const schemaCheckout = z.object({
   enderecoEntrega: z.object(
     {
       cep: z
-        .string({ required_error: "Informe o CEP." })
+        .string(obrigatorio("Informe o CEP."))
         .trim()
         .min(1, "Informe o CEP.")
         .regex(/^(\d{5}-?\d{3}|\d{8})$/, "CEP invalido."),
       rua: z
-        .string({ required_error: "Informe a rua de entrega." })
+        .string(obrigatorio("Informe a rua de entrega."))
         .trim()
         .min(1, "Informe a rua de entrega.")
         .max(150, "A rua deve ter no maximo 150 caracteres."),
       numero: z
-        .string({ required_error: "Informe o numero do endereco." })
+        .string(obrigatorio("Informe o numero do endereco."))
         .trim()
         .min(1, "Informe o numero do endereco.")
         .max(20, "O numero deve ter no maximo 20 caracteres."),
@@ -34,7 +34,7 @@ const schemaCheckout = z.object({
         .regex(/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/, "CPF invalido.")
         .optional(),
     },
-    { required_error: "Preencha o endereco de entrega." }
+    obrigatorio("Preencha o endereco de entrega.")
   ),
 });
 
@@ -51,14 +51,10 @@ const STATUS_PRODUCAO = [
 const schemaStatus = z
   .object({
     statusProducao: z
-      .enum(STATUS_PRODUCAO, {
-        errorMap: () => ({ message: "Status de producao invalido." }),
-      })
+      .enum(STATUS_PRODUCAO, { error: "Status de producao invalido." })
       .optional(),
     status: z
-      .enum(STATUS_PRODUCAO, {
-        errorMap: () => ({ message: "Status de producao invalido." }),
-      })
+      .enum(STATUS_PRODUCAO, { error: "Status de producao invalido." })
       .optional(),
     codigoRastreioCorreios: z.string().trim().min(1).max(50).nullish(),
     codigoRastreio: z.string().trim().min(1).max(50).nullish(),
