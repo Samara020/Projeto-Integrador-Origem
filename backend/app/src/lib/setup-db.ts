@@ -4,7 +4,7 @@ import prisma from "./prisma";
 
 /**
  * Prepara o banco ao subir a API, quando AUTO_SETUP_DB=true:
- *  - sem tabelas: aplica database/sql/01, 02 e 04;
+ *  - sem tabelas: aplica database/sql/01, 02, 04 e 07;
  *  - sem usuarios: aplica o seed database/sql/05.
  * Banco ja populado nao e alterado.
  */
@@ -64,7 +64,12 @@ export async function prepararBanco() {
   );
 
   if (!existe) {
-    for (const arquivo of ["01_create_tables.sql", "02_integrity_rules.sql", "04_create_indexes.sql"]) {
+    for (const arquivo of [
+      "01_create_tables.sql",
+      "02_integrity_rules.sql",
+      "04_create_indexes.sql",
+      "07_suporte_exclusao_logica_produto.sql",
+    ]) {
       await executarArquivo(arquivo);
     }
   }
