@@ -1,10 +1,10 @@
-import { ErroApp } from "../middleware/error";
+﻿import { ErroApp } from "../middleware/error";
 import {
   carrinhoRepository,
   pedidoRepository,
 } from "../repositories";
 
-const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];0
+const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];
 
 function obterProximaAcao(status: string, codigoRastreio?: string | null): string {
   if (status === "ENVIADO" && codigoRastreio) return "VER_RASTREIO";

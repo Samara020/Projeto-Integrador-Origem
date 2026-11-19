@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+import { describe, beforeEach, afterAll, test, expect } from "@jest/globals";
 
 import request from "supertest";
 import * as bcrypt from "bcryptjs";
@@ -123,6 +123,18 @@ describe("Autenticação - cadastro e login", () => {
           nome: "Comprador Teste",
           email: "curta@test.com",
           senha: "1234567",
+          papel: "COMPRADOR",
+        })
+        .expect(400);
+    });
+
+    test("não deve aceitar e-mail com formato inválido", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "Comprador Teste",
+          email: "email-invalido-sem-arroba",
+          senha: "senha123",
           papel: "COMPRADOR",
         })
         .expect(400);
@@ -253,6 +265,40 @@ describe("Autenticação - cadastro e login", () => {
       });
 
       expect(usuario!.senha).toBe("senha123");
+    });
+  });
+
+ describe("Logout e invalidação de token", () => {
+    test("deve revogar o token no logout e bloquear requisições seguintes com 401", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "Usuário Logout",
+          email: "logout@test.com",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(201);
+
+      const login = await request(app)
+        .post("/auth/login")
+        .send({
+          email: "logout@test.com",
+          senha: "senha123",
+        })
+        .expect(200);
+
+      const token = login.body.token;
+
+      await request(app)
+        .post("/auth/logout")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(200);
+
+      await request(app)
+        .post("/auth/logout")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(401);
     });
   });
 });

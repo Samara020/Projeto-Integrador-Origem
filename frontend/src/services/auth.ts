@@ -30,7 +30,17 @@ export const authService = {
     gravarLocal(CHAVE, atualizada);
     return atualizada;
   },
-  async sair(): Promise<void> { apagarLocal(CHAVE); },
+  async sair(): Promise<void> {
+    const sessao = this.sessaoAtual();
+    try {
+      if (sessao?.token) {
+        await http<RespostaMensagem>("/auth/logout", { metodo: "POST" });
+      }
+    } catch {
+    } finally {
+      apagarLocal(CHAVE);
+    }
+  },
   recuperarSenha(dados: DadosRecuperarSenha) {
     return http<RespostaMensagem>("/auth/recuperar-senha", { metodo: "POST", corpo: dados });
   },

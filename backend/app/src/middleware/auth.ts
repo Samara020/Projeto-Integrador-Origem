@@ -6,6 +6,26 @@ export interface UsuarioAutenticado {
   papel: string;
 }
 
+const tokensRevogados = new Map<string, number>();
+
+export const revogarToken = (token: string, expSegundos?: number) => {
+  const agora = Math.floor(Date.now() / 1000);
+  for (const [t, exp] of tokensRevogados.entries()) {
+    if (exp <= agora) tokensRevogados.delete(t);
+  }
+  tokensRevogados.set(token, expSegundos ?? agora + 7 * 24 * 60 * 60);
+};
+
+export const tokenFoiRevogado = (token: string): boolean => {
+  const exp = tokensRevogados.get(token);
+  if (!exp) return false;
+  if (exp <= Math.floor(Date.now() / 1000)) {
+    tokensRevogados.delete(token);
+    return false;
+  }
+  return true;
+};
+
 export const autenticar = (
   req: Request & { usuario?: UsuarioAutenticado },
   res: Response,
@@ -17,6 +37,10 @@ export const autenticar = (
   }
 
   const token = cabecalho.slice(7);
+  if (tokenFoiRevogado(token)) {
+    return res.status(401).json({ mensagem: "Sessao encerrada. Faca login novamente." });
+  }
+
   try {
     const decodido = verificarToken(token);
     req.usuario = { id: decodido.id, papel: decodido.papel };
