@@ -48,7 +48,7 @@ const NIVEIS = {
   api: {
     titulo: "Testes de API",
     suites: [
-      { nome: "Jest · Fake API do frontend", ...npm("frontend", "test:api"), relatorio: "api-jest.xml" },
+      { nome: "Jest · API real (frontend -> backend/Postgres)", ...npm("frontend", "test:api"), relatorio: "api-jest.xml" },
       { nome: "pytest · módulo de IA (HTTP)", ...pytest(["modulo-ia/tests/test_api.py"], "api-pytest.xml") },
     ],
   },

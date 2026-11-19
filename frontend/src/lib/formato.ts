@@ -28,8 +28,11 @@ export function formatarInteiro(valor: number): string {
   return inteiro.format(valor);
 }
 
-export function formatarData(iso: string): string {
-  return dataCurta.format(new Date(iso));
+export function formatarData(iso?: string | null): string {
+  if (!iso) return "";
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return "";
+  return dataCurta.format(data);
 }
 
 export function plural(quantidade: number, um: string, varios: string): string {
@@ -37,8 +40,11 @@ export function plural(quantidade: number, um: string, varios: string): string {
 }
 
 // "há 5 min", "há 2 h", "ontem", "há 3 dias"
-export function tempoRelativo(iso: string): string {
-  const minutos = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+export function tempoRelativo(iso?: string | null): string {
+  if (!iso) return "";
+  const instante = new Date(iso).getTime();
+  if (Number.isNaN(instante)) return "";
+  const minutos = Math.max(0, Math.round((Date.now() - instante) / 60000));
   if (minutos < 1) return "agora";
   if (minutos < 60) return `há ${minutos} min`;
   const horas = Math.round(minutos / 60);

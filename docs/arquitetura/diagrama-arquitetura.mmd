@@ -1,10 +1,7 @@
 ﻿flowchart TD
     USER[Usuario] --> FRONT[Frontend Next.js / React / TypeScript]
     FRONT --> HTTP[Cliente HTTP Axios]
-    HTTP --> CONFIG{NEXT_PUBLIC_API_URL}
-
-    CONFIG -->|Backend configurado| EXPRESS[API Express]
-    CONFIG -->|Padrao /api| FAKE[Fake API Next.js]
+    HTTP -->|NEXT_PUBLIC_API_URL / padrao :4000| EXPRESS[API Express]
 
     subgraph BACKEND["Backend principal - Node.js / TypeScript"]
         EXPRESS --> MIDDLEWARE[Middlewares: Helmet, CORS, JSON e IDs]
@@ -18,6 +15,7 @@
     end
 
     PRISMA --> DB[(PostgreSQL)]
+    SERVICE -.->|RECOMENDACAO_API_URL| IA[Modulo de IA BentoML]
 
     PRISMA -.->|Resultado da consulta| REPOSITORY
     REPOSITORY -.->|Dados| SERVICE
@@ -27,9 +25,6 @@
     EXPRESS -.->|Resposta HTTP| HTTP
     HTTP -.-> FRONT
 
-    FAKE --> MOCK[Mocks e dados locais]
-    MOCK -.-> FRONT
-
     classDef frontend fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef backend fill:#dcfce7,stroke:#16a34a,color:#14532d
     classDef database fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -38,4 +33,4 @@
     class USER,FRONT,HTTP frontend
     class EXPRESS,MIDDLEWARE,ROUTES,PRODUCT_ROUTE,CONTROLLER,SERVICE,REPOSITORY,ERROR backend
     class PRISMA,DB database
-    class FAKE,MOCK,CONFIG auxiliary
+    class IA auxiliary

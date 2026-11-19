@@ -1,10 +1,11 @@
 import { ErroApp } from "../middleware/error";
+import { opcaoPorId } from "../lib/frete";
 import {
   carrinhoRepository,
   pedidoRepository,
 } from "../repositories";
 
-const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];0
+const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];
 
 function obterProximaAcao(status: string, codigoRastreio?: string | null): string {
   if (status === "ENVIADO" && codigoRastreio) return "VER_RASTREIO";
@@ -30,6 +31,7 @@ export const pedidoService = {
   async checkout(
     usuarioId: string,
     dados: {
+      opcaoEnvioId?: string;
       enderecoEntrega: {
         cep: string;
         rua: string;
@@ -57,22 +59,30 @@ export const pedidoService = {
     const itens = carrinho.itens.map((item: any) => ({
       produtoId: item.produtoId,
       quantidade: item.quantidade,
-      precoUnitario: item.precoUnitario,
-      subtotal: Number(item.precoUnitario) * item.quantidade,
+      precoUnitario: item.produto.preco,
+      subtotal: Number(item.produto.preco) * item.quantidade,
     }));
-    const valorTotal = itens.reduce((s: number, i: any) => s + i.subtotal, 0);
+    const opcao = opcaoPorId(dados.opcaoEnvioId);
+    for (const item of carrinho.itens) {
+      const config = item.produto.loja.configuracaoEnvio as { opcoes?: { id: string; ativa: boolean }[] } | null;
+      if (config?.opcoes?.some(o => o.id === opcao.id && !o.ativa)) throw new ErroApp(409, "Opção de envio indisponível para uma das lojas.");
+    }
+    const valorFrete = opcao.valor;
+    const valorTotal = itens.reduce((s: number, i: any) => s + i.subtotal, 0) + valorFrete;
 
     const pedido = await pedidoRepository.criarCheckout({
       usuarioId,
       carrinhoId: carrinho.id,
       endereco,
       itens,
+      valorFrete,
     });
 
     return {
       pedidoId: pedido.id,
       status: pedido.status,
       valorTotal,
+      valorFrete,
     };
   },
 
@@ -82,7 +92,7 @@ export const pedidoService = {
     return {
       id: p.id,
       status: p.status,
-      valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0),
+      valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0) + Number(p.valorFrete),
       criadoEm: p.data,
       itens: p.itens.map((i: any) => ({
         produtoId: i.produtoId,
@@ -109,7 +119,7 @@ export const pedidoService = {
       pedidos: pedidos.map((p: any) => ({
         id: p.id,
         status: p.status,
-        valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0),
+        valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0) + Number(p.valorFrete),
         criadoEm: p.data,
         itens: p.itens.map((i: any) => ({
           produtoId: i.produtoId,

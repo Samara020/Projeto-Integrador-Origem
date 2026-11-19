@@ -10,8 +10,12 @@ import suporteRoutes from "./suporte.routes";
 import painelRoutes from "./painel.routes";
 import demoRoutes from "./demo.routes";
 import catalogoRoutes from "./catalogo.routes";
+import { autenticar, compradorApenas } from "../middleware/auth";
+import { personalizacaoService } from "../services/personalizacao.service";
 
 export function montarRotas(app: Application): void {
+  app.get("/comprador/personalizacoes", autenticar, compradorApenas,
+    (req, res, next) => personalizacaoService.minhas(req.usuario!.id).then(p => res.json(p)).catch(next));
   app.use("/auth", authRoutes);
   app.use("/produtos", produtosRoutes);
   app.use("/artesaos", artesaoRoutes);

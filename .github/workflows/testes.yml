@@ -1,6 +1,6 @@
 name: Testes
 
-# Regressão completa da TAS do Origem: Testes Unitários, de API e End-to-End num job só.
+# Regressão completa da TAS do Origem: Testes Unitários, de API (backend real + Postgres) e End-to-End num job só.
 # Disparo manual: aba Actions > Testes > Run workflow.
 # Também é reutilizável (workflow_call): testes-agendados.yml, testes-commit.yml e
 # testes-merge.yml chamam este arquivo, então o job existe num lugar só.
@@ -17,8 +17,35 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: origem_db
+          POSTGRES_USER: origem_user
+          POSTGRES_PASSWORD: ci-temporary-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U origem_user -d origem_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
-      # O frontend e os testes de API falam com o módulo de IA de verdade (integração).
+      DATABASE_URL: postgresql://origem_user:ci-temporary-password@localhost:5432/origem_db?schema=public
+      JWT_SECRET: segredo-ci-origem-testes
+      JWT_EXPIRES_IN: 7d
+      PORT: "4000"
+      CORS_ORIGIN: http://localhost:3000
+      AUTO_SETUP_DB: "true"
+      ADMIN_INVITE_CODE: origem-admin-2026
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      API_BASE_URL: http://localhost:4000
+      BACKEND_URL: http://localhost:4000
+      CYPRESS_baseUrl: http://localhost:3000
+      CYPRESS_API_URL: http://localhost:4000
+      # O backend e os testes de API falam com o módulo de IA de verdade (integração).
       # A chave é a de demonstração do mockup, já pública no README; não é segredo.
       IA_BASE_URL: http://localhost:3001
       RECOMENDACAO_API_URL: http://localhost:3001
@@ -37,6 +64,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             frontend/package-lock.json
+            backend/app/package-lock.json
             e2e/package-lock.json
 
       - name: Preparar Python 3.13
@@ -55,6 +83,7 @@ jobs:
       - name: Instalar dependências
         run: |
           npm ci --prefix frontend
+          npm ci --prefix backend/app
           npm ci --prefix e2e
           npm --prefix e2e exec -- cypress verify
           python -m pip install -r modulo-ia/requirements.txt
@@ -69,22 +98,30 @@ jobs:
       - name: Testes Unitários
         run: npm run test:unit
 
-      # Build e servidores rodam mesmo se o unitário falhar, para API e E2E mostrarem o resultado deles.
+      - name: Gerar Prisma Client e compilar backend
+        if: ${{ !cancelled() }}
+        working-directory: backend/app
+        run: |
+          npm run prisma:generate
+          npm run build
+
       - name: Build do frontend
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: npm run build
 
-      - name: Subir módulo de IA (porta 3001) e frontend (porta 3000)
+      - name: Subir módulo de IA (3001), backend (4000) e frontend (3000)
         if: ${{ !cancelled() }}
         run: |
           mkdir -p relatorios
           (cd modulo-ia && PYTHONPATH="$PWD" nohup bentoml serve app.service:RecommendationService --port 3001 > ../relatorios/modulo-ia.log 2>&1 &)
+          (cd backend/app && nohup npm start > ../../relatorios/backend.log 2>&1 &)
           (cd frontend && nohup npm start > ../relatorios/frontend.log 2>&1 &)
           timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3001/readyz; do sleep 1; done'
-          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3000/api/categorias; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4000/health; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3000/; do sleep 1; done'
 
-      - name: Testes de API
+      - name: Testes de API (backend real + Postgres)
         if: ${{ !cancelled() }}
         run: npm run test:api
 

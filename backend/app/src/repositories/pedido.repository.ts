@@ -12,14 +12,20 @@ export const pedidoRepository = {
   criarCheckout(dados: {
     usuarioId: Id;
     carrinhoId: Id;
+    valorFrete?: number;
     endereco: { logradouro: string; bairro: string; cidade: string; cpf: string };
     itens: { produtoId: Id; quantidade: number; precoUnitario: any; subtotal: any }[];
   }) {
     return prisma.$transaction(async (tx) => {
+      const carrinhoId = toId(dados.carrinhoId);
+      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinhoId} FOR UPDATE`;
+      const restantes = await tx.itemCarrinho.count({ where: { carrinhoId } });
+      if (!restantes) throw new ErroApp(409, "Esta compra já foi confirmada. Consulte seus pedidos.");
       for (const item of dados.itens) {
         const baixa = await tx.estoque.updateMany({
           where: {
             produtoId: toId(item.produtoId),
+            produto: { excluido: false, pausado: false, statusValidacao: "APROVADA" },
             quantidadeDisponivel: { gte: item.quantidade },
           },
           data: { quantidadeDisponivel: { decrement: item.quantidade } },
@@ -35,6 +41,7 @@ export const pedidoRepository = {
         data: {
           usuarioId: toId(dados.usuarioId),
           enderecoEntregaId: endereco.id,
+          valorFrete: dados.valorFrete ?? 0,
           status: "AGUARDANDO_PAGAMENTO",
           data: new Date(),
           itens: {

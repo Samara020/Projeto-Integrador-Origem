@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { BotaoCarrinho } from "@/components/produto/BotaoCarrinho";
 import { BotaoCompararCard } from "@/components/produto/BotaoCompararCard";
+import { Foto } from "@/components/ui/Foto";
 import { Selo } from "@/components/ui/Selo";
 import { formatarMoeda } from "@/lib/formato";
 import type { ProdutoResumo } from "@/types";
@@ -27,7 +27,7 @@ export function ProdutoCard({
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-raio border border-superficie-2 bg-superficie shadow-card">
       <div className="relative aspect-3/2 w-full overflow-hidden bg-superficie-2">
-        <Image
+        <Foto
           src={produto.imagemPrincipal}
           alt={produto.nome}
           fill
@@ -56,7 +56,7 @@ export function ProdutoCard({
           </Link>
         </h3>
         <p className="text-legenda text-tinta-3">
-          {produto.artesao.nome} · {produto.regiao.nome}
+          {[produto.artesao.nome, produto.regiao.nome].filter(Boolean).join(" · ")}
         </p>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <p className="text-corpo font-bold tabular-nums text-tinta">

@@ -1,7 +1,6 @@
 "use client";
 
 import { BadgeCheck, ChevronLeft } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
@@ -11,6 +10,7 @@ import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Estrelas } from "@/components/ui/Estrelas";
+import { Foto } from "@/components/ui/Foto";
 import { useArtesao } from "@/hooks/useArtesaos";
 import { useAvaliacoesDaPeca } from "@/hooks/useAvaliacoesDaPeca";
 import { useProduto } from "@/hooks/useProdutos";
@@ -87,7 +87,7 @@ export function PaginaAvaliacoes({ produtoId }: { produtoId: string }) {
         </Link>
         {produto.dados ? (
           <div className="flex items-center gap-4">
-            <Image src={produto.dados.imagemPrincipal} alt="" width={64} height={64} className="size-16 rounded-raio object-cover" />
+            <Foto src={produto.dados.imagemPrincipal} alt="" width={64} height={64} className="size-16 rounded-raio object-cover" />
             <div className="flex flex-col gap-1">
               <h1 className="font-titulo text-h1 font-bold text-tinta">Avaliações</h1>
               <p className="text-apoio text-tinta-3">{produto.dados.nome} · {produto.dados.artesao.loja}</p>
@@ -160,7 +160,7 @@ export function PaginaAvaliacoes({ produtoId }: { produtoId: string }) {
             </section>
           </div>
 
-          <FormularioAvaliacao produto={produto.dados} />
+          <FormularioAvaliacao produto={produto.dados} aoAvaliar={avaliacoes.recarregar} />
 
           <section aria-labelledby="lista-titulo" className="flex flex-col gap-4">
             <h2 id="lista-titulo" className="sr-only">Comentários</h2>

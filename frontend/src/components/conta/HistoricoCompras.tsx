@@ -1,7 +1,6 @@
 "use client";
 
 import { Download, PackageCheck, ShoppingBag } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { Container } from "@/components/layout/Container";
@@ -9,6 +8,7 @@ import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
+import { Foto } from "@/components/ui/Foto";
 import { usePedidos } from "@/hooks/usePedidos";
 import { formatarData, formatarMoeda, plural } from "@/lib/formato";
 import type { PedidoResumo, StatusPedido } from "@/types";
@@ -56,7 +56,7 @@ function PedidoCard({ pedido }: { pedido: PedidoResumo }) {
 
       {primeiroItem ? (
         <div className="flex items-center gap-3">
-          <Image
+          <Foto
             src={primeiroItem.imagemPrincipal}
             alt={primeiroItem.nome}
             width={56}

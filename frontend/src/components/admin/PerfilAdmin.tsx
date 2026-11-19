@@ -68,7 +68,11 @@ export default function PerfilAdmin() {
       {erro ? (
         <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />
       ) : dados ? (
-        <Cartoes perfil={dados} recarregar={recarregar} />
+        <Cartoes
+          key={`${dados.nome}-${dados.funcao}-${dados.telefone}`}
+          perfil={dados}
+          recarregar={recarregar}
+        />
       ) : null}
     </div>
   );
@@ -169,7 +173,9 @@ function Cartoes({ perfil, recarregar }: { perfil: Perfil; recarregar: () => voi
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <Selo variante="neutro">Administrador</Selo>
-          <p className="text-apoio text-tinta-2">Na equipe desde {formatarData(perfil.criadoEm)}</p>
+          {formatarData(perfil.criadoEm) ? (
+            <p className="text-apoio text-tinta-2">Na equipe desde {formatarData(perfil.criadoEm)}</p>
+          ) : null}
         </div>
         <Botao
           variante="secundario"

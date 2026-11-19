@@ -1,17 +1,33 @@
 // TC04: inclusão, alteração e remoção de itens no carrinho (services/carrinho.ts).
-import { buscarProduto } from "@/mocks";
 import { carrinhoService } from "@/services/carrinho";
 import type { ItemCarrinho, ProdutoResumo } from "@/types";
 import { concluir, lerGravado } from "./apoio";
 
-function produto(id: string): ProdutoResumo {
-  const encontrado = buscarProduto(id);
-  if (!encontrado) throw new Error(`produto ${id} sumiu dos mocks`);
-  return encontrado;
-}
+const vaso: ProdutoResumo = {
+  id: "1001",
+  nome: "Vaso Cerâmica Raízes",
+  preco: 160,
+  imagemPrincipal: "/produtos/vaso-ceramica.jpg",
+  artesao: { id: "1000", nome: "Ana Pereira" },
+  seloAtivo: true,
+  regiao: { id: "zona-da-mata", nome: "Zona da Mata" },
+  modalidadeProducao: "PRONTA_ENTREGA",
+  disponibilidade: "DISPONIVEL",
+  avaliacaoMedia: 4.8,
+};
 
-const vaso = produto("prd_201"); // R$ 160
-const luminaria = produto("prd_202"); // R$ 120
+const luminaria: ProdutoResumo = {
+  id: "1002",
+  nome: "Luminária Mandacaru",
+  preco: 120,
+  imagemPrincipal: "/produtos/luminaria-mandacaru.jpg",
+  artesao: { id: "1000", nome: "Ana Pereira" },
+  seloAtivo: true,
+  regiao: { id: "agreste", nome: "Agreste" },
+  modalidadeProducao: "PRONTA_ENTREGA",
+  disponibilidade: "DISPONIVEL",
+  avaliacaoMedia: 4.9,
+};
 
 beforeEach(() => {
   jest.useFakeTimers();

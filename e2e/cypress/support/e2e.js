@@ -1,18 +1,8 @@
-// Comandos comuns dos testes E2E do Origem.
+// Comandos comuns dos testes E2E do Origem contra frontend + backend real + Postgres.
 
-const SENHA_DEMO = "origem123";
-export const CONTAS = {
-  COMPRADOR: "comprador@origem.dev",
-  ARTESAO: "artesao@origem.dev",
-  ADMINISTRADOR: "admin@origem.dev",
-};
+const API_URL = (Cypress.env("API_URL") || "http://localhost:4000").replace(/\/$/, "");
+const ADMIN_INVITE_CODE = Cypress.env("ADMIN_INVITE_CODE") || "origem-admin-2026";
 
-// React #418, #423 e #425: o HTML do servidor não bateu com o do cliente na hidratação.
-// O React refaz a tela no navegador e o usuário não vê erro. É defeito do app, intermitente
-// e registrado no plano de testes: o caso segue, mas cada ocorrência vai para
-// relatorios/e2e-avisos.txt e para o resumo do nível. Qualquer outro erro do app reprova o caso.
-// A mensagem original tem de COMEÇAR com o texto do React (produção ou dev). Erro que só
-// cita o código no meio, como "Falha de negócio ... Minified React error #418", reprova.
 const HIDRATACAO = [
   /^Minified React error #(418|423|425); visit https:\/\/react\.dev\/errors\/\1\b/,
   /^Hydration failed because the server rendered (HTML|text) didn't match the client\b/,
@@ -20,7 +10,6 @@ const HIDRATACAO = [
 ];
 let avisos = [];
 
-// O Cypress embrulha o erro do app; a mensagem original é a primeira linha que começa com ">".
 function mensagemOriginal(erro) {
   const linha = erro.message.split("\n").find((l) => l.trim().startsWith(">"));
   return linha ? linha.trim().replace(/^>\s*/, "") : erro.message.trim();
@@ -40,8 +29,6 @@ afterEach(function () {
   cy.task("registrarAviso", registro);
 });
 
-// Espera o React hidratar a página. Antes disso, digitar ou clicar pode ser perdido,
-// porque o HTML do servidor já está na tela mas os eventos ainda não estão ligados.
 Cypress.Commands.add("hidratado", () => {
   cy.get("body").should(($body) => {
     const hidratado = Object.keys($body[0]).some((chave) => chave.startsWith("__reactFiber$"));
@@ -49,23 +36,86 @@ Cypress.Commands.add("hidratado", () => {
   });
 });
 
-// Abre a página já com sessão: faz o login de verdade na Fake API e grava a sessão
-// devolvida no localStorage antes do carregamento (os stores leem o storage uma vez).
+let seq = 0;
+Cypress.Commands.add("registrarUsuario", (papel, extra = {}) => {
+  seq += 1;
+  const email =
+    extra.email ||
+    `e2e.${papel.toLowerCase()}.${Date.now()}.${seq}.${Math.floor(Math.random() * 10000)}@origem-teste.dev`;
+  const senha = extra.senha || "SenhaE2E123";
+  const nome = extra.nome || `Teste ${papel} ${seq}`;
+  const corpo = { nome, email, senha, papel, ...extra };
+  if (papel === "ADMINISTRADOR" && !corpo.codigoConvite) {
+    corpo.codigoConvite = ADMIN_INVITE_CODE;
+  }
+
+  return cy.request("POST", `${API_URL}/auth/register`, corpo).then(() =>
+    cy
+      .request("POST", `${API_URL}/auth/login`, { email, senha })
+      .then(({ body }) => ({ ...body, email, senha })),
+  );
+});
+
 Cypress.Commands.add("visitarComo", (papel, url, gravarAntes = {}) => {
-  cy.request("POST", "/api/auth/login", { email: CONTAS[papel], senha: SENHA_DEMO }).then(({ body }) => {
+  return cy.registrarUsuario(papel).then((sessao) => {
     cy.visit(url, {
       onBeforeLoad(win) {
-        win.localStorage.setItem("origem:sessao", JSON.stringify(body));
+        win.localStorage.setItem(
+          "origem:sessao",
+          JSON.stringify({ token: sessao.token, tipo: sessao.tipo, usuario: sessao.usuario }),
+        );
         for (const [chave, valor] of Object.entries(gravarAntes)) {
           win.localStorage.setItem(`origem:${chave}`, JSON.stringify(valor));
         }
       },
     });
+    cy.hidratado();
+    return cy.wrap(sessao, { log: false });
   });
-  cy.hidratado();
 });
 
-// Lê uma chave do localStorage do app (prefixo origem:).
+Cypress.Commands.add("criarProdutoAprovado", (overrides = {}) => {
+  const marcador = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  return cy.registrarUsuario("ARTESAO").then((artesao) =>
+    cy.registrarUsuario("ADMINISTRADOR").then((admin) => {
+      const payload = {
+        nome: overrides.nome || `Peça E2E ${marcador}`,
+        descricao: overrides.descricao || "Peça artesanal criada para teste E2E integrado.",
+        categoria: overrides.categoria || "Cerâmica",
+        tecnica: overrides.tecnica || "Cerâmica manual",
+        origem: overrides.origem || "Caruaru, PE",
+        preco: overrides.preco ?? 70,
+        modalidadeProducao: overrides.modalidadeProducao || "PRONTA_ENTREGA",
+        estoque: overrides.estoque ?? 5,
+        imagens: overrides.imagens || ["/produtos/vaso-ceramica.jpg"],
+      };
+      return cy
+        .request({
+          method: "POST",
+          url: `${API_URL}/produtos`,
+          headers: { Authorization: `Bearer ${artesao.token}` },
+          body: payload,
+        })
+        .then(({ body: criado }) =>
+          cy
+            .request({
+              method: "PUT",
+              url: `${API_URL}/produtos/admin/produtos/${criado.id}/validacao`,
+              headers: { Authorization: `Bearer ${admin.token}` },
+              body: { status: "APROVADA", justificativa: "Aprovado para teste E2E." },
+            })
+            .then(() => ({
+              id: String(criado.id),
+              nome: payload.nome,
+              preco: payload.preco,
+              artesao,
+              admin,
+            })),
+        );
+    }),
+  );
+});
+
 Cypress.Commands.add("lerLocal", (chave) =>
   cy.window().then((win) => JSON.parse(win.localStorage.getItem(`origem:${chave}`) ?? "null")),
 );

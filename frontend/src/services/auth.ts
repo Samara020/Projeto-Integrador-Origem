@@ -1,6 +1,15 @@
 import { apagarLocal, gravarLocal, lerLocal } from "@/lib/armazenamento";
 import { http } from "@/lib/http";
-import type { DadosCadastro, DadosLogin, DadosRecuperarSenha, DadosRedefinirSenha, RespostaMensagem, Sessao, Usuario } from "@/types";
+import type {
+  DadosCadastro,
+  DadosLogin,
+  DadosRecuperarSenha,
+  DadosRedefinirSenha,
+  RespostaMensagem,
+  RespostaRecuperarSenha,
+  Sessao,
+  Usuario,
+} from "@/types";
 
 const CHAVE = "sessao";
 
@@ -32,7 +41,7 @@ export const authService = {
   },
   async sair(): Promise<void> { apagarLocal(CHAVE); },
   recuperarSenha(dados: DadosRecuperarSenha) {
-    return http<RespostaMensagem>("/auth/recuperar-senha", { metodo: "POST", corpo: dados });
+    return http<RespostaRecuperarSenha>("/auth/recuperar-senha", { metodo: "POST", corpo: dados });
   },
   redefinirSenha(dados: DadosRedefinirSenha) {
     return http<RespostaMensagem>("/auth/redefinir-senha", { metodo: "POST", corpo: dados });

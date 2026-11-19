@@ -1,5 +1,4 @@
-// TC01, TC11, TC08 e TC14: login pela tela e acesso por perfil.
-import { CONTAS } from "../support/e2e";
+// TC01, TC11, TC08 e TC14: login pela tela e acesso por perfil com JWT real.
 
 function entrar(email, senha) {
   cy.visit("/entrar");
@@ -11,25 +10,31 @@ function entrar(email, senha) {
 
 describe("TC01 · login com dados válidos leva cada perfil à sua área", () => {
   it("comprador entra e volta para a vitrine com a conta no cabeçalho", () => {
-    entrar(CONTAS.COMPRADOR, "origem123");
+    cy.registrarUsuario("COMPRADOR", { nome: "Joana Teste" }).then((conta) => {
+      entrar(conta.email, conta.senha);
 
-    cy.location("pathname").should("eq", "/");
-    cy.get('button[aria-label="Abrir menu da conta de Joana"]').should("be.visible");
-    cy.lerLocal("sessao").its("usuario.papel").should("eq", "COMPRADOR");
+      cy.location("pathname").should("eq", "/");
+      cy.get('button[aria-label="Abrir menu da conta de Joana"]').should("be.visible");
+      cy.lerLocal("sessao").its("usuario.papel").should("eq", "COMPRADOR");
+    });
   });
 
   it("artesão entra e cai no painel do ateliê", () => {
-    entrar(CONTAS.ARTESAO, "origem123");
+    cy.registrarUsuario("ARTESAO").then((conta) => {
+      entrar(conta.email, conta.senha);
 
-    cy.location("pathname").should("eq", "/painel/artesao");
-    cy.lerLocal("sessao").its("usuario.papel").should("eq", "ARTESAO");
+      cy.location("pathname").should("eq", "/painel/artesao");
+      cy.lerLocal("sessao").its("usuario.papel").should("eq", "ARTESAO");
+    });
   });
 
   it("administrador entra e cai no painel administrativo", () => {
-    entrar(CONTAS.ADMINISTRADOR, "origem123");
+    cy.registrarUsuario("ADMINISTRADOR").then((conta) => {
+      entrar(conta.email, conta.senha);
 
-    cy.location("pathname").should("eq", "/painel/admin");
-    cy.contains("h1", "O pulso do marketplace, em um só lugar.").should("be.visible");
+      cy.location("pathname").should("eq", "/painel/admin");
+      cy.contains("h1", "O pulso do marketplace, em um só lugar.").should("be.visible");
+    });
   });
 
   it("comprador se cadastra e cai na vitrine autenticado", () => {
@@ -37,25 +42,28 @@ describe("TC01 · login com dados válidos leva cada perfil à sua área", () =>
     cy.visit("/cadastro");
     cy.hidratado();
 
-    cy.get("#cadastro-nome").type("Novo Comprador");
-    cy.get("#cadastro-email").type(`comprador.${timestamp}@origem.dev`);
-    cy.get("#cadastro-senha").type("origem123", { log: false });
+    cy.get("#cadastro-nome").type("Novo Comprador E2E");
+    cy.get("#cadastro-email").type(`comprador.e2e.${timestamp}@origem-teste.dev`);
+    cy.get("#cadastro-senha").type("SenhaE2E123", { log: false });
     cy.get('input[type="checkbox"]').check();
     cy.contains("button[type=submit]", "Criar minha conta").click();
 
     cy.location("pathname").should("eq", "/");
     cy.lerLocal("sessao").should("not.be.null");
     cy.lerLocal("sessao").its("usuario.papel").should("eq", "COMPRADOR");
+    cy.lerLocal("sessao").its("token").should("match", /^eyJ[\w-]*\.[\w-]+\.[\w-]+$/);
   });
 });
 
 describe("TC11 · login com credenciais inválidas", () => {
   it("senha errada mostra o erro e não cria sessão", () => {
-    entrar(CONTAS.COMPRADOR, "senha-errada");
+    cy.registrarUsuario("COMPRADOR").then((conta) => {
+      entrar(conta.email, "senha-errada-123");
 
-    cy.contains('[role="alert"]', "E-mail ou senha incorretos.").should("be.visible");
-    cy.location("pathname").should("eq", "/entrar");
-    cy.lerLocal("sessao").should("be.null");
+      cy.contains('[role="alert"]', "E-mail ou senha incorretos.").should("be.visible");
+      cy.location("pathname").should("eq", "/entrar");
+      cy.lerLocal("sessao").should("be.null");
+    });
   });
 
   it("campos vazios são barrados na tela, embaixo de cada campo", () => {

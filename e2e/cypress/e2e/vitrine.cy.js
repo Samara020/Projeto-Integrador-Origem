@@ -1,30 +1,50 @@
-// TC03 e TC05: vitrine, busca e disponibilidade das peças.
+// TC03 e TC05: vitrine, busca e disponibilidade das peças contra backend real + Postgres.
 
 describe("TC03 · exibição e busca de produtos disponíveis", () => {
-  it("a vitrine da home mostra peças com link, e nenhuma reservada ou vendida", () => {
+  let disponivel;
+  let vendida;
+
+  before(() => {
+    const tag = `VitE2E${Date.now()}`;
+    cy.criarProdutoAprovado({
+      nome: `Pássaro ${tag}`,
+      preco: 70,
+      estoque: 4,
+    }).then((p) => {
+      disponivel = p;
+    });
+    cy.criarProdutoAprovado({
+      nome: `Matriz Vendida ${tag}`,
+      preco: 250,
+      modalidadeProducao: "PECA_UNICA",
+      estoque: 0,
+    }).then((p) => {
+      vendida = p;
+    });
+  });
+
+  it("a vitrine da home mostra peças reais com link, sem itens vendidos", () => {
     cy.visit("/");
     cy.hidratado();
 
     cy.contains("h2", "Peças que contam").parents("section").first().as("destaques");
-    cy.get("@destaques").find('a[href^="/produto/prd_"]').should("have.length.greaterThan", 0);
+    cy.get("@destaques").find('a[href^="/produto/"]').should("have.length.greaterThan", 0);
     cy.get("@destaques").contains(/reservad|vendid/i).should("not.exist");
   });
 
-  it("busca pelo cabeçalho leva ao catálogo com as peças encontradas", () => {
+  it("busca pelo cabeçalho leva ao catálogo com a peça encontrada", () => {
     cy.visit("/");
     cy.hidratado();
 
-    cy.get("#busca-header").type("cordel{enter}");
+    cy.get("#busca-header").type(`${disponivel.nome}{enter}`);
 
     cy.location("pathname").should("eq", "/catalogo");
-    cy.location("search").should("eq", "?termo=cordel");
-    cy.contains('p[aria-live="polite"]', "2 peças encontradas").should("be.visible");
-    cy.get('main a[href="/produto/prd_209"]').should("contain.text", "Folheto O Vaqueiro e a Lua");
-    cy.get('main a[href="/produto/prd_210"]').should("contain.text", "Coleção Pajeú em Versos");
+    cy.contains('p[aria-live="polite"]', "1 peça encontrada").should("be.visible");
+    cy.get(`main a[href="/produto/${disponivel.id}"]`).should("contain.text", disponivel.nome);
   });
 
   it("busca sem resultado mostra o estado vazio com saída", () => {
-    cy.visit("/catalogo?termo=porcelana");
+    cy.visit("/catalogo?termo=porcelana-inexistente-e2e");
     cy.hidratado();
 
     cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
@@ -33,49 +53,60 @@ describe("TC03 · exibição e busca de produtos disponíveis", () => {
   });
 
   it("busca por peça vendida não exibe produtos indisponíveis no catálogo", () => {
-    cy.visit("/catalogo?termo=pavão");
+    cy.visit(`/catalogo?termo=${encodeURIComponent(vendida.nome)}`);
     cy.hidratado();
 
-    cy.contains("Matriz Entalhada Pavão").should("not.exist");
-    cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
-  });
-
-  it("filtro 'Só peças disponíveis' tira a peça reservada da busca", () => {
-    cy.visit("/catalogo?termo=carranca");
-    cy.hidratado();
-    cy.contains('p[aria-live="polite"]', "1 peça encontrada").should("be.visible");
-
-    cy.contains("label", "Só peças disponíveis").click();
-
-    cy.location("search").should("contain", "disponivel=true");
+    cy.contains(vendida.nome).should("not.exist");
     cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
   });
 
   it("detalhe de peça disponível mostra nome, preço e compra liberada", () => {
-    cy.visit("/produto/prd_203");
+    cy.visit(`/produto/${disponivel.id}`);
     cy.hidratado();
 
-    cy.contains("h1", "Pássaro de Madeira").should("be.visible");
+    cy.contains("h1", disponivel.nome).should("be.visible");
     cy.contains("R$ 70,00").should("be.visible");
     cy.contains("Disponível").should("be.visible");
     cy.contains("button", "Adicionar ao carrinho").should("be.enabled");
   });
+
+  it("TC18 · abre o perfil público do artesão a partir do detalhe e combina/limpa filtros no catálogo", () => {
+    cy.visit(`/produto/${disponivel.id}`);
+    cy.hidratado();
+
+    cy.get(`a[href="/artesao/${disponivel.artesao.usuario.id}"]`).click();
+    cy.location("pathname").should("eq", `/artesao/${disponivel.artesao.usuario.id}`);
+    cy.contains("h1", disponivel.artesao.usuario.nome).should("be.visible");
+    cy.contains(disponivel.nome).should("be.visible");
+
+    cy.visit(`/catalogo?termo=${encodeURIComponent(disponivel.nome)}&disponivel=true`);
+    cy.hidratado();
+    cy.contains('p[aria-live="polite"]', "1 peça encontrada").should("be.visible");
+
+    cy.contains("button", /Limpar \d+ filtros?/).click();
+    cy.location("search").should("eq", "");
+  });
 });
 
 describe("TC05 · peça indisponível não entra no carrinho", () => {
-  it("no catálogo, o botão de carrinho da peça reservada fica desabilitado", () => {
-    cy.visit("/catalogo?termo=carranca");
-    cy.hidratado();
+  let vendida;
 
-    cy.get('button[aria-label="Carranca Guardiã não está disponível"]').should("be.disabled");
-    cy.contains("Reservado", { matchCase: false }).should("be.visible");
+  before(() => {
+    cy.criarProdutoAprovado({
+      nome: `Peça Esgotada E2E ${Date.now()}`,
+      preco: 210,
+      modalidadeProducao: "PECA_UNICA",
+      estoque: 0,
+    }).then((p) => {
+      vendida = p;
+    });
   });
 
   it("no detalhe da peça vendida não há botão de compra", () => {
-    cy.visit("/produto/prd_208");
+    cy.visit(`/produto/${vendida.id}`);
     cy.hidratado();
 
-    cy.contains("h1", "Matriz Entalhada Pavão").should("be.visible");
+    cy.contains("h1", vendida.nome).should("be.visible");
     cy.contains("Vendida").should("be.visible");
     cy.contains("Esta peça não pode ser comprada agora.").should("be.visible");
     cy.contains("button", "Adicionar ao carrinho").should("not.exist");

@@ -17,7 +17,14 @@ module.exports = defineConfig({
   video: true,
   retries: 0,
   e2e: {
-    baseUrl: "http://localhost:3000",
+    baseUrl: process.env.CYPRESS_baseUrl || "http://localhost:3000",
+    env: {
+      API_URL:
+        process.env.CYPRESS_API_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://localhost:4000",
+      ADMIN_INVITE_CODE: process.env.ADMIN_INVITE_CODE || "origem-admin-2026",
+    },
     specPattern: "cypress/e2e/**/*.cy.js",
     supportFile: "cypress/support/e2e.js",
     viewportWidth: 1280,

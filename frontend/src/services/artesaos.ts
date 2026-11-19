@@ -10,6 +10,8 @@ type ProdutoPerfilApi = {
   seloAtivo?: boolean;
   modalidadeProducao?: "PECA_UNICA" | "PRONTA_ENTREGA" | "SOB_ENCOMENDA";
   disponibilidade?: "DISPONIVEL" | "RESERVADO" | "VENDIDO";
+  estoque?: number;
+  avaliacaoMedia?: number;
 };
 
 type ArtesaoPerfilApi = {
@@ -37,12 +39,13 @@ export const artesaosService = {
       `/artesaos/${encodeURIComponent(id)}/perfil`,
       { sinal },
     );
+    const regiao = p.regiao ?? "";
     return {
       id: String(p.id),
       nome: p.nome,
       nomeLoja: p.nomeLoja ?? p.nome,
       biografia: p.biografia ?? "",
-      regiao: p.regiao ?? "Pernambuco",
+      regiao,
       produtos: (p.produtos ?? []).map((prod) => ({
         id: String(prod.id),
         nome: prod.nome,
@@ -50,22 +53,32 @@ export const artesaosService = {
         imagemPrincipal: prod.imagemPrincipal ?? prod.imagens?.[0]?.url ?? "",
         artesao: { id: String(p.id), nome: p.nome },
         seloAtivo: Boolean(prod.seloAtivo),
-        regiao: { id: p.regiao ?? "PE", nome: p.regiao ?? "Pernambuco" },
+        regiao: { id: regiao, nome: regiao },
         modalidadeProducao: prod.modalidadeProducao ?? "PRONTA_ENTREGA",
-        disponibilidade: prod.disponibilidade ?? "DISPONIVEL",
-        avaliacaoMedia: 0,
+        disponibilidade:
+          prod.disponibilidade ??
+          (typeof prod.estoque === "number"
+            ? prod.estoque > 0
+              ? "DISPONIVEL"
+              : "VENDIDO"
+            : "VENDIDO"),
+        avaliacaoMedia: typeof prod.avaliacaoMedia === "number" ? prod.avaliacaoMedia : 0,
       })),
       foto: p.foto ?? null,
-      tecnica: p.tecnica ?? "Artesanato tradicional",
-      especialidade: p.especialidade ?? "Trabalho manual",
-      verificado: p.verificado ?? true,
-      historia: p.historia ?? (p.biografia ? [p.biografia] : []),
+      tecnica: p.tecnica ?? "",
+      especialidade: p.especialidade ?? "",
+      verificado: Boolean(p.verificado),
+      historia:
+        Array.isArray(p.historia) && p.historia.length > 0
+          ? p.historia
+          : p.biografia
+            ? [p.biografia]
+            : [],
       citacao: p.citacao ?? "",
-      imagens: p.imagens ?? [],
-      avaliacaoMedia: p.avaliacaoMedia ?? 4.9,
-      totalAvaliacoes:
-        p.totalAvaliacoes ?? (p.produtos?.length ? p.produtos.length * 3 : 0),
-      pecasVendidas: p.pecasVendidas ?? 12,
+      imagens: Array.isArray(p.imagens) ? p.imagens : [],
+      avaliacaoMedia: typeof p.avaliacaoMedia === "number" ? p.avaliacaoMedia : 0,
+      totalAvaliacoes: typeof p.totalAvaliacoes === "number" ? p.totalAvaliacoes : 0,
+      pecasVendidas: typeof p.pecasVendidas === "number" ? p.pecasVendidas : 0,
     };
   },
 };

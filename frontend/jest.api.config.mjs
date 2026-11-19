@@ -1,5 +1,5 @@
 // Jest dos Testes de API (tests/api). Ambiente node: os testes fazem fetch de verdade
-// contra o frontend de pé (npm run build && npm start, porta 3000 ou API_BASE_URL).
+// contra o backend real + Postgres (porta 4000 ou API_BASE_URL / BACKEND_URL).
 import nextJest from "next/jest.js";
 
 const createJestConfig = nextJest({ dir: "./" });

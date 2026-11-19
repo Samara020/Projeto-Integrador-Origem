@@ -86,44 +86,48 @@ export const produtosService = {
         : [];
 
     return {
-      recomendados: listaBruta.map((item) => {
-        const p = item as Record<string, unknown>;
-        return {
-          id: String(p.id ?? ""),
-          nome: String(p.nome ?? ""),
-          preco: Number(p.preco ?? 0),
-          imagemPrincipal: String(
-            p.imagemPrincipal ??
-              (Array.isArray(p.imagens) && p.imagens.length > 0
-                ? String((p.imagens[0] as { url?: string })?.url ?? "")
-                : undefined) ??
-              "/produtos/vaso-ceramica.jpg",
-          ),
-          artesao:
-            p.artesao && typeof p.artesao === "object"
-              ? {
-                  id: String((p.artesao as { id?: string | number }).id ?? "1000"),
-                  nome: String((p.artesao as { nome?: string }).nome ?? "Artesão"),
-                }
-              : { id: "1000", nome: "Artesão" },
-          seloAtivo: Boolean(p.seloAtivo),
-          regiao:
-            typeof p.regiao === "string"
-              ? { id: p.regiao, nome: p.regiao }
-              : (p.regiao as { id: string; nome: string } | undefined) ?? {
-                  id: "PE",
-                  nome: "Pernambuco",
-                },
-          disponibilidade:
-            ((p.disponibilidade as string) ?? "DISPONIVEL") as
-              | "DISPONIVEL"
-              | "RESERVADO"
-              | "VENDIDO",
-          modalidadeProducao: (p.modalidadeProducao as "PRONTA_ENTREGA" | "SOB_ENCOMENDA" | "PECA_UNICA") ?? "PRONTA_ENTREGA",
-          motivo: typeof p.motivo === "string" ? p.motivo : undefined,
-          avaliacaoMedia: 0,
-        };
-      }),
+      recomendados: listaBruta
+        .map((item) => {
+          const p = item as Record<string, unknown>;
+          return {
+            id: String(p.id ?? ""),
+            nome: String(p.nome ?? ""),
+            preco: Number(p.preco ?? 0),
+            imagemPrincipal: String(
+              p.imagemPrincipal ??
+                (Array.isArray(p.imagens) && p.imagens.length > 0
+                  ? String((p.imagens[0] as { url?: string })?.url ?? "")
+                  : undefined) ??
+                "",
+            ),
+            artesao:
+              p.artesao && typeof p.artesao === "object"
+                ? {
+                    id: String((p.artesao as { id?: string | number }).id ?? "1000"),
+                    nome: String((p.artesao as { nome?: string }).nome ?? "Artesão"),
+                  }
+                : { id: "1000", nome: "Artesão" },
+            seloAtivo: Boolean(p.seloAtivo),
+            regiao:
+              typeof p.regiao === "string"
+                ? { id: p.regiao, nome: p.regiao }
+                : (p.regiao as { id: string; nome: string } | undefined) ?? {
+                    id: "",
+                    nome: "",
+                  },
+            disponibilidade:
+              ((p.disponibilidade as string) ?? "DISPONIVEL") as
+                | "DISPONIVEL"
+                | "RESERVADO"
+                | "VENDIDO",
+            modalidadeProducao:
+              (p.modalidadeProducao as "PRONTA_ENTREGA" | "SOB_ENCOMENDA" | "PECA_UNICA") ??
+              "PRONTA_ENTREGA",
+            motivo: typeof p.motivo === "string" ? p.motivo : undefined,
+            avaliacaoMedia: typeof p.avaliacaoMedia === "number" ? p.avaliacaoMedia : 0,
+          };
+        })
+        .filter((item) => item.disponibilidade === "DISPONIVEL"),
     };
   },
 

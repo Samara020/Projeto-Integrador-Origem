@@ -151,7 +151,7 @@ export default function PainelArtesao() {
           acoes={
             <span className="inline-flex items-center gap-1 rounded-full bg-selo/10 px-3 py-1 text-legenda font-semibold text-selo">
               <CalendarDays className="size-3" aria-hidden="true" />
-              Setembro
+              Últimos 30 dias
             </span>
           }
         >
@@ -243,7 +243,7 @@ export default function PainelArtesao() {
                 className="flex flex-col gap-1 py-3 text-apoio text-tinta-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
               >
                 <span className="tabular-nums">
-                  {pedido.id.replace("ped_", "#")} · {pedido.comprador} · {pedido.itens}
+                  {pedido.id.startsWith("ped_") ? pedido.id.replace("ped_", "#") : `#${pedido.id}`} · {pedido.comprador} · {pedido.itens}
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="font-bold tabular-nums text-tinta">
@@ -252,6 +252,32 @@ export default function PainelArtesao() {
                   <span className="rounded-full bg-superficie-2 px-3 py-1 text-legenda font-semibold text-tinta-2">
                     {ROTULO_STATUS[pedido.statusProducao]}
                   </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Cartao>
+
+      <Cartao titulo="Avaliações recentes">
+        {!dados.avaliacoesRecentes || dados.avaliacoesRecentes.length === 0 ? (
+          <EstadoVazio
+            titulo="Nenhuma avaliação ainda"
+            descricao="As avaliações de quem comprou suas peças aparecem aqui."
+          />
+        ) : (
+          <ul className="flex flex-col divide-y divide-borda">
+            {dados.avaliacoesRecentes.map((avaliacao) => (
+              <li
+                key={avaliacao.id}
+                className="flex flex-col gap-1 py-3 text-apoio text-tinta-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
+                <span>
+                  <strong className="text-tinta">{avaliacao.produto}</strong> · {avaliacao.autor}
+                  {avaliacao.comentario ? ` · "${avaliacao.comentario}"` : ""}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums text-tinta">
+                  {formatarNota(avaliacao.nota)} ★ · {formatarData(avaliacao.criadoEm)}
                 </span>
               </li>
             ))}

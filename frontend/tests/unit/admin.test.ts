@@ -1,8 +1,13 @@
 import { ApiError, http } from "@/lib/http";
 import { adminService } from "@/services/admin";
-import { authService } from "@/services/auth";
-import type { AvaliacaoSinalizada, PecaPendente, Sessao } from "@/types";
-import { concluir, gravar, lerGravado } from "./apoio";
+import type {
+  AvaliacaoSinalizada,
+  MetricasAdmin,
+  PecaPendente,
+  PerfilAdmin,
+  Sessao,
+} from "@/types";
+import { gravar, lerGravado } from "./apoio";
 
 jest.mock("@/lib/http", () => ({
   ApiError: class ApiError extends Error {
@@ -16,169 +21,354 @@ jest.mock("@/lib/http", () => ({
   http: jest.fn(),
 }));
 
+const TOKEN_FORMATO_JWT = "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6InVzcl8wMDEifQ.assinatura";
+
 const peca = (id: string, statusValidacao: PecaPendente["statusValidacao"] = "PENDENTE"): PecaPendente => ({
-  id, nome: `Peça ${id}`, imagemPrincipal: "/produtos/vaso-ceramica.jpg", artesao: { id: "usr_906", nome: "Zefa do Pajeú" },
-  tecnica: "Cerâmica", regiao: "Sertão do Pajeú", enviadoEm: "2026-10-14T09:00:00Z", informacoesOrigem: "Barro do Pajeú.",
-  certificado: null, statusValidacao, justificativa: null, decididoEm: null,
+  id,
+  nome: `Peça ${id}`,
+  imagemPrincipal: "/produtos/vaso-ceramica.jpg",
+  artesao: { id: "usr_906", nome: "Zefa do Pajeú" },
+  tecnica: "Cerâmica",
+  regiao: "Sertão do Pajeú",
+  enviadoEm: "2026-10-14T09:00:00Z",
+  informacoesOrigem: "Barro do Pajeú.",
+  certificado: null,
+  statusValidacao,
+  justificativa: null,
+  decididoEm: null,
 });
-const avaliacao = (id: string): AvaliacaoSinalizada => ({
-  id, produto: { id: "prd_201", nome: "Vaso Cerâmica Raízes", imagemPrincipal: "/produtos/vaso-ceramica.jpg" }, autor: "Carlos Mendes",
-  nota: 4, comentario: "Me chama no zap.", criadoEm: "2026-10-16T18:10:00Z", motivo: "LINK_OU_CONTATO", sinalizadaEm: "2026-10-16T18:10:05Z",
-  status: "EM_MODERACAO", moderadaEm: null,
+
+const avaliacao = (id: string, status: AvaliacaoSinalizada["status"] = "EM_MODERACAO"): AvaliacaoSinalizada => ({
+  id,
+  produto: { id: "prd_201", nome: "Vaso Cerâmica Raízes", imagemPrincipal: "/produtos/vaso-ceramica.jpg" },
+  autor: "Carlos Mendes",
+  nota: 4,
+  comentario: "Me chama no zap.",
+  criadoEm: "2026-10-16T18:10:00Z",
+  motivo: "LINK_OU_CONTATO",
+  sinalizadaEm: "2026-10-16T18:10:05Z",
+  status,
+  moderadaEm: null,
 });
-// O http() usa axios (não fetch), então mockamos http() diretamente.
-// O mock é limpo antes de cada teste via mockClear.
+
 const respostaHttp = (corpo: unknown) => {
-  (http as jest.Mock).mockResolvedValue(corpo);
+  (http as jest.Mock).mockResolvedValueOnce(corpo);
 };
+
+const erroHttp = (status: number, mensagem: string) => {
+  (http as jest.Mock).mockRejectedValueOnce(new ApiError(status, mensagem));
+};
+
 // Tudo que está no localStorage, numa string só (Object.values no Storage do jsdom não é confiável).
 const tudoGravado = () =>
   Array.from({ length: window.localStorage.length }, (_, i) => window.localStorage.getItem(window.localStorage.key(i) ?? "") ?? "").join(" ");
 
-beforeEach(() => { jest.useFakeTimers(); window.localStorage.clear(); (http as jest.Mock).mockClear(); });
+beforeEach(() => {
+  window.localStorage.clear();
+  (http as jest.Mock).mockReset();
+});
+
 afterEach(() => {
-  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
-describe("validarPeca", () => {
-  test("reprovar sem justificativa: 400 e nada gravado", async () => {
-    const tentativa = concluir(adminService.validarPeca("prd_401", { status: "REPROVADA", justificativa: "curta" }));
-    await expect(tentativa).rejects.toBeInstanceOf(ApiError);
-    await expect(tentativa).rejects.toMatchObject({ status: 400, message: "Explique o motivo da reprovação em pelo menos 10 caracteres." });
-    expect(lerGravado("admin:validacoes")).toBeNull();
+describe("metricas", () => {
+  test("chama GET /admin/painel/metricas e normaliza campos opcionais ausentes para zero ou lista vazia", async () => {
+    const controlador = new AbortController();
+    respostaHttp({
+      totalUsuarios: 350,
+      totalArtesaos: 45,
+      volumeTransacionadoGlobal: 28450,
+    });
+
+    const resultado = await adminService.metricas(controlador.signal);
+
+    expect(http).toHaveBeenCalledWith("/admin/painel/metricas", { sinal: controlador.signal });
+    expect(resultado).toEqual({
+      totalUsuarios: 350,
+      totalArtesaos: 45,
+      volumeTransacionadoGlobal: 28450,
+      totalVendas: 0,
+      variacaoVendas: 0,
+      totalArtesaosAtivos: 45,
+      novosArtesaosNoMes: 0,
+      totalProdutos: 0,
+      novosProdutos: 0,
+      ticketsSuporte: 0,
+      ticketsUrgentes: 0,
+      validacoesPendentes: 0,
+      denunciasPendentes: 0,
+      vendasPorRegiao: [],
+      categoriasMaisVendidas: [],
+      usuariosRecentes: [],
+      atividadesRecentes: [],
+    });
   });
-  test("aprovar grava a decisão e ativa o selo", async () => {
-    await expect(concluir(adminService.validarPeca("prd_401", { status: "APROVADA", justificativa: "" })))
-      .resolves.toEqual({ id: "prd_401", statusValidacao: "APROVADA", seloAtivo: true });
-    expect(lerGravado<Record<string, { status: string }>>("admin:validacoes")?.prd_401).toMatchObject({ status: "APROVADA" });
+
+  test("preserva todos os campos preenchidos pelo backend sem alterar contagens", async () => {
+    const completas: MetricasAdmin = {
+      totalUsuarios: 350,
+      totalArtesaos: 45,
+      volumeTransacionadoGlobal: 28450,
+      totalVendas: 120,
+      variacaoVendas: 15,
+      totalArtesaosAtivos: 38,
+      novosArtesaosNoMes: 4,
+      totalProdutos: 210,
+      novosProdutos: 18,
+      ticketsSuporte: 9,
+      ticketsUrgentes: 2,
+      validacoesPendentes: 5,
+      denunciasPendentes: 3,
+      vendasPorRegiao: [{ sigla: "PE", percentual: 65 }],
+      categoriasMaisVendidas: [{ nome: "Cerâmica", percentual: 40 }],
+      usuariosRecentes: [{ nome: "Maria Silva", papel: "ARTESAO" }],
+      atividadesRecentes: ["Peça aprovada"],
+    };
+    respostaHttp(completas);
+
+    await expect(adminService.metricas()).resolves.toEqual(completas);
   });
-  test("segunda decisão na mesma peça: 409 e a primeira fica", async () => {
-    await concluir(adminService.validarPeca("prd_401", { status: "APROVADA", justificativa: "" }));
-    await expect(concluir(adminService.validarPeca("prd_401", { status: "REPROVADA", justificativa: "Fotos de produto industrial." })))
-      .rejects.toMatchObject({ status: 409, message: "Esta peça já foi avaliada." });
-    expect(lerGravado<Record<string, { status: string }>>("admin:validacoes")?.prd_401.status).toBe("APROVADA");
+
+  test("propaga erro da API", async () => {
+    erroHttp(403, "Acesso restrito ao administrador.");
+
+    await expect(adminService.metricas()).rejects.toMatchObject({
+      status: 403,
+      message: "Acesso restrito ao administrador.",
+    });
   });
 });
 
-describe("pecasPendentes aplica as decisões locais", () => {
-  test("peça aprovada no navegador sai de PENDENTE e entra em APROVADA", async () => {
-    gravar("admin:validacoes", { prd_401: { status: "APROVADA", justificativa: "", decididoEm: "2026-10-17T10:00:00Z" } });
-    respostaHttp({ total: 2, itens: [peca("prd_401"), peca("prd_402")] });
-    expect((await adminService.pecasPendentes("PENDENTE")).itens.map((p) => p.id)).toEqual(["prd_402"]);
-    const aprovadas = await adminService.pecasPendentes("APROVADA");
-    expect(aprovadas.total).toBe(1);
-    expect(aprovadas.itens[0]).toMatchObject({ id: "prd_401", statusValidacao: "APROVADA", decididoEm: "2026-10-17T10:00:00Z" });
+describe("pecasPendentes", () => {
+  test("envia filtro status e AbortSignal para GET /admin/produtos/pendentes", async () => {
+    const controlador = new AbortController();
+    const resposta = { total: 1, itens: [peca("prd_402", "PENDENTE")] };
+    respostaHttp(resposta);
+
+    await expect(adminService.pecasPendentes("PENDENTE", controlador.signal)).resolves.toEqual(resposta);
+    expect(http).toHaveBeenCalledWith("/admin/produtos/pendentes", {
+      parametros: { status: "PENDENTE" },
+      sinal: controlador.signal,
+    });
   });
-  test("metricas desconta as decisões locais, sem ficar negativo", async () => {
-    gravar("admin:validacoes", { prd_401: { status: "APROVADA", justificativa: "", decididoEm: "x" }, prd_402: { status: "REPROVADA", justificativa: "Sem registro do processo.", decididoEm: "x" } });
-    respostaHttp({ validacoesPendentes: 1, denunciasPendentes: 3 });
-    await expect(adminService.metricas()).resolves.toMatchObject({ validacoesPendentes: 0, denunciasPendentes: 3 });
+
+  test("sem filtro envia status undefined e devolve resposta da API", async () => {
+    const resposta = { total: 2, itens: [peca("prd_401", "APROVADA"), peca("prd_402", "PENDENTE")] };
+    respostaHttp(resposta);
+
+    await expect(adminService.pecasPendentes()).resolves.toEqual(resposta);
+    expect(http).toHaveBeenCalledWith("/admin/produtos/pendentes", {
+      parametros: { status: undefined },
+      sinal: undefined,
+    });
+  });
+
+  test("propaga rejeição de http", async () => {
+    erroHttp(500, "Falha ao consultar fila.");
+
+    await expect(adminService.pecasPendentes("PENDENTE")).rejects.toMatchObject({
+      status: 500,
+      message: "Falha ao consultar fila.",
+    });
+  });
+});
+
+describe("validarPeca", () => {
+  test("aprovar envia PUT /admin/produtos/{id}/validacao e devolve decisão com selo ativo", async () => {
+    const esperado = { id: "prd_401", statusValidacao: "APROVADA", seloAtivo: true };
+    respostaHttp(esperado);
+
+    await expect(
+      adminService.validarPeca("prd_401", { status: "APROVADA", justificativa: "" }),
+    ).resolves.toEqual(esperado);
+
+    expect(http).toHaveBeenCalledWith("/admin/produtos/prd_401/validacao", {
+      metodo: "PUT",
+      corpo: { status: "APROVADA", justificativa: "" },
+    });
+    expect(lerGravado("admin:validacoes")).toBeNull();
+  });
+
+  test("codifica o id na rota e propaga erro 400 ou 409 do backend sem gravar localmente", async () => {
+    erroHttp(400, "Explique o motivo da reprovação em pelo menos 10 caracteres.");
+
+    await expect(
+      adminService.validarPeca("prd/401", { status: "REPROVADA", justificativa: "curta" }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Explique o motivo da reprovação em pelo menos 10 caracteres.",
+    });
+
+    expect(http).toHaveBeenCalledWith("/admin/produtos/prd%2F401/validacao", {
+      metodo: "PUT",
+      corpo: { status: "REPROVADA", justificativa: "curta" },
+    });
+    expect(lerGravado("admin:validacoes")).toBeNull();
+
+    erroHttp(409, "Esta peça já foi avaliada.");
+    await expect(
+      adminService.validarPeca("prd_401", { status: "REPROVADA", justificativa: "Fotos de produto industrial." }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Esta peça já foi avaliada.",
+    });
+  });
+});
+
+describe("avaliacoesSinalizadas", () => {
+  test("envia status e AbortSignal para GET /admin/avaliacoes", async () => {
+    const controlador = new AbortController();
+    const resposta = { total: 1, itens: [avaliacao("avl_802")] };
+    respostaHttp(resposta);
+
+    await expect(adminService.avaliacoesSinalizadas("EM_MODERACAO", controlador.signal)).resolves.toEqual(resposta);
+    expect(http).toHaveBeenCalledWith("/admin/avaliacoes", {
+      parametros: { status: "EM_MODERACAO" },
+      sinal: controlador.signal,
+    });
+  });
+
+  test("propaga erro da API", async () => {
+    erroHttp(500, "Erro ao buscar avaliações.");
+
+    await expect(adminService.avaliacoesSinalizadas()).rejects.toMatchObject({
+      status: 500,
+      message: "Erro ao buscar avaliações.",
+    });
   });
 });
 
 describe("moderarAvaliacao", () => {
-  test("REMOVER devolve REMOVIDO e MANTER devolve PUBLICADO", async () => {
-    await expect(concluir(adminService.moderarAvaliacao("avl_801", "REMOVER"))).resolves.toEqual({ id: "avl_801", status: "REMOVIDO" });
-    await expect(concluir(adminService.moderarAvaliacao("avl_802", "MANTER"))).resolves.toEqual({ id: "avl_802", status: "PUBLICADO" });
+  test.each([
+    ["avl_801", "REMOVER", "REMOVIDO"],
+    ["avl_802", "MANTER", "PUBLICADO"],
+  ] as const)("id %s com ação %s envia PUT /admin/avaliacoes/{id}/moderar e devolve status %s", async (id, acao, status) => {
+    respostaHttp({ id, status });
+
+    await expect(adminService.moderarAvaliacao(id, acao)).resolves.toEqual({ id, status });
+    expect(http).toHaveBeenCalledWith(`/admin/avaliacoes/${id}/moderar`, {
+      metodo: "PUT",
+      corpo: { acao },
+    });
+    expect(lerGravado("admin:moderacoes")).toBeNull();
   });
-  test("moderar duas vezes: 409", async () => {
-    await concluir(adminService.moderarAvaliacao("avl_801", "REMOVER"));
-    await expect(concluir(adminService.moderarAvaliacao("avl_801", "MANTER"))).rejects.toMatchObject({ status: 409, message: "Esta avaliação já foi moderada." });
-    expect(lerGravado<Record<string, { status: string }>>("admin:moderacoes")?.avl_801.status).toBe("REMOVIDO");
+
+  test("codifica o id e propaga conflito 409 da API", async () => {
+    erroHttp(409, "Esta avaliação já foi moderada.");
+
+    await expect(adminService.moderarAvaliacao("avl/801", "MANTER")).rejects.toMatchObject({
+      status: 409,
+      message: "Esta avaliação já foi moderada.",
+    });
+    expect(http).toHaveBeenCalledWith("/admin/avaliacoes/avl%2F801/moderar", {
+      metodo: "PUT",
+      corpo: { acao: "MANTER" },
+    });
   });
 });
 
-describe("leituras aplicam o que foi salvo no navegador", () => {
-  test("avaliacoesSinalizadas aplica a moderação local", async () => {
-    gravar("admin:moderacoes", { avl_801: { status: "REMOVIDO", moderadaEm: "2026-10-17T10:00:00Z" } });
-    respostaHttp({ total: 2, itens: [avaliacao("avl_801"), avaliacao("avl_802")] });
-    expect((await adminService.avaliacoesSinalizadas("EM_MODERACAO")).itens.map((a) => a.id)).toEqual(["avl_802"]);
-    const removidas = await adminService.avaliacoesSinalizadas("REMOVIDO");
-    expect(removidas.itens).toHaveLength(1);
-    expect(removidas.itens[0]).toMatchObject({ id: "avl_801", status: "REMOVIDO", moderadaEm: "2026-10-17T10:00:00Z" });
-  });
-  test("perfil() sobrepõe o perfil salvo no navegador", async () => {
-    gravar("admin:perfil", { nome: "Marina Costa", funcao: "Curadoria", telefone: "" });
-    respostaHttp({ nome: "Equipe Origem", email: "admin@origem.dev", funcao: "Curadoria e moderação", telefone: "", criadoEm: "2026-08-01T08:00:00Z" });
-    await expect(adminService.perfil()).resolves.toMatchObject({ nome: "Marina Costa", email: "admin@origem.dev" });
-  });
-});
+describe("perfil e salvarPerfil", () => {
+  test("perfil() chama GET /admin/perfil e devolve os dados da API sem sobreposição local", async () => {
+    const controlador = new AbortController();
+    const perfilApi: PerfilAdmin = {
+      nome: "Equipe Origem",
+      email: "admin@origem.dev",
+      funcao: "Curadoria e moderação",
+      telefone: "",
+      criadoEm: "2026-08-01T08:00:00Z",
+    };
+    respostaHttp(perfilApi);
 
-describe("salvarPerfil", () => {
-  test("nome vazio: 400 e nada gravado", async () => {
-    await expect(concluir(adminService.salvarPerfil({ nome: "   ", funcao: "", telefone: "" }))).rejects.toMatchObject({ status: 400, message: "Informe o nome de quem administra." });
-    expect(lerGravado("admin:perfil")).toBeNull();
+    await expect(adminService.perfil(controlador.signal)).resolves.toEqual(perfilApi);
+    expect(http).toHaveBeenCalledWith("/admin/perfil", { sinal: controlador.signal });
   });
-  test("salvar nome atualiza a sessão sem espaços nas pontas", async () => {
-    gravar("sessao", { token: "fake.x.1", tipo: "Bearer", usuario: { id: "usr_001", nome: "Equipe Origem", papel: "ADMINISTRADOR" } });
-    await expect(concluir(adminService.salvarPerfil({ nome: "  Marina Costa  ", funcao: "Curadoria", telefone: "" }))).resolves.toMatchObject({ nome: "Marina Costa" });
-    expect(lerGravado<{ nome: string }>("admin:perfil")?.nome).toBe("Marina Costa");
+
+  test("salvarPerfil envia PUT /admin/perfil e atualiza o nome na sessão com formato JWT aceito", async () => {
+    gravar("sessao", {
+      token: TOKEN_FORMATO_JWT,
+      tipo: "Bearer",
+      usuario: { id: "usr_001", nome: "Equipe Origem", papel: "ADMINISTRADOR" },
+    });
+    const dados = { nome: "Marina Costa", funcao: "Curadoria", telefone: "(81) 90000-0000" };
+    const resposta = { nome: "Marina Costa", atualizadoEm: "2026-10-17T10:00:00Z" };
+    respostaHttp(resposta);
+
+    await expect(adminService.salvarPerfil(dados)).resolves.toEqual(resposta);
+    expect(http).toHaveBeenCalledWith("/admin/perfil", { metodo: "PUT", corpo: dados });
     expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Marina Costa");
   });
-  test("não renomeia a sessão de outro papel", async () => {
-    gravar("sessao", { token: "fake.x.1", tipo: "Bearer", usuario: { id: "usr_101", nome: "Joana Compradora", papel: "COMPRADOR" } });
-    await expect(concluir(adminService.salvarPerfil({ nome: "Marina Costa", funcao: "", telefone: "" }))).resolves.toMatchObject({ nome: "Marina Costa" });
-    expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Joana Compradora");
-    expect(lerGravado<{ nome: string }>("admin:perfil")?.nome).toBe("Marina Costa");
+
+  test("salvarPerfil não cria sessão quando não há sessão ativa", async () => {
+    const dados = { nome: "Marina Costa", funcao: "Curadoria", telefone: "" };
+    respostaHttp({ nome: "Marina Costa", atualizadoEm: "2026-10-17T10:00:00Z" });
+
+    await expect(adminService.salvarPerfil(dados)).resolves.toMatchObject({ nome: "Marina Costa" });
+    expect(lerGravado("sessao")).toBeNull();
+  });
+
+  test("salvarPerfil propaga erro 400 e não altera a sessão", async () => {
+    gravar("sessao", {
+      token: TOKEN_FORMATO_JWT,
+      tipo: "Bearer",
+      usuario: { id: "usr_001", nome: "Equipe Origem", papel: "ADMINISTRADOR" },
+    });
+    erroHttp(400, "Informe o nome de quem administra.");
+
+    await expect(
+      adminService.salvarPerfil({ nome: "   ", funcao: "", telefone: "" }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Informe o nome de quem administra.",
+    });
+    expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Equipe Origem");
   });
 });
 
 describe("alterarSenha", () => {
-  test.each([
-    ["senha atual vazia", { senhaAtual: "", novaSenha: "SenhaNova123", confirmacao: "SenhaNova123" }, "Informe a senha atual."],
-    ["nova com 7 caracteres", { senhaAtual: "origem123", novaSenha: "1234567", confirmacao: "1234567" }, "Use pelo menos 8 caracteres."],
-    ["confirmação vazia", { senhaAtual: "origem123", novaSenha: "SenhaNova123", confirmacao: "" }, "Confirme a nova senha."],
-    ["confirmação diferente", { senhaAtual: "origem123", novaSenha: "SenhaNova123", confirmacao: "SenhaNova124" }, "As senhas não coincidem."],
-  ])("%s: 400", async (_caso, dados, mensagem) => {
-    await expect(concluir(adminService.alterarSenha(dados))).rejects.toMatchObject({ status: 400, message: mensagem });
+  test("confirmação diferente lança ApiError 400 sem chamar a API", () => {
+    let capturado: unknown;
+    try {
+      adminService.alterarSenha({
+        senhaAtual: "origem123",
+        novaSenha: "SenhaNova123",
+        confirmacao: "SenhaNova124",
+      });
+    } catch (erro) {
+      capturado = erro;
+    }
+
+    expect(capturado).toBeInstanceOf(ApiError);
+    expect(capturado).toMatchObject({ status: 400, message: "As senhas não coincidem." });
+    expect(http).not.toHaveBeenCalled();
   });
-  test("senha válida: mensagem de sucesso e nada gravado", async () => {
-    await expect(concluir(adminService.alterarSenha({ senhaAtual: "origem123", novaSenha: "SenhaNova123", confirmacao: "SenhaNova123" })))
-      .resolves.toEqual({ mensagem: "Senha conferida. Nesta demonstração a troca não fica gravada; continue entrando com a senha atual." });
+
+  test("quando as senhas coincidem, envia PUT /admin/senha e não grava senhas no navegador", async () => {
+    const dados = {
+      senhaAtual: "origem123",
+      novaSenha: "SenhaNova123",
+      confirmacao: "SenhaNova123",
+    };
+    const resposta = { mensagem: "Senha alterada. Use a nova senha no próximo acesso." };
+    respostaHttp(resposta);
+
+    await expect(adminService.alterarSenha(dados)).resolves.toEqual(resposta);
+    expect(http).toHaveBeenCalledWith("/admin/senha", { metodo: "PUT", corpo: dados });
     expect(tudoGravado()).not.toContain("SenhaNova123");
     expect(tudoGravado()).not.toContain("origem123");
   });
-});
 
-describe("entrar", () => {
-  const sessaoDaApi = (papel: Sessao["usuario"]["papel"]): Sessao => ({
-    token: "fake.usr_001.1", tipo: "Bearer", usuario: { id: "usr_001", nome: "Equipe Origem", papel },
-  });
-  test("login do administrador usa o nome salvo no perfil local", async () => {
-    gravar("admin:perfil", { nome: "Marina Costa", funcao: "Curadoria", telefone: "" });
-    respostaHttp(sessaoDaApi("ADMINISTRADOR"));
-    const sessao = await authService.entrar({ email: "admin@origem.dev", senha: "origem123" });
-    expect(sessao.usuario.nome).toBe("Marina Costa");
-    expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Marina Costa");
-  });
-  test("login de comprador mantém o nome da API", async () => {
-    gravar("admin:perfil", { nome: "Marina Costa", funcao: "Curadoria", telefone: "" });
-    respostaHttp(sessaoDaApi("COMPRADOR"));
-    const sessao = await authService.entrar({ email: "comprador@origem.dev", senha: "origem123" });
-    expect(sessao.usuario.nome).toBe("Equipe Origem");
-    expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Equipe Origem");
-  });
-});
+  test.each([
+    [400, "senha atual vazia", { senhaAtual: "", novaSenha: "SenhaNova123", confirmacao: "SenhaNova123" }, "Informe a senha atual."],
+    [400, "nova com 7 caracteres", { senhaAtual: "origem123", novaSenha: "1234567", confirmacao: "1234567" }, "Use pelo menos 8 caracteres."],
+    [401, "senha atual incorreta", { senhaAtual: "errada123", novaSenha: "SenhaNova123", confirmacao: "SenhaNova123" }, "Senha atual incorreta."],
+  ])("propaga erro %i da API (%s)", async (status, _caso, dados, mensagem) => {
+    erroHttp(status, mensagem);
 
-describe("gravação recusada pelo navegador", () => {
-  const recusar = () =>
-    jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("quota", "QuotaExceededError");
+    await expect(adminService.alterarSenha(dados)).rejects.toMatchObject({
+      status,
+      message: mensagem,
     });
-  test("validarPeca: 507 e nada gravado", async () => {
-    recusar();
-    await expect(concluir(adminService.validarPeca("prd_401", { status: "APROVADA", justificativa: "" }))).rejects.toMatchObject({ status: 507 });
-    expect(lerGravado("admin:validacoes")).toBeNull();
-  });
-  test("moderarAvaliacao: 507", async () => {
-    recusar();
-    await expect(concluir(adminService.moderarAvaliacao("avl_801", "REMOVER"))).rejects.toMatchObject({ status: 507 });
-  });
-  test("salvarPerfil: 507 e a sessão não muda de nome", async () => {
-    gravar("sessao", { token: "fake.x.1", tipo: "Bearer", usuario: { id: "usr_001", nome: "Equipe Origem", papel: "ADMINISTRADOR" } });
-    recusar();
-    await expect(concluir(adminService.salvarPerfil({ nome: "Marina Costa", funcao: "", telefone: "" }))).rejects.toMatchObject({ status: 507 });
-    expect(lerGravado<Sessao>("sessao")?.usuario.nome).toBe("Equipe Origem");
+    expect(http).toHaveBeenCalledWith("/admin/senha", { metodo: "PUT", corpo: dados });
   });
 });

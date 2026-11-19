@@ -4,12 +4,9 @@
 
 O frontend centraliza as requisições HTTP em `frontend/src/lib/http.ts`, utilizando Axios.
 
-A URL base é definida por `NEXT_PUBLIC_API_URL`.
+A URL base é definida por `NEXT_PUBLIC_API_URL` no navegador (ou `API_BASE_URL` / `BACKEND_URL` / `NEXT_PUBLIC_API_URL` no servidor), com padrão `http://localhost:4000`, direcionando todas as chamadas para o backend Express.
 
-- Quando configurada, as chamadas são direcionadas ao endereço informado.
-- Quando não configurada, o valor padrão é `/api`, utilizado pelas rotas da Fake API do Next.js.
-
-O cliente HTTP recupera a sessão armazenada localmente e adiciona o cabeçalho `Authorization` quando existe um token.
+O cliente HTTP recupera a sessão armazenada localmente e adiciona o cabeçalho `Authorization` quando existe um token JWT válido.
 
 ## 2. Exemplo real: listagem de produtos
 
@@ -149,21 +146,15 @@ Frontend
 
 A resposta percorre o caminho inverso até chegar ao cliente HTTP.
 
-## 4. Fake API
+## 4. Remoção da Fake API
 
-Quando `NEXT_PUBLIC_API_URL` não está configurada, o cliente utiliza `/api`.
-
-Nesse cenário, as chamadas podem ser atendidas pelas rotas da própria aplicação Next.js, que utiliza mocks e armazenamento local para simular funcionalidades da API.
-
-Esse fluxo não deve ser confundido com uma chamada obrigatória ao backend Express.
+As antigas rotas Next.js em `frontend/src/app/api/` e os dados de `frontend/src/mocks/` foram removidos após a integração completa com o backend Express e o PostgreSQL.
 
 ## 5. Recomendações e módulo de IA
 
-A rota `frontend/src/app/api/produtos/recomendacoes/route.ts` verifica se `RECOMENDACAO_API_URL` está configurada.
+O backend Express (`GET /produtos/recomendacoes`) verifica se `RECOMENDACAO_API_URL` está configurada.
 
-Quando disponível, tenta consultar o módulo de IA. Se não houver configuração ou a consulta falhar, utiliza o mecanismo local `recomendarPara`.
-
-A resposta identifica a origem das recomendações pelo cabeçalho `X-Recomendacao-Fonte`.
+Quando disponível, consulta o módulo de IA (`POST /recommendations`) e cruza os resultados com peças aprovadas e disponíveis no PostgreSQL. Se não houver configuração ou a consulta falhar/expirar em 2 s, utiliza o baseline sobre o catálogo real do PostgreSQL.
 
 ## 6. Demonstração de concorrência
 

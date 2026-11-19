@@ -7,6 +7,7 @@ import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { useMetricasAdmin } from "@/hooks/useAdmin";
 import { formatarInteiro, formatarMoeda } from "@/lib/formato";
+import type { MetricasAdmin } from "@/types";
 
 const cartoes = [
   { titulo: "Total de vendas", valor: "vendas" },
@@ -28,43 +29,88 @@ function Carregando() {
   );
 }
 
+function painelSemAtividade(dados: MetricasAdmin): boolean {
+  const temNumero =
+    dados.totalUsuarios > 0 ||
+    dados.totalArtesaos > 0 ||
+    dados.totalArtesaosAtivos > 0 ||
+    dados.totalProdutos > 0 ||
+    dados.totalVendas > 0 ||
+    dados.volumeTransacionadoGlobal > 0 ||
+    dados.ticketsSuporte > 0 ||
+    dados.validacoesPendentes > 0 ||
+    dados.denunciasPendentes > 0;
+  const temLista =
+    dados.vendasPorRegiao.length > 0 ||
+    dados.categoriasMaisVendidas.length > 0 ||
+    dados.usuariosRecentes.length > 0 ||
+    dados.atividadesRecentes.length > 0;
+  return !temNumero && !temLista;
+}
+
 export default function DashboardAdmin() {
   const consulta = useMetricasAdmin();
   const dados = consulta.dados;
+  const semDados = dados ? painelSemAtividade(dados) : false;
 
   return (
     <>
-        {consulta.carregando && <Carregando />}
-        {consulta.erro && <EstadoErro mensagem={consulta.erro.message} aoTentarDeNovo={consulta.recarregar} />}
-        {dados && dados.atividadesRecentes.length === 0 && dados.vendasPorRegiao.length === 0 && (
-          <EstadoVazio titulo="Ainda não há dados para exibir" descricao="Os indicadores aparecerão aqui quando houver atividade no marketplace." />
-        )}
-        {dados && (dados.atividadesRecentes.length > 0 || dados.vendasPorRegiao.length > 0) && (
-          <>
-            <section id="visao-geral" aria-labelledby="admin-titulo" className="flex flex-col gap-4">
-              <h1 id="admin-titulo" className="font-titulo text-h1 font-bold text-tinta">O pulso do marketplace, em um só lugar.</h1>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                {cartoes.map((cartao) => {
-                  const valor = cartao.valor === "vendas" ? formatarMoeda(dados.totalVendas) : cartao.valor === "artesaos" ? formatarInteiro(dados.totalArtesaosAtivos) : cartao.valor === "produtos" ? formatarInteiro(dados.totalProdutos) : cartao.valor === "tickets" ? formatarInteiro(dados.ticketsSuporte) : formatarInteiro(dados.validacoesPendentes);
-                  const detalhe = cartao.valor === "vendas" ? `+${dados.variacaoVendas}% no período` : cartao.valor === "artesaos" ? `+${formatarInteiro(dados.novosArtesaosNoMes)} este mês` : cartao.valor === "produtos" ? `${formatarInteiro(dados.novosProdutos)} novos` : cartao.valor === "tickets" ? `${formatarInteiro(dados.ticketsUrgentes)} urgentes` : null;
-                  return (
-                    <article key={cartao.valor} className="flex min-h-28 flex-col gap-2 rounded-raio border border-borda bg-superficie p-4 shadow-card">
-                      <h2 className="text-legenda font-semibold uppercase tracking-wide text-tinta-3">{cartao.titulo}</h2>
-                      <p className="font-titulo text-h2 font-bold tabular-nums text-tinta">{valor}</p>
-                      {detalhe === null ? (
-                        <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio font-semibold text-terracota hover:text-terracota-escura">Ver fila de validação</Link>
-                      ) : (
-                        <p className={`text-apoio ${cartao.valor === "tickets" ? "text-terracota" : "text-selo"}`}>{detalhe}</p>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+      {consulta.carregando && <Carregando />}
+      {consulta.erro && <EstadoErro mensagem={consulta.erro.message} aoTentarDeNovo={consulta.recarregar} />}
+      {dados && semDados && (
+        <EstadoVazio
+          titulo="Ainda não há dados para exibir"
+          descricao="Os indicadores aparecerão aqui quando houver atividade no marketplace."
+        />
+      )}
+      {dados && !semDados && (
+        <>
+          <section id="visao-geral" aria-labelledby="admin-titulo" className="flex flex-col gap-4">
+            <h1 id="admin-titulo" className="font-titulo text-h1 font-bold text-tinta">O pulso do marketplace, em um só lugar.</h1>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              {cartoes.map((cartao) => {
+                const valorVendas = dados.totalVendas || dados.volumeTransacionadoGlobal;
+                const valor =
+                  cartao.valor === "vendas"
+                    ? formatarMoeda(valorVendas)
+                    : cartao.valor === "artesaos"
+                      ? formatarInteiro(dados.totalArtesaosAtivos)
+                      : cartao.valor === "produtos"
+                        ? formatarInteiro(dados.totalProdutos)
+                        : cartao.valor === "tickets"
+                          ? formatarInteiro(dados.ticketsSuporte)
+                          : formatarInteiro(dados.validacoesPendentes);
+                const detalhe =
+                  cartao.valor === "vendas"
+                    ? `${dados.variacaoVendas >= 0 ? "+" : ""}${dados.variacaoVendas}% no período`
+                    : cartao.valor === "artesaos"
+                      ? `${formatarInteiro(dados.novosArtesaosNoMes)} novos este mês`
+                      : cartao.valor === "produtos"
+                        ? `${formatarInteiro(dados.novosProdutos)} novos`
+                        : cartao.valor === "tickets"
+                          ? `${formatarInteiro(dados.ticketsUrgentes)} urgentes`
+                          : null;
+                return (
+                  <article key={cartao.valor} className="flex min-h-28 flex-col gap-2 rounded-raio border border-borda bg-superficie p-4 shadow-card">
+                    <h2 className="text-legenda font-semibold uppercase tracking-wide text-tinta-3">{cartao.titulo}</h2>
+                    <p className="font-titulo text-h2 font-bold tabular-nums text-tinta">{valor}</p>
+                    {detalhe === null ? (
+                      <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio font-semibold text-terracota hover:text-terracota-escura">Ver fila de validação</Link>
+                    ) : (
+                      <p className={`text-apoio ${cartao.valor === "tickets" ? "text-terracota" : "text-selo"}`}>{detalhe}</p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-            <section id="relatorios" aria-label="Relatórios do marketplace" className="grid gap-4 xl:grid-cols-12">
-              <article className="flex flex-col gap-4 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-5">
-                <h2 className="font-titulo text-h3 font-bold">Vendas por região</h2>
+          <section id="relatorios" aria-label="Relatórios do marketplace" className="grid gap-4 xl:grid-cols-12">
+            <article className="flex flex-col gap-4 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-5">
+              <h2 className="font-titulo text-h3 font-bold">Vendas por região</h2>
+              {dados.vendasPorRegiao.length === 0 ? (
+                <p className="text-apoio text-tinta-3">Nenhuma venda por região registrada até o momento.</p>
+              ) : (
                 <div className="flex h-40 items-end gap-3 border-b border-borda px-1 sm:gap-5" role="img" aria-label={`Vendas por região: ${dados.vendasPorRegiao.map((r) => `${r.sigla} ${r.percentual}%`).join(", ")}`}>
                   {dados.vendasPorRegiao.map((regiao, indice) => (
                     <div key={regiao.sigla} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
@@ -73,10 +119,14 @@ export default function DashboardAdmin() {
                     </div>
                   ))}
                 </div>
-              </article>
+              )}
+            </article>
 
-              <article className="flex flex-col gap-4 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-3">
-                <h2 className="font-titulo text-h3 font-bold">Categorias mais vendidas</h2>
+            <article className="flex flex-col gap-4 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-3">
+              <h2 className="font-titulo text-h3 font-bold">Categorias mais vendidas</h2>
+              {dados.categoriasMaisVendidas.length === 0 ? (
+                <p className="text-apoio text-tinta-3">Sem vendas por categoria registradas.</p>
+              ) : (
                 <ul className="flex flex-col gap-3">
                   {dados.categoriasMaisVendidas.map((categoria) => (
                     <li key={categoria.nome} className="flex items-center justify-between gap-3 text-apoio">
@@ -84,31 +134,47 @@ export default function DashboardAdmin() {
                     </li>
                   ))}
                 </ul>
-              </article>
+              )}
+            </article>
 
-              <article id="moderacao" className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-4">
-                <h2 className="font-titulo text-h3 font-bold">Alertas de moderação</h2>
-                <div className="flex items-center gap-2 rounded-raio bg-superficie-2 p-3 text-apoio text-tinta-2">
-                  <CircleAlert className="size-4 shrink-0 text-aviso" aria-hidden="true" />
-                  {formatarInteiro(dados.denunciasPendentes)} denúncias exigem prioridade
-                </div>
-                <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio text-tinta-2 underline hover:text-terracota">{formatarInteiro(dados.validacoesPendentes)} validações pendentes, ver fila</Link>
-                <Link href="/painel/admin/moderacao" className="inline-flex min-h-10 w-fit items-center gap-2 rounded-raio bg-terracota px-4 text-apoio font-bold text-white hover:bg-terracota-escura">
-                  Revisar agora <CheckCircle2 className="size-4" aria-hidden="true" />
-                </Link>
-                <h3 id="usuarios" className="mt-1 inline-flex items-center gap-2 font-titulo text-apoio font-bold"><Users className="size-4" aria-hidden="true" /> Usuários recentes</h3>
+            <article id="moderacao" className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4 shadow-card xl:col-span-4">
+              <h2 className="font-titulo text-h3 font-bold">Alertas de moderação</h2>
+              <div className="flex items-center gap-2 rounded-raio bg-superficie-2 p-3 text-apoio text-tinta-2">
+                <CircleAlert className="size-4 shrink-0 text-aviso" aria-hidden="true" />
+                {formatarInteiro(dados.denunciasPendentes)} denúncias exigem prioridade
+              </div>
+              <Link href="/painel/admin/validacoes" className="inline-flex min-h-10 w-fit items-center text-apoio text-tinta-2 underline hover:text-terracota">{formatarInteiro(dados.validacoesPendentes)} validações pendentes, ver fila</Link>
+              <Link href="/painel/admin/moderacao" className="inline-flex min-h-10 w-fit items-center gap-2 rounded-raio bg-terracota px-4 text-apoio font-bold text-white hover:bg-terracota-escura">
+                Revisar agora <CheckCircle2 className="size-4" aria-hidden="true" />
+              </Link>
+              <h3 id="usuarios" className="mt-1 inline-flex items-center gap-2 font-titulo text-apoio font-bold">
+                <Users className="size-4" aria-hidden="true" /> Usuários ({formatarInteiro(dados.totalUsuarios)})
+              </h3>
+              {dados.usuariosRecentes.length === 0 ? (
+                <p className="text-apoio text-tinta-3">Nenhum cadastro recente listado.</p>
+              ) : (
                 <p className="text-apoio text-tinta-3">{dados.usuariosRecentes.map((usuario) => `${usuario.nome} · ${usuario.papel}`).join(" • ")}</p>
-              </article>
-            </section>
+              )}
+            </article>
+          </section>
 
-            <section aria-labelledby="atividades-titulo" className="rounded-raio border border-borda bg-superficie p-4 shadow-card">
-              <h2 id="atividades-titulo" className="mb-2 font-titulo text-h3 font-bold">Atividades recentes</h2>
+          <section aria-labelledby="atividades-titulo" className="rounded-raio border border-borda bg-superficie p-4 shadow-card">
+            <h2 id="atividades-titulo" className="mb-2 font-titulo text-h3 font-bold">Atividades recentes</h2>
+            {dados.atividadesRecentes.length === 0 ? (
+              <p className="text-apoio text-tinta-3">Nenhuma atividade recente registrada.</p>
+            ) : (
               <ul className="flex flex-col gap-2 text-apoio text-tinta-3 sm:flex-row sm:flex-wrap sm:gap-x-6">
-                {dados.atividadesRecentes.map((atividade) => <li key={atividade} className="inline-flex items-center gap-2"><LayoutDashboard className="size-4 text-tinta-3" aria-hidden="true" />{atividade}</li>)}
+                {dados.atividadesRecentes.map((atividade) => (
+                  <li key={atividade} className="inline-flex items-center gap-2">
+                    <LayoutDashboard className="size-4 text-tinta-3" aria-hidden="true" />
+                    {atividade}
+                  </li>
+                ))}
               </ul>
-            </section>
-          </>
-        )}
+            )}
+          </section>
+        </>
+      )}
     </>
   );
 }

@@ -11,18 +11,22 @@ datasource db {
 }
 
 model Usuario {
-  id          Int    @id @default(autoincrement()) @map("id_usuario")
-  nome        String @db.VarChar(150)
-  email       String @unique(map: "uq_usuario_email") @db.VarChar(254)
-  senha       String @db.VarChar(255)
+  id          Int     @id @default(autoincrement()) @map("id_usuario")
+  nome        String  @db.VarChar(150)
+  email       String  @unique(map: "uq_usuario_email") @db.VarChar(254)
+  senha       String  @db.VarChar(255)
   telefone    String? @db.VarChar(20)
+  funcao      String? @db.VarChar(100)
   // COMPRADOR | ARTESAO | ADMINISTRADOR
-  usuarioTipo String @map("usuario_tipo") @db.VarChar(20)
+  usuarioTipo String  @map("usuario_tipo") @db.VarChar(20)
 
-  loja       Loja[]
-  carrinho   Carrinho?
-  pedidos    Pedido[]
-  avaliacoes Avaliacao[]
+  loja            Loja[]
+  carrinho        Carrinho?
+  pedidos         Pedido[]
+  avaliacoes      Avaliacao[]
+  recuperacoes    RecuperacaoSenha[]
+  tickets         Ticket[]
+  personalizacoes Personalizacao[]
 
   @@map("usuario")
 }
@@ -38,10 +42,18 @@ model Categoria {
 }
 
 model Loja {
-  id        Int     @id @default(autoincrement()) @map("id_loja")
-  nome      String  @db.VarChar(150)
-  descricao String?
-  usuarioId Int     @map("fk_usuario_id_usuario")
+  id                Int     @id @default(autoincrement()) @map("id_loja")
+  nome              String  @db.VarChar(150)
+  descricao         String?
+  regiao            String? @db.VarChar(150)
+  foto              String?
+  fotoCapa          String? @map("foto_capa")
+  redesSociais      String? @map("redes_sociais") @db.VarChar(200)
+  tecnicas          Json    @default("[]") @db.JsonB
+  certificacoes     Json    @default("[]") @db.JsonB
+  dadosBancarios    String? @map("dados_bancarios") @db.VarChar(300)
+  configuracaoEnvio Json?   @map("configuracao_envio") @db.JsonB
+  usuarioId         Int     @map("fk_usuario_id_usuario")
 
   usuario  Usuario   @relation(fields: [usuarioId], references: [id], map: "fk_loja_usuario")
   produtos Produto[]
@@ -63,26 +75,33 @@ model EnderecoEntrega {
 }
 
 model Produto {
-  id                 Int     @id @default(autoincrement()) @map("id_produto")
-  nome               String  @db.VarChar(150)
-  descricao          String?
-  tecnica            String  @db.VarChar(100)
-  preco              Decimal @db.Decimal(10, 2)
-  origem             String  @db.VarChar(150)
-  modalidadeProducao String  @map("modalidade_producao") @db.VarChar(30)
-  pecaUnica          Boolean @map("peca_unica")
-  pausado            Boolean @default(false)
-  excluido           Boolean @default(false)
-  lojaId             Int     @map("fk_loja_id_loja")
-  categoriaId        Int     @map("fk_categoria_id_categoria")
+  id                     Int       @id @default(autoincrement()) @map("id_produto")
+  nome                   String    @db.VarChar(150)
+  descricao              String?
+  tecnica                String    @db.VarChar(100)
+  preco                  Decimal   @db.Decimal(10, 2)
+  origem                 String    @db.VarChar(150)
+  modalidadeProducao     String    @map("modalidade_producao") @db.VarChar(30)
+  pecaUnica              Boolean   @map("peca_unica")
+  pausado                Boolean   @default(false)
+  excluido               Boolean   @default(false)
+  statusValidacao        String    @default("APROVADA") @map("status_validacao") @db.VarChar(20)
+  seloAtivo              Boolean   @default(false) @map("selo_ativo")
+  justificativaValidacao String?   @map("justificativa_validacao")
+  enviadoEm              DateTime? @map("enviado_em") @db.Timestamp(6)
+  decididoEm             DateTime? @map("decidido_em") @db.Timestamp(6)
+  decididoPorId          Int?      @map("decidido_por_id")
+  lojaId                 Int       @map("fk_loja_id_loja")
+  categoriaId            Int       @map("fk_categoria_id_categoria")
 
-  loja          Loja           @relation(fields: [lojaId], references: [id], map: "fk_produto_loja")
-  categoria     Categoria      @relation(fields: [categoriaId], references: [id], map: "fk_produto_categoria")
-  estoque       Estoque?
-  imagens       Imagem[]
-  itensCarrinho ItemCarrinho[]
-  itensPedido   ItemPedido[]
-  avaliacoes    Avaliacao[]
+  loja           Loja             @relation(fields: [lojaId], references: [id], map: "fk_produto_loja")
+  categoria      Categoria        @relation(fields: [categoriaId], references: [id], map: "fk_produto_categoria")
+  estoque        Estoque?
+  imagens        Imagem[]
+  itensCarrinho  ItemCarrinho[]
+  itensPedido    ItemPedido[]
+  avaliacoes     Avaliacao[]
+  Personalizacao Personalizacao[]
 
   @@index([lojaId], map: "idx_produto_loja")
   @@index([categoriaId], map: "idx_produto_categoria")
@@ -145,6 +164,7 @@ model Pedido {
   status            String   @db.VarChar(30)
   usuarioId         Int      @map("fk_usuario_id_usuario")
   enderecoEntregaId Int      @map("fk_endereco_de_entrega_id_endereco")
+  valorFrete        Decimal  @default(0) @map("valor_frete") @db.Decimal(10, 2)
 
   usuario         Usuario           @relation(fields: [usuarioId], references: [id], map: "fk_pedido_usuario")
   enderecoEntrega EnderecoEntrega   @relation(fields: [enderecoEntregaId], references: [id], map: "fk_pedido_endereco")
@@ -188,12 +208,16 @@ model Pagamento {
 }
 
 model Avaliacao {
-  id            Int      @id @default(autoincrement()) @map("id_avaliacao")
-  nota          Int      @db.SmallInt
+  id            Int       @id @default(autoincrement()) @map("id_avaliacao")
+  nota          Int       @db.SmallInt
   comentario    String?
-  dataAvaliacao DateTime @map("data_avaliacao") @db.Timestamp(6)
-  usuarioId     Int      @map("fk_usuario_id_usuario")
-  produtoId     Int      @map("fk_produto_id_produto")
+  dataAvaliacao DateTime  @map("data_avaliacao") @db.Timestamp(6)
+  usuarioId     Int       @map("fk_usuario_id_usuario")
+  produtoId     Int       @map("fk_produto_id_produto")
+  status        String    @default("PUBLICADO") @db.VarChar(20)
+  motivo        String?   @db.VarChar(50)
+  sinalizadaEm  DateTime? @map("sinalizada_em") @db.Timestamp(6)
+  moderadaEm    DateTime? @map("moderada_em") @db.Timestamp(6)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_avaliacao_usuario")
   produto Produto @relation(fields: [produtoId], references: [id], map: "fk_avaliacao_produto")
@@ -214,4 +238,72 @@ model HistoricoPedido {
 
   @@index([pedidoId], map: "idx_historico_pedido")
   @@map("historico_pedido")
+}
+
+model RecuperacaoSenha {
+  id        Int       @id @default(autoincrement()) @map("id_recuperacao")
+  usuarioId Int       @map("fk_usuario_id_usuario")
+  tokenHash String    @unique(map: "uq_recuperacao_token") @map("token_hash") @db.Char(64)
+  expiraEm  DateTime  @map("expira_em") @db.Timestamp(6)
+  usadoEm   DateTime? @map("usado_em") @db.Timestamp(6)
+  criadoEm  DateTime  @default(now()) @map("criado_em") @db.Timestamp(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_recuperacao_usuario")
+
+  @@index([usuarioId], map: "idx_recuperacao_usuario")
+  @@map("recuperacao_senha")
+}
+
+model Ticket {
+  id           Int      @id @default(autoincrement()) @map("id_ticket")
+  usuarioId    Int      @map("fk_usuario_id_usuario")
+  assunto      String   @db.VarChar(150)
+  status       String   @default("TRIAGEM_INTELIGENTE") @db.VarChar(30)
+  prioridade   String   @default("NORMAL") @db.VarChar(20)
+  categoria    String?  @db.VarChar(30)
+  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamp(6)
+  atualizadoEm DateTime @default(now()) @map("atualizado_em") @db.Timestamp(6)
+
+  usuario   Usuario          @relation(fields: [usuarioId], references: [id], map: "fk_ticket_usuario")
+  mensagens TicketMensagem[]
+
+  @@index([usuarioId], map: "idx_ticket_usuario")
+  @@map("ticket")
+}
+
+model TicketMensagem {
+  id        Int      @id @default(autoincrement()) @map("id_mensagem")
+  ticketId  Int      @map("fk_ticket_id_ticket")
+  autor     String   @db.VarChar(20)
+  texto     String
+  categoria String?  @db.VarChar(30)
+  sugestoes Json     @default("[]") @db.JsonB
+  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamp(6)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], map: "fk_ticket_mensagem_ticket", onDelete: Cascade)
+
+  @@index([ticketId], map: "idx_ticket_mensagem_ticket")
+  @@map("ticket_mensagem")
+}
+
+model Personalizacao {
+  id                 Int      @id @default(autoincrement()) @map("id_personalizacao")
+  usuarioId          Int      @map("fk_usuario_id_usuario")
+  produtoId          Int      @map("fk_produto_id_produto")
+  cor                String?  @db.VarChar(100)
+  tamanho            String?  @db.VarChar(100)
+  inscricao          String?  @db.VarChar(200)
+  detalhes           String?
+  mensagem           String
+  status             String   @default("ENVIADA") @db.VarChar(20)
+  prazoAdicionalDias Int      @default(0) @map("prazo_adicional_dias")
+  precoAdicional     Decimal  @default(0) @map("preco_adicional") @db.Decimal(10, 2)
+  criadoEm           DateTime @default(now()) @map("criado_em") @db.Timestamp(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], map: "fk_personalizacao_usuario")
+  produto Produto @relation(fields: [produtoId], references: [id], map: "fk_personalizacao_produto")
+
+  @@index([usuarioId], map: "idx_personalizacao_usuario")
+  @@index([produtoId], map: "idx_personalizacao_produto")
+  @@map("personalizacao")
 }

@@ -21,6 +21,7 @@ import { useCarrinho } from "@/hooks/useCarrinho";
 import { registrarVisita } from "@/hooks/useHistorico";
 import { useProduto } from "@/hooks/useProdutos";
 import { formatarMoeda, formatarNota, plural } from "@/lib/formato";
+import { ApiError } from "@/lib/http";
 import type { Disponibilidade, ModalidadeProducao, ProdutoDetalhe } from "@/types";
 
 const MODALIDADES: Record<ModalidadeProducao, string> = {
@@ -76,11 +77,12 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
         title: "Peça no carrinho",
         description: `${plural(quantidade, "unidade", "unidades")} de ${produto.nome}`,
       });
-    } catch {
+    } catch (causa) {
       toaster.create({
         type: "error",
         title: "Não deu para adicionar",
-        description: "Tente de novo em instantes.",
+        description:
+          causa instanceof ApiError ? causa.message : "Tente de novo em instantes.",
       });
     }
     setAcao(null);
@@ -135,7 +137,7 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
             {produto.artesao.nome} e da mesma técnica no catálogo.
           </p>
           <BotaoLink
-            href={`/catalogo?tecnica=${produto.tecnica.id}`}
+            href={`/catalogo?tecnica=${encodeURIComponent(produto.tecnica.id)}`}
             variante="contorno"
           >
             Ver peças de {produto.tecnica.nome.toLowerCase()}

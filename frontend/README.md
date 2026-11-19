@@ -48,6 +48,10 @@ A comunicação com o backend real é centralizada na pasta `src/services/` util
 # Testes unitários dos services e validações do frontend
 npm run test:unit
 
-# Verificação de lint (sempre deve passar limpo)
+# Testes de integração de API contra backend real + Postgres (http://localhost:4000 ou API_BASE_URL)
+npm run test:api
+
+# Verificação de lint e build
 npm run lint
+npm run build
 ```

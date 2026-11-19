@@ -33,4 +33,12 @@ router.post("/recuperar-senha", (req, res, next) => {
   return controller.recuperarSenha(req, res).catch(next);
 });
 
+router.post("/redefinir-senha", (req, res, next) => {
+  const corpo = req.body;
+  if (!corpo || typeof corpo !== "object" || !corpo.token || !corpo.senha) {
+    throw new ErroApp(400, "Informe o token e a nova senha.");
+  }
+  return controller.redefinirSenha(req, res).catch(next);
+});
+
 export default router;

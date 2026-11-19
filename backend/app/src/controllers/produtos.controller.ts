@@ -26,7 +26,9 @@ export class ProdutosController {
   async recomendados(req: Request, res: Response) {
     const produtoId = (req.query.produtoId as string) ?? "";
     const resultado = await produtoService.recomendados(produtoId);
-    return res.json(resultado);
+    res.setHeader("X-Recomendacao-Fonte", resultado.fonte);
+    const { fonte, ...corpo } = resultado;
+    return res.json(corpo);
   }
 
   async criar(req: Request, res: Response) {
@@ -68,7 +70,7 @@ export class ProdutosController {
   }
 
   async validar(req: Request, res: Response) {
-    const resultado = await produtoService.validar(req.params.id, req.body);
+    const resultado = await produtoService.validar(req.params.id, req.body, req.usuario!.id);
     return res.json(resultado);
   }
 }

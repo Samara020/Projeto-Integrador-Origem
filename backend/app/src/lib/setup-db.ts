@@ -4,12 +4,18 @@ import prisma from "./prisma";
 
 /**
  * Prepara o banco ao subir a API, quando AUTO_SETUP_DB=true:
- *  - sem tabelas: aplica database/sql/01, 02, 04 e 07;
+ *  - sem tabelas: aplica database/sql/01, 02 e 04;
+ *  - sempre: aplica 07 e 08 (migrações idempotentes, preservam dados);
  *  - sem usuarios: aplica o seed database/sql/05.
- * Banco ja populado nao e alterado.
+ * Banco ja populado nao e apagado nem recriado.
  */
 
 const DIR_SQL = process.env.SQL_DIR ?? path.resolve(process.cwd(), "../../database/sql");
+
+const MIGRACOES_IDEMPOTENTES = [
+  "07_suporte_exclusao_logica_produto.sql",
+  "08_integracao_persistencia.sql",
+];
 
 /** Divide um script SQL em comandos, respeitando strings, comentarios e $$...$$. */
 export function dividirComandos(sql: string): string[] {
@@ -68,10 +74,14 @@ export async function prepararBanco() {
       "01_create_tables.sql",
       "02_integrity_rules.sql",
       "04_create_indexes.sql",
-      "07_suporte_exclusao_logica_produto.sql",
     ]) {
       await executarArquivo(arquivo);
     }
+  }
+
+  // Migrações aditivas rodam também em banco já inicializado (volume existente).
+  for (const arquivo of MIGRACOES_IDEMPOTENTES) {
+    await executarArquivo(arquivo);
   }
 
   if ((await prisma.usuario.count()) === 0) {

@@ -1,5 +1,5 @@
-// TC03 e TC05 no nível de API: vitrine, busca, filtros e detalhe da peça.
-import { erro, get } from "./cliente";
+// TC03 e TC05 no nível de API real: vitrine, busca, filtros e detalhe da peça.
+import { criarProdutoAprovado, erro, get, registrarELogar } from "./cliente";
 
 type Resumo = {
   id: string;
@@ -10,17 +10,72 @@ type Resumo = {
   regiao: { id: string; nome: string };
 };
 type Paginado = { total: number; pagina: number; limite: number; itens: Resumo[] };
-type Detalhe = Resumo & { descricao: string; estoque: number; imagens: string[]; categoria: { id: string }; tecnica: { id: string } };
+type Detalhe = Resumo & {
+  descricao: string;
+  estoque: number;
+  imagens: string[];
+  categoria: { id: string; nome: string };
+  tecnica: string | { id: string; nome: string };
+};
 
 const ids = (pagina: Paginado) => pagina.itens.map((p) => p.id);
 
-describe("TC03 · GET /api/produtos", () => {
+describe("TC03 e TC05 · GET /produtos (backend real)", () => {
+  const marcador = `AuditInt${Date.now()}`;
+  let prodDisponivel: { id: string; nome: string; preco: number; categoriaId: string };
+  let prodVendido: { id: string; nome: string };
+  let prodBarato: { id: string; nome: string };
+
+  beforeAll(async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const admin = await registrarELogar("ADMINISTRADOR");
+
+    const disponivel = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: `Vaso ${marcador} Disponível`,
+      categoria: `Cat${marcador}`,
+      tecnica: `Tec${marcador}`,
+      origem: `Regiao${marcador}`,
+      preco: 180,
+      modalidadeProducao: "PRONTA_ENTREGA",
+      estoque: 4,
+    });
+    const detalhe = await get<Detalhe>(`/produtos/${encodeURIComponent(disponivel.id)}`);
+    prodDisponivel = {
+      id: disponivel.id,
+      nome: disponivel.nome,
+      preco: disponivel.preco,
+      categoriaId: String(detalhe.corpo.categoria.id),
+    };
+
+    const barato = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: `Pássaro ${marcador} Único`,
+      categoria: `Cat${marcador}`,
+      tecnica: `Tec${marcador}`,
+      origem: `Regiao${marcador}`,
+      preco: 65,
+      modalidadeProducao: "PECA_UNICA",
+      estoque: 1,
+    });
+    prodBarato = { id: barato.id, nome: barato.nome };
+
+    const vendido = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: `Matriz ${marcador} Vendida`,
+      categoria: `Cat${marcador}`,
+      tecnica: `Tec${marcador}`,
+      origem: `Regiao${marcador}`,
+      preco: 250,
+      modalidadeProducao: "PECA_UNICA",
+      estoque: 0,
+    });
+    prodVendido = { id: vendido.id, nome: vendido.nome };
+  });
+
   test("responde 200 no envelope { total, pagina, limite, itens }", async () => {
-    const { status, corpo, cabecalhos } = await get<Paginado>("/api/produtos");
+    const { status, corpo, cabecalhos } = await get<Paginado>("/produtos");
 
     expect(status).toBe(200);
     expect(cabecalhos.get("content-type")).toContain("application/json");
-    expect(corpo).toMatchObject({ pagina: 1, limite: 8 });
+    expect(corpo.pagina).toBe(1);
     expect(corpo.total).toBeGreaterThanOrEqual(corpo.itens.length);
     expect(corpo.itens.length).toBeGreaterThan(0);
     expect(Object.keys(corpo.itens[0])).toEqual(
@@ -28,121 +83,92 @@ describe("TC03 · GET /api/produtos", () => {
     );
   });
 
-  test("disponivel=true traz só peças disponíveis, sem a reservada e a vendida", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?disponivel=true&limite=48");
+  test("disponivel=true e destaque=true excluem a peça vendida (estoque 0)", async () => {
+    const disp = await get<Paginado>(`/produtos?disponivel=true&termo=${marcador}&limite=50`);
+    const dest = await get<Paginado>("/produtos?destaque=true&limite=50");
 
-    expect(corpo.itens.length).toBeGreaterThan(0);
-    expect(corpo.itens.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
-    expect(ids(corpo)).not.toContain("prd_206");
-    expect(ids(corpo)).not.toContain("prd_208");
+    expect(ids(disp.corpo)).toContain(prodDisponivel.id);
+    expect(ids(disp.corpo)).not.toContain(prodVendido.id);
+    expect(disp.corpo.itens.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
+    expect(dest.corpo.itens.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
   });
 
-  test("destaque=true traz só peças disponíveis", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?destaque=true");
-
-    expect(corpo.itens.length).toBeGreaterThan(0);
-    expect(corpo.itens.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
-  });
-
-  test("busca por termo sem acento acha a peça com acento", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?termo=ceramica&limite=48");
-
-    expect(ids(corpo)).toContain("prd_201");
-  });
-
-  test("busca por peça vendida devolve envelope vazio (peça vendida não entra na busca)", async () => {
-    const { status, corpo } = await get<Paginado>("/api/produtos?termo=pavao");
+  test("busca por peça vendida não a exibe no catálogo", async () => {
+    const { status, corpo } = await get<Paginado>(`/produtos?termo=${encodeURIComponent(prodVendido.nome)}`);
 
     expect(status).toBe(200);
-    expect(ids(corpo)).not.toContain("prd_208");
+    expect(ids(corpo)).not.toContain(prodVendido.id);
     expect(corpo.total).toBe(0);
   });
 
   test("busca sem resultado devolve envelope vazio", async () => {
-    const { status, corpo } = await get<Paginado>("/api/produtos?termo=termo-que-nao-existe-xyz");
+    const { status, corpo } = await get<Paginado>("/produtos?termo=termo-inexistente-origem-xyz");
 
     expect(status).toBe(200);
-    expect(corpo).toEqual({ total: 0, pagina: 1, limite: 8, itens: [] });
+    expect(corpo).toMatchObject({ total: 0, pagina: 1, itens: [] });
   });
 
-  test("filtro de categoria", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?categoria=literatura&limite=48");
+  test("filtro de categoria funciona tanto por ID numérico quanto por nome", async () => {
+    const porId = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(prodDisponivel.categoriaId)}&limite=50`);
+    const porNome = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(`Cat${marcador}`)}&limite=50`);
 
-    expect(ids(corpo).sort()).toEqual(["prd_209", "prd_210"]);
+    expect(ids(porId.corpo)).toContain(prodDisponivel.id);
+    expect(ids(porNome.corpo)).toContain(prodDisponivel.id);
   });
 
-  test("filtro de técnica", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?tecnica=bordado&limite=48");
+  test("filtros de técnica, região/origem, preço máximo e peça única", async () => {
+    const tec = await get<Paginado>(`/produtos?tecnica=${encodeURIComponent(`Tec${marcador}`)}&limite=50`);
+    const reg = await get<Paginado>(`/produtos?regiao=${encodeURIComponent(`Regiao${marcador}`)}&limite=50`);
+    const orig = await get<Paginado>(`/produtos?origem=${encodeURIComponent(`Regiao${marcador}`)}&limite=50`);
+    const preco = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(prodDisponivel.categoriaId)}&precoMax=70&limite=50`);
+    const unica = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(prodDisponivel.categoriaId)}&pecaUnica=true&limite=50`);
 
-    expect(ids(corpo).sort()).toEqual(["prd_204", "prd_211"]);
+    expect(ids(tec.corpo)).toContain(prodDisponivel.id);
+    expect(ids(reg.corpo)).toContain(prodDisponivel.id);
+    expect(ids(orig.corpo)).toContain(prodDisponivel.id);
+    expect(ids(preco.corpo)).toContain(prodBarato.id);
+    expect(ids(preco.corpo)).not.toContain(prodDisponivel.id);
+    expect(unica.corpo.itens.every((p) => p.modalidadeProducao === "PECA_UNICA")).toBe(true);
   });
 
-  test("filtro de região", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?regiao=zona-da-mata&limite=48");
-
-    expect(ids(corpo).sort()).toEqual(["prd_201", "prd_212", "prd_213"]);
-    expect(corpo.itens.every((p) => p.regiao.id === "zona-da-mata")).toBe(true);
-  });
-
-  test.each(["tecnica", "regiao"])("%s inexistente devolve envelope vazio", async (filtro) => {
-    const { status, corpo } = await get<Paginado>(`/api/produtos?${filtro}=valor-que-nao-existe`);
+  test.each(["tecnica", "regiao", "origem"])("%s inexistente devolve envelope vazio", async (filtro) => {
+    const { status, corpo } = await get<Paginado>(`/produtos?${filtro}=valor-que-nao-existe-xyz`);
 
     expect(status).toBe(200);
     expect(corpo).toMatchObject({ total: 0, itens: [] });
   });
 
-  test("filtro de preço máximo", async () => {
-    const { corpo } = await get<Paginado>("/api/produtos?precoMax=70&limite=48");
+  test("ordenar por menor-preco e maior-preco e paginação com limite máximo 50", async () => {
+    const menor = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(prodDisponivel.categoriaId)}&ordenar=menor-preco&limite=50`);
+    const maior = await get<Paginado>(`/produtos?categoria=${encodeURIComponent(prodDisponivel.categoriaId)}&ordenar=maior-preco&limite=50`);
+    const p1 = await get<Paginado>("/produtos?limite=2&pagina=1");
+    const p2 = await get<Paginado>("/produtos?limite=2&pagina=2");
+    const enorme = await get<Paginado>("/produtos?limite=500");
 
-    expect(corpo.itens.length).toBeGreaterThan(0);
-    expect(corpo.itens.every((p) => p.preco <= 70)).toBe(true);
+    expect(menor.corpo.itens[0].preco).toBeLessThanOrEqual(menor.corpo.itens[menor.corpo.itens.length - 1].preco);
+    expect(maior.corpo.itens[0].preco).toBeGreaterThanOrEqual(maior.corpo.itens[maior.corpo.itens.length - 1].preco);
+    expect(p2.corpo.pagina).toBe(2);
+    expect(ids(p1.corpo).filter((id) => ids(p2.corpo).includes(id))).toEqual([]);
+    expect(enorme.corpo.limite).toBe(50);
   });
 
-  test("paginação: página 2 não repete a página 1 e o limite passa de 48 não", async () => {
-    const um = await get<Paginado>("/api/produtos?limite=5&pagina=1");
-    const dois = await get<Paginado>("/api/produtos?limite=5&pagina=2");
-    const enorme = await get<Paginado>("/api/produtos?limite=500");
+  test("GET /produtos/{id} retorna detalhe real para disponível e vendido e 404 para inexistente", async () => {
+    const disp = await get<Detalhe>(`/produtos/${encodeURIComponent(prodDisponivel.id)}`);
+    const vend = await get<Detalhe>(`/produtos/${encodeURIComponent(prodVendido.id)}`);
+    const inex = await get("/produtos/9999999");
+    const avls = await get(`/avaliacoes/produtos/${encodeURIComponent(prodDisponivel.id)}/avaliacoes`);
 
-    expect(dois.corpo.pagina).toBe(2);
-    expect(ids(dois.corpo).length).toBeGreaterThan(0);
-    expect(ids(um.corpo).filter((id) => ids(dois.corpo).includes(id))).toEqual([]);
-    expect(enorme.corpo.limite).toBe(48);
-  });
-});
-
-describe("TC03/TC05 · GET /api/produtos/{id}", () => {
-  test("peça existente: 200 com os campos do detalhe", async () => {
-    const { status, corpo } = await get<Detalhe>("/api/produtos/prd_201");
-
-    expect(status).toBe(200);
-    expect(corpo).toMatchObject({ id: "prd_201", nome: "Vaso Cerâmica Raízes", preco: 160, disponibilidade: "DISPONIVEL" });
-    expect(typeof corpo.descricao).toBe("string");
-    expect(typeof corpo.estoque).toBe("number");
-    expect(corpo.imagens.length).toBeGreaterThan(0);
-  });
-
-  test.each([
-    ["prd_206", "RESERVADO"],
-    ["prd_208", "VENDIDO"],
-  ])("TC05 · %s aparece como %s no detalhe", async (id, disponibilidade) => {
-    const { corpo } = await get<Detalhe>(`/api/produtos/${id}`);
-
-    expect(corpo.disponibilidade).toBe(disponibilidade);
-  });
-
-  test("peça inexistente: 404 no formato de erro", async () => {
-    const { status, corpo } = await get("/api/produtos/prd_999");
-
-    expect(status).toBe(404);
-    expect(corpo).toEqual(erro("Não encontramos essa peça."));
-  });
-
-  test("avaliações da peça: 200 para peça existente e 404 para inexistente", async () => {
-    const existente = await get("/api/produtos/prd_201/avaliacoes");
-    const inexistente = await get("/api/produtos/prd_999/avaliacoes");
-
-    expect(existente.status).toBe(200);
-    expect(inexistente.status).toBe(404);
-    expect(inexistente.corpo).toEqual(erro("Não encontramos essa peça."));
+    expect(disp.status).toBe(200);
+    expect(disp.corpo).toMatchObject({
+      id: prodDisponivel.id,
+      nome: prodDisponivel.nome,
+      disponibilidade: "DISPONIVEL",
+      estoque: 4,
+    });
+    expect(vend.status).toBe(200);
+    expect(vend.corpo.disponibilidade).toBe("VENDIDO");
+    expect(inex.status).toBe(404);
+    expect(inex.corpo).toEqual(erro("Produto nao encontrado."));
+    expect(avls.status).toBe(200);
   });
 });

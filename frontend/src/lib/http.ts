@@ -116,7 +116,8 @@ cliente.interceptors.response.use(
     const ehRotaDeAuth =
       url.includes("/auth/login") ||
       url.includes("/auth/register") ||
-      url.includes("/auth/recuperar-senha");
+      url.includes("/auth/recuperar-senha") ||
+      url.includes("/auth/redefinir-senha");
 
     if (erro.response?.status === 401 && !ehRotaDeAuth && typeof window !== "undefined") {
       const pathname = window.location.pathname;

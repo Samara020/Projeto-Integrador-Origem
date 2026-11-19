@@ -12,6 +12,7 @@ import { Selo } from "@/components/ui/Selo";
 import { toaster } from "@/components/ui/toaster";
 import { useAcoesArtesao, usePerfilArtesao } from "@/hooks/usePainelArtesao";
 import { useTecnicas } from "@/hooks/useCatalogo";
+import { lerImagemCompactada } from "@/lib/imagem";
 import type { PerfilArtesaoEdicao } from "@/types";
 
 type Erros = Partial<Record<keyof PerfilArtesaoEdicao, string>>;
@@ -53,22 +54,40 @@ export default function PerfilArtesao() {
   }
 
   return (
-    <FormularioPerfil inicial={dados} tecnicas={(tecnicas ?? []).map((tecnica) => tecnica.nome)} />
+    <FormularioPerfil
+      key={`${dados.nomeArtistico}-${dados.regiao}-${dados.biografia.slice(0, 20)}-${dados.contato.telefone}-${dados.contato.redesSociais}-${dados.tecnicas.join(",")}-${dados.dadosBancarios}`}
+      inicial={dados}
+      tecnicas={(tecnicas ?? []).map((tecnica) => tecnica.nome)}
+      recarregar={recarregar}
+    />
   );
 }
 
 function FormularioPerfil({
   inicial,
   tecnicas,
+  recarregar,
 }: {
   inicial: PerfilArtesaoEdicao;
   tecnicas: string[];
+  recarregar: () => void;
 }) {
   const { salvarPerfil, salvando, erro: erroDeAcao } = useAcoesArtesao();
-  const { recarregar } = usePerfilArtesao();
 
   const [form, setForm] = useState<PerfilArtesaoEdicao>(inicial);
   const [erros, setErros] = useState<Erros>({});
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+
+  async function escolherImagem(campo: "foto" | "fotoCapa", arquivo?: File) {
+    if (!arquivo) return;
+    setErroFoto(null);
+    try {
+      const dataUrl = await lerImagemCompactada(arquivo);
+      setForm((atual) => ({ ...atual, [campo]: dataUrl }));
+    } catch (causa) {
+      setErroFoto(causa instanceof Error ? causa.message : "Não foi possível carregar a imagem.");
+    }
+  }
 
   function mudar(
     campo: keyof PerfilArtesaoEdicao,
@@ -151,13 +170,10 @@ function FormularioPerfil({
                     type="file"
                     accept="image/*"
                     className="sr-only"
-                    onChange={() =>
-                      toaster.create({
-                        type: "info",
-                        title: "Foto atualizada",
-                        description: "A imagem entra no perfil quando o upload existir.",
-                      })
-                    }
+                    onChange={(evento) => {
+                      void escolherImagem("foto", evento.target.files?.[0]);
+                      evento.target.value = "";
+                    }}
                   />
                 </label>
               </div>
@@ -182,16 +198,18 @@ function FormularioPerfil({
                     type="file"
                     accept="image/*"
                     className="sr-only"
-                    onChange={() =>
-                      toaster.create({
-                        type: "info",
-                        title: "Capa atualizada",
-                        description: "A imagem entra no perfil quando o upload existir.",
-                      })
-                    }
+                    onChange={(evento) => {
+                      void escolherImagem("fotoCapa", evento.target.files?.[0]);
+                      evento.target.value = "";
+                    }}
                   />
                 </label>
               </div>
+              {erroFoto && (
+                <p role="alert" className="text-apoio text-erro">
+                  {erroFoto}
+                </p>
+              )}
             </div>
           </Cartao>
 

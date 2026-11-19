@@ -59,8 +59,11 @@ export const painelArtesaoService = {
     const { opcoes } = await this.configuracoesEnvio();
     const opcao = opcoes.find((item) => item.id === opcaoId);
     if (!opcao) throw new ApiError(404, "Não encontramos essa opção de envio.");
-    await http("/artesao/envio/configuracoes", { metodo: "PUT", corpo: { opcaoId, ativa: !opcao.ativa } });
-    return { ...opcao, ativa: !opcao.ativa };
+    const atualizado = await http<{ id: string; ativa: boolean }>(
+      "/artesao/envio/configuracoes",
+      { metodo: "PUT", corpo: { opcaoId, ativa: !opcao.ativa } },
+    );
+    return { ...opcao, ...atualizado };
   },
   cotarFrete: (corpo: DadosFrete) => http<CotacaoFrete>("/envios/cotacao", { metodo: "POST", corpo }),
 };

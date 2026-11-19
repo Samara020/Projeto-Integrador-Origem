@@ -27,8 +27,9 @@ export function FluxoCheckout() {
   const checkout = useCheckout();
   const [etapa, setEtapa] = useState<2 | 3>(2);
 
-  async function continuar(endereco: EnderecoEntrega) {
-    await checkout.criarPedido(endereco);
+  async function continuar(endereco: EnderecoEntrega, opcaoEnvioId: string) {
+    const criado = await checkout.criarPedido(endereco, opcaoEnvioId);
+    if (!criado) return;
     setEtapa(3);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -108,7 +109,11 @@ export function FluxoCheckout() {
       {!checkout.carregando && checkout.carrinho.itens.length > 0 && etapa === 2 && (
         <FormularioEntrega
           subtotal={checkout.carrinho.valorTotal}
-          opcaoEnvio={checkout.opcaoEnvio}
+          cotacao={checkout.cotacao}
+          cotandoFrete={checkout.cotandoFrete}
+          erroFrete={checkout.erroFrete}
+          aoCotarFrete={checkout.cotarFrete}
+          aoLimparFrete={checkout.limparFrete}
           aoContinuar={continuar}
         />
       )}
@@ -119,7 +124,10 @@ export function FluxoCheckout() {
         checkout.pedido && (
           <FormularioPagamento
             subtotal={checkout.carrinho.valorTotal}
-            frete={checkout.opcaoEnvio.valor}
+            frete={
+              checkout.pedido.valorFrete ??
+              Math.max(checkout.pedido.valorTotal - checkout.carrinho.valorTotal, 0)
+            }
             total={checkout.pedido.valorTotal}
             aoPagar={pagar}
           />

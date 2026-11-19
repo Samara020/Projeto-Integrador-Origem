@@ -10,6 +10,7 @@ import { Container } from "@/components/layout/Container";
 import { StatusTicket } from "@/components/suporte/StatusTicket";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { useTicket } from "@/hooks/useSuporte";
 import { tempoRelativo } from "@/lib/formato";
@@ -113,13 +114,13 @@ function PainelEspecialista({ ticket, aoVoltar, ocupado }: { ticket: Ticket; aoV
 
 export function Chat({ ticketId }: { ticketId: string | null }) {
   const router = useRouter();
-  const { ticket, carregando, naoEncontrado, abrir, responder, escalar, voltarParaAssistente, resolver } = useTicket(ticketId ?? "");
+  const { ticket, carregando, erro, naoEncontrado, recarregar, abrir, responder, escalar, voltarParaAssistente, resolver } = useTicket(ticketId ?? "");
   const [texto, setTexto] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
   const fimRef = useRef<HTMLDivElement>(null);
   const nova = ticketId === null;
-  const totalMensagens = ticket?.mensagens.length ?? 0;
+  const totalMensagens = ticket?.mensagens?.length ?? 0;
 
   useEffect(() => {
     document.title = ticket ? `${ticket.assunto} · Suporte Origem` : `Conversa com ${ASSISTENTE} · Origem`;
@@ -166,6 +167,13 @@ export function Chat({ ticketId }: { ticketId: string | null }) {
       </Container>
     );
   }
+  if (!nova && erro) {
+    return (
+      <Container className="py-secao">
+        <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />
+      </Container>
+    );
+  }
   if (!nova && (naoEncontrado || !ticket)) {
     return (
       <Container className="py-secao">
@@ -176,7 +184,12 @@ export function Chat({ ticketId }: { ticketId: string | null }) {
 
   const comEspecialista = ticket?.status === "ESCALADO_HUMANO";
   const encerrado = ticket?.status === "RESOLVIDO";
-  const mensagens: MensagemTicket[] = ticket?.mensagens ?? [{ id: "boas-vindas", autor: "IA", texto: BOAS_VINDAS, criadoEm: "", sugestoes: ATALHOS }];
+  const mensagens: MensagemTicket[] =
+    ticket?.mensagens && ticket.mensagens.length > 0
+      ? ticket.mensagens
+      : ticket
+        ? []
+        : [{ id: "boas-vindas", autor: "IA", texto: BOAS_VINDAS, criadoEm: "", sugestoes: ATALHOS }];
   const primeiraDoAtendente = mensagens.findIndex((m) => m.autor === "ATENDENTE");
   const comAssistente = mensagens.filter((m) => m.autor !== "ATENDENTE" && primeiraDoAtendente >= 0 && mensagens.indexOf(m) < primeiraDoAtendente).length;
 

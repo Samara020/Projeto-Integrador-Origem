@@ -7,8 +7,9 @@ import { Container } from "@/components/layout/Container";
 import { Recomendados } from "@/components/produto/Recomendados";
 import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
-import { useCheckout } from "@/hooks/useCheckout";
+import { useCarrinho } from "@/hooks/useCarrinho";
 import { plural } from "@/lib/formato";
 
 function CarrinhoCarregando() {
@@ -41,15 +42,15 @@ export function Carrinho() {
   const {
     carrinho,
     carregando,
-    opcaoEnvio,
+    erro,
+    recarregar,
     alterarQuantidade,
     remover,
-  } = useCheckout();
+  } = useCarrinho();
   const totalItens = carrinho.itens.reduce(
     (total, item) => total + item.quantidade,
     0,
   );
-  const total = carrinho.valorTotal + opcaoEnvio.valor;
 
   return (
     <Container className="flex flex-col gap-8 py-secao">
@@ -64,7 +65,11 @@ export function Carrinho() {
 
       {carregando && <CarrinhoCarregando />}
 
-      {!carregando && carrinho.itens.length === 0 && (
+      {!carregando && erro && (
+        <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />
+      )}
+
+      {!carregando && !erro && carrinho.itens.length === 0 && (
         <EstadoVazio
           titulo="Seu carrinho está vazio"
           descricao="Encontre uma peça feita à mão e volte quando quiser."
@@ -77,7 +82,7 @@ export function Carrinho() {
         />
       )}
 
-      {!carregando && carrinho.itens.length > 0 && (
+      {!carregando && !erro && carrinho.itens.length > 0 && (
         <>
           <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="flex flex-col gap-4">
@@ -95,8 +100,8 @@ export function Carrinho() {
 
             <ResumoPedido
               subtotal={carrinho.valorTotal}
-              frete={opcaoEnvio.valor}
-              total={total}
+              frete={null}
+              total={null}
               acao={
                 <BotaoLink href="/checkout" larguraTotal>
                   Finalizar compra

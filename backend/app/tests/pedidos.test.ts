@@ -44,7 +44,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
 
       expect(resposta.body.pedidoId).toEqual(expect.any(String));
       expect(resposta.body.status).toBe("AGUARDANDO_PAGAMENTO");
-      expect(resposta.body.valorTotal).toBe(200);
+      expect(resposta.body.valorTotal).toBe(218);
 
       // Persistência no banco do pedido, itens e histórico
       const pedido = await prisma.pedido.findUnique({

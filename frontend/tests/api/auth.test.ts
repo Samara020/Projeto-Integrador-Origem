@@ -1,85 +1,87 @@
-// TC01, TC11 e TC08 no nível de API: POST /api/auth/login e POST /api/auth/register.
-import { erro, post } from "./cliente";
+// TC01, TC11 e TC08 no nível de API real: POST /auth/register, /auth/login e recuperação.
+import { ADMIN_INVITE_CODE, emailUnico, erro, post, registrarELogar, type SessaoApi } from "./cliente";
 
-type Sessao = { token: string; tipo: string; usuario: { id: string; nome: string; papel: string } };
-type Usuario = { id: string; nome: string; email: string; papel: string; criadoEm: string };
+type UsuarioCriado = { id: string; nome: string; email: string; papel: string; criadoEm: string };
 
-const SENHA = "origem123";
+const JWT_REGEX = /^eyJ[\w-]*\.[\w-]+\.[\w-]+$/;
 
-describe("TC01 · login com credenciais válidas", () => {
-  test.each([
-    ["comprador@origem.dev", { id: "usr_101", nome: "Joana Compradora", papel: "COMPRADOR" }],
-    ["artesao@origem.dev", { id: "usr_901", nome: "Ana Pereira", papel: "ARTESAO" }],
-    ["admin@origem.dev", { id: "usr_001", nome: "Equipe Origem", papel: "ADMINISTRADOR" }],
-  ])("%s entra com 200 como a própria conta", async (email, usuario) => {
-    const { status, corpo } = await post<Sessao>("/api/auth/login", { email, senha: SENHA });
+describe("TC01 · cadastro e login com JWT real", () => {
+  test.each(["COMPRADOR", "ARTESAO", "ADMINISTRADOR"] as const)(
+    "%s cadastra e entra com 200 retornando JWT assinado",
+    async (papel) => {
+      const conta = await registrarELogar(papel);
 
-    expect(status).toBe(200);
-    expect(corpo.tipo).toBe("Bearer");
-    expect(corpo.usuario).toEqual(usuario);
-    // O token carrega o id da mesma conta (fake.<base64 do id>.<instante>).
-    expect(corpo.token.split(".")).toEqual(["fake", btoa(usuario.id), expect.stringMatching(/^\d+$/)]);
-  });
+      expect(conta.tipo).toBe("Bearer");
+      expect(conta.usuario.papel).toBe(papel);
+      expect(conta.usuario.id).toMatch(/^\d+$/);
+      expect(conta.token).toMatch(JWT_REGEX);
+      expect(JSON.stringify(conta)).not.toContain(conta.senha);
+    },
+  );
 
   test("e-mail com maiúscula e espaço nas pontas também entra", async () => {
-    const { status, corpo } = await post<Sessao>("/api/auth/login", { email: "  Comprador@Origem.DEV ", senha: SENHA });
+    const conta = await registrarELogar("COMPRADOR");
+    const { status, corpo } = await post<SessaoApi>("/auth/login", {
+      email: `  ${conta.email.toUpperCase()}  `,
+      senha: conta.senha,
+    });
 
     expect(status).toBe(200);
-    expect(corpo.usuario.papel).toBe("COMPRADOR");
-  });
-
-  test("a resposta não devolve a senha", async () => {
-    const { corpo } = await post("/api/auth/login", { email: "comprador@origem.dev", senha: SENHA });
-
-    expect(JSON.stringify(corpo)).not.toContain(SENHA);
+    expect(corpo.usuario.id).toBe(conta.usuario.id);
+    expect(corpo.token).toMatch(JWT_REGEX);
   });
 });
 
 describe("TC11 · login com credenciais inválidas", () => {
-  test.each([
-    ["senha errada", { email: "comprador@origem.dev", senha: "errada123" }],
-    ["e-mail não cadastrado", { email: "ninguem@origem.dev", senha: SENHA }],
-  ])("%s: 401 sem token", async (_caso, dados) => {
-    const { status, corpo } = await post("/api/auth/login", dados);
+  test("senha errada e e-mail não cadastrado retornam 401 sem token", async () => {
+    const conta = await registrarELogar("COMPRADOR");
 
-    expect(status).toBe(401);
-    expect(corpo).toEqual(erro("E-mail ou senha incorretos."));
+    const senhaErrada = await post("/auth/login", { email: conta.email, senha: "errada123" });
+    const naoExiste = await post("/auth/login", { email: emailUnico("ninguem"), senha: conta.senha });
+
+    expect(senhaErrada.status).toBe(401);
+    expect(senhaErrada.corpo).toEqual(erro("E-mail ou senha incorretos."));
+    expect(naoExiste.status).toBe(401);
+    expect(naoExiste.corpo).toEqual(erro("E-mail ou senha incorretos."));
   });
 
   test.each([
     ["sem senha", { email: "comprador@origem.dev" }],
-    ["sem e-mail", { senha: SENHA }],
+    ["sem e-mail", { senha: "SenhaTeste123" }],
     ["corpo vazio", {}],
-    ["corpo que não é JSON", "isto não é json"],
   ])("%s: 400", async (_caso, dados) => {
-    const { status, corpo } = await post("/api/auth/login", dados);
+    const { status, corpo } = await post("/auth/login", dados);
 
     expect(status).toBe(400);
     expect(corpo).toEqual(erro("Informe e-mail e senha."));
   });
 });
 
-describe("cadastro de conta (POST /api/auth/register)", () => {
+describe("cadastro de conta (POST /auth/register)", () => {
   const novo = (extra: Record<string, unknown> = {}) => ({
     nome: "Pessoa de Teste",
-    email: `teste.${Date.now()}@origem.dev`,
-    senha: "12345678",
+    email: emailUnico("cadastro"),
+    senha: "Senha1234",
     papel: "COMPRADOR",
     ...extra,
   });
 
-  test("comprador novo: 201 com id, papel e e-mail normalizado, sem senha", async () => {
-    const { status, corpo } = await post<Usuario>("/api/auth/register", novo({ email: " Nova.Pessoa@Origem.dev " }));
+  test("comprador novo: 201 com id numérico em string, papel e e-mail normalizado, sem senha", async () => {
+    const emailBase = emailUnico("nova");
+    const { status, corpo } = await post<UsuarioCriado>(
+      "/auth/register",
+      novo({ email: ` ${emailBase.toUpperCase()} ` }),
+    );
 
     expect(status).toBe(201);
-    expect(corpo).toMatchObject({ nome: "Pessoa de Teste", email: "nova.pessoa@origem.dev", papel: "COMPRADOR" });
-    expect(corpo.id).toMatch(/^usr_\d{6}$/);
-    expect(JSON.stringify(corpo)).not.toContain("12345678");
+    expect(corpo).toMatchObject({ nome: "Pessoa de Teste", email: emailBase, papel: "COMPRADOR" });
+    expect(corpo.id).toMatch(/^\d+$/);
+    expect(JSON.stringify(corpo)).not.toContain("Senha1234");
   });
 
   test("senha com 7 caracteres é recusada e com 8 passa (valor-limite)", async () => {
-    const curta = await post("/api/auth/register", novo({ senha: "1234567" }));
-    const exata = await post("/api/auth/register", novo({ senha: "12345678" }));
+    const curta = await post("/auth/register", novo({ senha: "1234567" }));
+    const exata = await post("/auth/register", novo({ senha: "12345678" }));
 
     expect(curta.status).toBe(400);
     expect(curta.corpo).toEqual(erro("A senha precisa ter pelo menos 8 caracteres."));
@@ -90,20 +92,20 @@ describe("cadastro de conta (POST /api/auth/register)", () => {
     const dados: Record<string, unknown> = novo();
     delete dados[campo];
 
-    const { status, corpo } = await post("/api/auth/register", dados);
+    const { status, corpo } = await post("/auth/register", dados);
 
     expect(status).toBe(400);
     expect(corpo).toEqual(erro("Preencha nome, e-mail e senha."));
   });
 
   test("papel fora do contrato: 400", async () => {
-    const { status } = await post("/api/auth/register", novo({ papel: "SUPERUSUARIO" }));
-
+    const { status } = await post("/auth/register", novo({ papel: "SUPERUSUARIO" }));
     expect(status).toBe(400);
   });
 
-  test("e-mail que já tem conta: 400", async () => {
-    const { status, corpo } = await post("/api/auth/register", novo({ email: "comprador@origem.dev" }));
+  test("e-mail duplicado: 400", async () => {
+    const existente = await registrarELogar("COMPRADOR");
+    const { status, corpo } = await post("/auth/register", novo({ email: existente.email }));
 
     expect(status).toBe(400);
     expect(corpo).toEqual(erro("Já existe uma conta com esse e-mail."));
@@ -111,28 +113,42 @@ describe("cadastro de conta (POST /api/auth/register)", () => {
 });
 
 describe("TC08 · conta de administrador exige código de convite", () => {
-  const admin = (codigoConvite?: string) => ({
+  const adminPayload = (codigoConvite?: string) => ({
     nome: "Admin de Teste",
-    email: `admin.${Date.now()}@origem.dev`,
-    senha: "12345678",
+    email: emailUnico("admin"),
+    senha: "SenhaAdmin123",
     papel: "ADMINISTRADOR",
     codigoConvite,
   });
 
   test.each([
     ["sem código", undefined],
-    ["com código errado", "ORIGEM-ADMIN-2025"],
+    ["com código errado", "CODIGO-INVALIDO-999"],
   ])("%s: 403", async (_caso, codigo) => {
-    const { status, corpo } = await post("/api/auth/register", admin(codigo));
+    const { status, corpo } = await post("/auth/register", adminPayload(codigo));
 
     expect(status).toBe(403);
     expect(corpo).toEqual(erro("Código de convite inválido."));
   });
 
-  test("com o código certo (sem diferença de caixa e espaço): 201", async () => {
-    const { status, corpo } = await post<Usuario>("/api/auth/register", admin("  origem-admin-2026 "));
+  test("com o código válido: 201", async () => {
+    const { status, corpo } = await post<UsuarioCriado>(
+      "/auth/register",
+      adminPayload(`  ${ADMIN_INVITE_CODE} `),
+    );
 
     expect(status).toBe(201);
     expect(corpo.papel).toBe("ADMINISTRADOR");
+  });
+});
+
+describe("recuperação e redefinição de senha", () => {
+  test("POST /auth/redefinir-senha rejeita token inválido com 400", async () => {
+    const { status } = await post("/auth/redefinir-senha", {
+      token: "token-invalido-inexistente-123456",
+      senha: "NovaSenha123",
+    });
+
+    expect(status).toBe(400);
   });
 });

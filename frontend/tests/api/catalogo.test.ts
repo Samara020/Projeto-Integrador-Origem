@@ -1,23 +1,35 @@
-// Rotas de apoio da vitrine, formato de erro da Fake API e TC09 (tempo de resposta).
-import { erro, get } from "./cliente";
+// Rotas reais de apoio da vitrine, perfil 404 e TC09 (tempo de resposta < 2s).
+import { erro, get, registrarELogar, criarProdutoAprovado } from "./cliente";
 
 type Item = { id: string; nome: string };
 
-describe("listas de apoio da vitrine", () => {
-  test.each(["/api/categorias", "/api/tecnicas", "/api/regioes"])("%s: 200 com lista de { id, nome }", async (rota) => {
-    const { status, corpo } = await get<Item[]>(rota);
+describe("listas de apoio da vitrine (backend real)", () => {
+  let produtoId: string;
 
-    expect(status).toBe(200);
-    expect(Array.isArray(corpo)).toBe(true);
-    expect(corpo.length).toBeGreaterThan(0);
-    for (const item of corpo) {
-      expect(typeof item.id).toBe("string");
-      expect(typeof item.nome).toBe("string");
-    }
+  beforeAll(async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const admin = await registrarELogar("ADMINISTRADOR");
+    const prod = await criarProdutoAprovado(artesao.token, admin.token);
+    produtoId = prod.id;
   });
 
-  test("/api/indicadores: 200 com números coerentes", async () => {
-    const { status, corpo } = await get<Record<string, number>>("/api/indicadores");
+  test.each(["/categorias", "/tecnicas", "/regioes"])(
+    "%s: 200 com lista de { id, nome }",
+    async (rota) => {
+      const { status, corpo } = await get<Item[]>(rota);
+
+      expect(status).toBe(200);
+      expect(Array.isArray(corpo)).toBe(true);
+      expect(corpo.length).toBeGreaterThan(0);
+      for (const item of corpo) {
+        expect(typeof item.id).toBe("string");
+        expect(typeof item.nome).toBe("string");
+      }
+    },
+  );
+
+  test("/indicadores: 200 com números coerentes", async () => {
+    const { status, corpo } = await get<Record<string, number>>("/indicadores");
 
     expect(status).toBe(200);
     expect(corpo.totalProdutos).toBeGreaterThan(0);
@@ -27,41 +39,34 @@ describe("listas de apoio da vitrine", () => {
   });
 
   test("perfil de artesão inexistente: 404", async () => {
-    const { status, corpo } = await get("/api/artesaos/art_999/perfil");
+    const { status, corpo } = await get("/artesaos/9999999/perfil");
 
     expect(status).toBe(404);
-    expect(corpo).toEqual(erro("Não encontramos esse artesão."));
+    expect(corpo).toEqual(erro("Artesao nao encontrado."));
   });
-});
 
-describe("formato de erro da Fake API (?_erro=)", () => {
-  const MENSAGEM = "Não foi possível carregar agora. Tente de novo em instantes.";
+  test("TC09 · 10 medições por operação com média <= 2 s e máximo <= 4 s (Plano 1.4)", async () => {
+    const LIMITE_MEDIA_MS = 2000;
+    const LIMITE_MAXIMO_MS = 4000;
+    const MEDICOES = 10;
+    const rotas = [
+      "/produtos",
+      "/produtos?termo=Pe%C3%A7a&disponivel=true",
+      "/produtos?ordenar=menor-preco",
+      `/produtos/${encodeURIComponent(produtoId)}`,
+    ];
 
-  test.each([
-    ["500", 500],
-    ["503", 503],
-    ["abc", 500],
-    ["200", 500],
-  ])("?_erro=%s responde %i com { mensagem }", async (pedido, esperado) => {
-    const { status, corpo } = await get(`/api/produtos?_erro=${pedido}`);
-
-    expect(status).toBe(esperado);
-    expect(corpo).toEqual(erro(MENSAGEM));
-  });
-});
-
-describe("TC09 · tempo de resposta abaixo de 2 s (meta do backlog)", () => {
-  const LIMITE_MS = 2000;
-
-  test.each([
-    "/api/produtos",
-    "/api/produtos?termo=barro&disponivel=true",
-    "/api/produtos?categoria=artesanato&ordenar=menor-preco",
-    "/api/produtos/prd_201",
-  ])("%s", async (rota) => {
-    const { status, ms } = await get(rota);
-
-    expect(status).toBe(200);
-    expect(ms).toBeLessThan(LIMITE_MS);
+    for (const rota of rotas) {
+      const tempos: number[] = [];
+      for (let i = 0; i < MEDICOES; i += 1) {
+        const { status, ms } = await get(rota);
+        expect(status).toBe(200);
+        tempos.push(ms);
+      }
+      const media = tempos.reduce((soma, t) => soma + t, 0) / tempos.length;
+      const maximo = Math.max(...tempos);
+      expect(media).toBeLessThanOrEqual(LIMITE_MEDIA_MS);
+      expect(maximo).toBeLessThanOrEqual(LIMITE_MAXIMO_MS);
+    }
   });
 });

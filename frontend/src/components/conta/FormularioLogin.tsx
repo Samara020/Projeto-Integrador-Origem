@@ -130,14 +130,6 @@ export function FormularioLogin() {
           Criar cadastro
         </Link>
       </p>
-
-      {/* Só enquanto a Fake API estiver ligada. Sai na Avaliação 2. */}
-      {!process.env.NEXT_PUBLIC_API_URL && (
-        <p className="rounded-raio bg-superficie-2 px-3 py-2 text-legenda text-tinta-2">
-          Contas de demonstração (senha origem123): comprador@origem.dev,
-          artesao@origem.dev ou admin@origem.dev.
-        </p>
-      )}
     </form>
   );
 }

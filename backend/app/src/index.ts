@@ -7,6 +7,7 @@ import { idsComoTexto } from "./middleware/ids-texto";
 import { montarRotas } from "./routes";
 import { PORT, CORS_ORIGIN } from "./config";
 import { prepararBanco } from "./lib/setup-db";
+import prisma from "./lib/prisma";
 
 export function criarApp(): Application {
   const app = express();
@@ -18,11 +19,16 @@ export function criarApp(): Application {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "10mb" }));
   app.use(idsComoTexto);
 
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+  app.get("/health", async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ status: "ok" });
+    } catch {
+      res.status(503).json({ status: "indisponivel" });
+    }
   });
 
   montarRotas(app);

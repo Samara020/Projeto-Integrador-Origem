@@ -1,11 +1,6 @@
 import { ErroApp } from "../middleware/error";
 import { toId } from "../lib/ids";
 import {
-  seloAtivoDe,
-  statusValidacaoDe,
-  validacoes,
-} from "../lib/memoria";
-import {
   categoriaRepository,
   produtoRepository,
   lojaRepository,
@@ -38,7 +33,7 @@ const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDispon
 const skuDe = (id: number) => "ORG-" + String(id).padStart(6, "0");
 
 const disponibilidadeDe = (produto: any) =>
-  quantidadeDe(produto) > 0 ? "DISPONIVEL" : "VENDIDO";
+  quantidadeDe(produto) > 0 && !produto.pausado ? "DISPONIVEL" : "VENDIDO";
 
 const situacaoDe = (quantidade: number, pausado = false) =>
   pausado
@@ -95,8 +90,14 @@ export const produtoService = {
     const [total, itens] = await produtoRepository.listar({
       termo: filtros.termo,
       categoria: filtros.categoria,
+      categoriaId: filtros.categoriaId,
       tecnica: filtros.tecnica,
       regiao: filtros.regiao,
+      origem: filtros.origem,
+      avaliacaoMin:
+        filtros.avaliacaoMin !== undefined && filtros.avaliacaoMin !== ""
+          ? Number(filtros.avaliacaoMin)
+          : undefined,
       disponivel,
       destaque,
       precoMax,
@@ -116,10 +117,11 @@ export const produtoService = {
         preco: Number(produto.preco),
         imagemPrincipal: produto.imagens[0]?.url ?? PLACEHOLDER,
         artesao: dadosDoArtesao(produto.loja),
-        seloAtivo: seloAtivoDe(produto.id),
+        seloAtivo: produto.seloAtivo,
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
         disponibilidade: disponibilidadeDe(produto),
+        avaliacaoMedia: produto.avaliacaoMedia ?? 0,
       })),
     };
   },
@@ -128,19 +130,25 @@ export const produtoService = {
     const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
+    const avaliacoes = (produto as any).avaliacoes ?? [];
+    const notasValidas = avaliacoes.filter((a: any) => a.status === "PUBLICADO");
+
     return {
       id: produto.id,
       nome: produto.nome,
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
-      seloAtivo: seloAtivoDe(produto.id),
+      seloAtivo: produto.seloAtivo,
       disponibilidade: disponibilidadeDe(produto),
       descricao: produto.descricao ?? "",
       imagens: produto.imagens.map((i: any) => i.url),
       categoria: { id: produto.categoria.id, nome: produto.categoria.nome },
       tecnica: produto.tecnica,
       estoque: quantidadeDe(produto),
-      totalAvaliacoes: 0,
+      avaliacaoMedia: notasValidas.length
+        ? Math.round((notasValidas.reduce((s: number, a: any) => s + a.nota, 0) / notasValidas.length) * 10) / 10
+        : 0,
+      totalAvaliacoes: notasValidas.length,
       dimensoes: "",
       material: "",
       regiao: { id: produto.origem, nome: produto.origem },
@@ -165,47 +173,41 @@ export const produtoService = {
   },
 
   async recomendados(produtoId: string) {
-    if (!produtoId) return { recomendados: [], produtosRecomendados: [] };
-    let produto = null;
-    try {
-      produto = await produtoRepository.buscarPorId(produtoId);
-    } catch {
-      // ID invalido: sem produto de referencia, sem recomendacoes.
+    if (!/^\d+$/.test(produtoId)) return { recomendados: [], produtosRecomendados: [], fonte: "baseline" };
+    const produto = await produtoRepository.buscarPorId(produtoId);
+    if (!produto) return { recomendados: [], produtosRecomendados: [], fonte: "baseline" };
+    const catalogo = (await produtoRepository.catalogoParaRecomendacao())
+      .filter(p => p.id !== produto.id && p.statusValidacao === "APROVADA" && (p.estoque?.quantidadeDisponivel ?? 0) > 0);
+    let fonte = "baseline";
+    let selecionados = [...catalogo].sort((a, b) =>
+      Number(b.categoriaId === produto.categoriaId) - Number(a.categoriaId === produto.categoriaId)
+      || Number(b.tecnica === produto.tecnica) - Number(a.tecnica === produto.tecnica) || b.id - a.id).slice(0, 4);
+    const base = process.env.RECOMENDACAO_API_URL;
+    if (base) {
+      try {
+        const resposta = await fetch(base.replace(/\/$/, "") + "/recommendations", {
+          method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": process.env.RECOMENDACAO_API_KEY ?? "" },
+          body: JSON.stringify({ product_id: String(produto.id), category: produto.categoria.nome, technique: produto.tecnica, region: produto.origem, limit: 4 }),
+          signal: AbortSignal.timeout(2000),
+        });
+        if (resposta.ok) {
+          const corpo = await resposta.json() as { recommendations?: { product_id: string }[] };
+          if (Array.isArray(corpo.recommendations)) {
+            const ids = new Set(corpo.recommendations.map(p => String(p.product_id)));
+            const validos = catalogo.filter(p => ids.has(String(p.id)));
+            if (validos.length || corpo.recommendations.length === 0) { selecionados = validos.slice(0, 4); fonte = "ia"; }
+          }
+        }
+      } catch { /* O catálogo real fornece o baseline se o módulo não estiver disponível. */ }
     }
-    if (!produto) return { recomendados: [], produtosRecomendados: [] };
-
-    const [, itens] = await produtoRepository.listar({
-      categoriaId: produto.categoriaId,
-      pagina: 1,
-      limite: 5,
-    });
-
-    const recomendados = itens
-      .filter((p: any) => p.id !== produto.id)
-      .slice(0, 4)
-      .map((p: any) => ({
-        id: String(p.id),
-        nome: p.nome,
-        preco: Number(p.preco),
-        imagemPrincipal: p.imagens[0]?.url ?? "",
-        tecnica: p.tecnica,
-        artesao: {
-          id: String(p.loja?.usuario?.id ?? "1000"),
-          nome: p.loja?.usuario?.nome ?? "Artesão",
-        },
-        seloAtivo: false,
-        regiao: { id: p.origem ?? "PE", nome: p.origem ?? "Pernambuco" },
-        modalidadeProducao: p.modalidadeProducao ?? "PRONTA_ENTREGA",
-        disponibilidade:
-          (p.estoque?.quantidadeDisponivel ?? 0) > 0 ? "DISPONIVEL" : "VENDIDO",
-      }));
-
-    return {
-      recomendados,
-      produtosRecomendados: recomendados,
-    };
+    const recomendados = selecionados.map(p => ({
+      id: String(p.id), nome: p.nome, preco: Number(p.preco), imagemPrincipal: p.imagens[0]?.url ?? "",
+      tecnica: p.tecnica, artesao: { id: String(p.loja.usuario.id), nome: p.loja.usuario.nome },
+      seloAtivo: p.seloAtivo, regiao: { id: p.origem, nome: p.origem },
+      modalidadeProducao: p.modalidadeProducao, disponibilidade: "DISPONIVEL",
+    }));
+    return { recomendados, produtosRecomendados: recomendados, fonte };
   },
-
   async criar(dados: NovoProduto, usuarioId: string) {
     let loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
     if (!loja) {
@@ -234,18 +236,11 @@ export const produtoService = {
       estoque: dados.estoque,
     });
 
-    // Novo produto aguarda curadoria (estado em memoria; o SQL nao persiste).
-    validacoes.set(produto.id, {
-      status: "PENDENTE",
-      seloAtivo: false,
-      justificativa: null,
-      decididoEm: null,
-    });
-
+    // Novo produto nasce PENDENTE e só entra no catálogo após aprovação durável.
     return {
       id: produto.id,
       sku: dados.sku ?? skuDe(produto.id),
-      statusValidacao: statusValidacaoDe(produto.id),
+      statusValidacao: produto.statusValidacao,
       criadoEm: new Date().toISOString(),
     };
   },
@@ -388,47 +383,48 @@ export const produtoService = {
   async listarPendentes(filtros: { status?: string }) {
     const todos = await produtoRepository.listarTodos();
     const produtos = todos.filter(
-      (p: any) => !filtros.status || statusValidacaoDe(p.id) === filtros.status
+      (p: any) => !filtros.status || p.statusValidacao === filtros.status
     );
 
     return {
       total: produtos.length,
-      itens: produtos.map((p: any) => {
-        const decisao = validacoes.get(p.id);
-        return {
-          id: p.id,
-          nome: p.nome,
-          imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
-          artesao: dadosDoArtesao(p.loja),
-          tecnica: p.tecnica,
-          regiao: p.origem,
-          enviadoEm: null,
-          informacoesOrigem: "",
-          certificado: null,
-          statusValidacao: statusValidacaoDe(p.id),
-          justificativa: decisao?.justificativa ?? null,
-          decididoEm: decisao?.decididoEm ?? null,
-        };
-      }),
+      itens: produtos.map((p: any) => ({
+        id: p.id,
+        nome: p.nome,
+        imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
+        artesao: dadosDoArtesao(p.loja),
+        tecnica: p.tecnica,
+        regiao: p.origem,
+        enviadoEm: p.enviadoEm ?? null,
+        informacoesOrigem: p.descricao ?? "",
+        certificado: null,
+        statusValidacao: p.statusValidacao,
+        justificativa: p.justificativaValidacao ?? null,
+        decididoEm: p.decididoEm ?? null,
+        decididoPorId: p.decididoPorId ?? null,
+      })),
     };
   },
 
-  async validar(id: string, dados: { status: "APROVADA" | "REPROVADA"; justificativa: string }) {
+  async validar(id: string, dados: { status: "APROVADA" | "REPROVADA"; justificativa: string }, usuarioId: string) {
+    if (!["APROVADA", "REPROVADA"].includes(dados.status)) throw new ErroApp(400, "Decisão de validação inválida.");
+    if (dados.status === "REPROVADA" && (dados.justificativa?.trim().length ?? 0) < 10) throw new ErroApp(400, "Explique o motivo da reprovação em pelo menos 10 caracteres.");
     const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
-    // Decisao de curadoria so existe em memoria (o SQL nao tem coluna para ela).
     const decisao = {
-      status: dados.status,
+      statusValidacao: dados.status,
       seloAtivo: dados.status === "APROVADA",
       justificativa: dados.justificativa ?? null,
       decididoEm: new Date(),
+      decididoPorId: toId(usuarioId),
     };
-    validacoes.set(toId(id), decisao);
+    const atualizada = await produtoRepository.atualizarValidacao(id, decisao);
+    if (atualizada.count !== 1) throw new ErroApp(409, "Esta peça já foi avaliada.");
 
     return {
       id: produto.id,
-      statusValidacao: decisao.status,
+      statusValidacao: decisao.statusValidacao,
       seloAtivo: decisao.seloAtivo,
     };
   },

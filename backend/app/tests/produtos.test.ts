@@ -1,7 +1,6 @@
 import request from "supertest";
 import { criarApp } from "../src/index";
 import prisma from "../src/lib/prisma";
-import { validacoes } from "../src/lib/memoria";
 import {
   criarCategoria,
   criarLoja,
@@ -25,7 +24,7 @@ describe("Produtos - endpoints e persistência", () => {
 
     await criarProduto(categoria.id, loja.id, { nome: "Vaso Aprovado" });
     const pendente = await criarProduto(categoria.id, loja.id, { nome: "Peça Pendente" });
-    validacoes.set(pendente.id, { status: "PENDENTE", seloAtivo: false, justificativa: null, decididoEm: null });
+    await prisma.produto.update({ where: { id: pendente.id }, data: { statusValidacao: "PENDENTE" } });
 
     const resposta = await request(app).get("/produtos").expect(200);
 
@@ -184,6 +183,22 @@ describe("Produtos - endpoints e persistência", () => {
       .get("/produtos/recomendacoes?produtoId=qualquer")
       .expect(200);
     expect(resposta.body).toHaveProperty("produtosRecomendados");
+  });
+
+  test("GET /produtos/recomendacoes aceita ID numérico e recomenda outra peça disponível", async () => {
+    const categoria = await criarCategoria();
+    const artesao = await criarUsuarioArtesao();
+    const loja = await criarLoja(artesao.id);
+    const origem = await criarProduto(categoria.id, loja.id, { nome: "Peça consultada" });
+    const recomendada = await criarProduto(categoria.id, loja.id, { nome: "Peça disponível" });
+
+    const resposta = await request(app)
+      .get(`/produtos/recomendacoes?produtoId=${origem.id}`)
+      .expect(200);
+
+    expect(resposta.body.produtosRecomendados).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: String(recomendada.id) })])
+    );
   });
 
   test("GET /produtos/comparar retorna produtos comparados", async () => {

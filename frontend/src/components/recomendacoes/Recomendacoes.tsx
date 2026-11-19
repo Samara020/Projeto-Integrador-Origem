@@ -69,7 +69,7 @@ function Destaques() {
 
 function Descobertas({ vistos }: { vistos: PecaVista[] }) {
   const tecnica = maisFrequente(vistos.map((v) => v.tecnicaId));
-  const todas = useProdutos({ limite: 48 });
+  const todas = useProdutos({ disponivel: true, limite: 48 });
   const vistosArtesaos = new Set(vistos.map((v) => v.artesaoId));
   const itens = todas.dados?.itens ?? [];
   // Primeiro quem trabalha a técnica mais vista; se todos já foram vistos, os outros artesãos.

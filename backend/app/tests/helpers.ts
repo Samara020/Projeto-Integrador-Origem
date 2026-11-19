@@ -5,6 +5,10 @@ import jwt from "jsonwebtoken";
 export async function limparBanco() {
   validacoes.clear();
   avaliacoesRemovidas.clear();
+  await prisma.ticketMensagem.deleteMany();
+  await prisma.ticket.deleteMany();
+  await prisma.personalizacao.deleteMany();
+  await prisma.recuperacaoSenha.deleteMany();
   await prisma.historicoPedido.deleteMany();
   await prisma.avaliacao.deleteMany();
   await prisma.pagamento.deleteMany();

@@ -1,6 +1,5 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
-import { validacoes } from "../lib/memoria";
 
 type FiltrosProduto = {
   termo?: string;
@@ -8,6 +7,8 @@ type FiltrosProduto = {
   categoriaId?: Id;
   tecnica?: string;
   regiao?: string;
+  origem?: string;
+  avaliacaoMin?: number;
   disponivel?: boolean;
   destaque?: boolean;
   precoMax?: number;
@@ -21,19 +22,21 @@ const inclusaoPadrao = {
   categoria: true,
   loja: { include: { usuario: { select: { id: true, nome: true } } } },
   estoque: true,
+  avaliacoes: { select: { nota: true, status: true } },
+};
+
+const mediaDe = (notas: { nota: number; status?: string }[]): number => {
+  const validas = notas.filter((n) => (n.status ?? "PUBLICADO") === "PUBLICADO");
+  if (!validas.length) return 0;
+  return Math.round((validas.reduce((s, n) => s + n.nota, 0) / validas.length) * 10) / 10;
 };
 
 export const produtoRepository = {
-  listar(filtros: FiltrosProduto) {
-    // O SQL nao guarda a validacao: so ficam fora do catalogo os produtos
-    // marcados em memoria como PENDENTE ou REPROVADA.
-    const naoAprovados = Array.from(validacoes.entries())
-      .filter(([, v]) => v.status !== "APROVADA")
-      .map(([id]) => id);
-
+  async listar(filtros: FiltrosProduto): Promise<[number, any[]]> {
     const onde: Record<string, unknown> = {
       excluido: false,
-      ...(naoAprovados.length > 0 ? { id: { notIn: naoAprovados } } : {}),
+      pausado: false,
+      statusValidacao: "APROVADA",
     };
 
     if (filtros.disponivel) {
@@ -46,14 +49,15 @@ export const produtoRepository = {
       // Busca de produtos não exibe produtos esgotados/vendidos
       onde.estoque = { quantidadeDisponivel: { gt: 0 } };
     }
-    if (filtros.disponivel) {
-      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
-    }
     if (filtros.destaque) {
       onde.estoque = { quantidadeDisponivel: { gt: 0 } };
     }
     if (filtros.categoria) {
-      onde.categoria = { nome: filtros.categoria };
+      if (/^\d+$/.test(String(filtros.categoria))) {
+        onde.categoriaId = toId(filtros.categoria);
+      } else {
+        onde.categoria = { nome: { equals: filtros.categoria, mode: "insensitive" } };
+      }
     }
     if (filtros.categoriaId !== undefined) {
       onde.categoriaId = toId(filtros.categoriaId);
@@ -61,8 +65,9 @@ export const produtoRepository = {
     if (filtros.tecnica) {
       onde.tecnica = filtros.tecnica;
     }
-    if (filtros.regiao) {
-      onde.origem = filtros.regiao;
+    const regiao = filtros.regiao ?? filtros.origem;
+    if (regiao) {
+      onde.origem = { contains: regiao, mode: "insensitive" };
     }
     if (filtros.precoMax !== undefined) {
       onde.preco = { lte: filtros.precoMax };
@@ -71,26 +76,42 @@ export const produtoRepository = {
       onde.pecaUnica = true;
     }
 
-    let orderBy: Record<string, "asc" | "desc"> = { id: "desc" };
+    const produtos = await prisma.produto.findMany({
+      where: onde,
+      include: { ...inclusaoPadrao, imagens: { take: 1 } },
+    });
+
+    let filtrados = produtos.map((produto) => ({
+      produto,
+      media: mediaDe(produto.avaliacoes),
+    }));
+
+    if (filtros.avaliacaoMin !== undefined && Number.isFinite(filtros.avaliacaoMin)) {
+      const minimo = Math.min(Math.max(filtros.avaliacaoMin, 0), 5);
+      filtrados = filtrados.filter((item) => item.media >= minimo);
+    }
+
     if (filtros.ordenar === "menor-preco") {
-      orderBy = { preco: "asc" };
+      filtrados.sort((a, b) => Number(a.produto.preco) - Number(b.produto.preco));
     } else if (filtros.ordenar === "maior-preco") {
-      orderBy = { preco: "desc" };
+      filtrados.sort((a, b) => Number(b.produto.preco) - Number(a.produto.preco));
+    } else if (filtros.ordenar === "melhor-avaliacao") {
+      filtrados.sort((a, b) => b.media - a.media || b.produto.id - a.produto.id);
+    } else {
+      filtrados.sort((a, b) => b.produto.id - a.produto.id);
     }
 
     const p = Math.max(filtros.pagina, 1);
     const l = Math.min(Math.max(filtros.limite, 1), 50);
+    const inicio = (p - 1) * l;
 
-    return prisma.$transaction([
-      prisma.produto.count({ where: onde }),
-      prisma.produto.findMany({
-        where: onde,
-        skip: (p - 1) * l,
-        take: l,
-        orderBy,
-        include: { ...inclusaoPadrao, imagens: { take: 1 } },
-      }),
-    ]);
+    return [
+      filtrados.length,
+      filtrados.slice(inicio, inicio + l).map((item) => ({
+        ...item.produto,
+        avaliacaoMedia: item.media,
+      })),
+    ];
   },
 
   buscarPorId(id: Id) {
@@ -123,6 +144,9 @@ export const produtoRepository = {
         origem: dados.origem,
         modalidadeProducao: dados.modalidadeProducao,
         pecaUnica: dados.pecaUnica,
+        statusValidacao: "PENDENTE",
+        seloAtivo: false,
+        enviadoEm: new Date(),
         lojaId: toId(dados.lojaId),
         categoriaId: toId(dados.categoriaId),
         imagens: dados.imagens.length
@@ -188,6 +212,28 @@ export const produtoRepository = {
       where: onde,
       orderBy: { id: "asc" },
       include: { imagens: { take: 1 }, estoque: true },
+    });
+  },
+
+  atualizarValidacao(
+    id: Id,
+    dados: {
+      statusValidacao: "APROVADA" | "REPROVADA";
+      seloAtivo: boolean;
+      justificativa: string | null;
+      decididoEm: Date;
+      decididoPorId: number;
+    }
+  ) {
+    return prisma.produto.updateMany({
+      where: { id: toId(id), statusValidacao: "PENDENTE" },
+      data: {
+        statusValidacao: dados.statusValidacao,
+        seloAtivo: dados.seloAtivo,
+        justificativaValidacao: dados.justificativa,
+        decididoEm: dados.decididoEm,
+        decididoPorId: dados.decididoPorId,
+      },
     });
   },
 

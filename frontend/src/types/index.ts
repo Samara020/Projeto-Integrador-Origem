@@ -210,6 +210,7 @@ export type OpcaoEnvio = {
 export type PedidoCriado = {
   pedidoId: string;
   status: StatusPedido;
+  valorFrete?: number;
   valorTotal: number;
 };
 
@@ -297,6 +298,14 @@ export type MetricasArtesao = {
   vendasPorDia: { dia: string; valor: number }[];
   alertas: AlertaArtesao[];
   pedidosRecentes: PedidoRecente[];
+  avaliacoesRecentes?: {
+    id: string;
+    autor: string;
+    produto: string;
+    nota: number;
+    comentario: string;
+    criadoEm: string;
+  }[];
 };
 
 // Gestão de estoque (lacuna: GET /artesao/pecas e PUT /artesao/pecas/{id}/estoque)
@@ -506,6 +515,10 @@ export type AlteracaoSenha = {
 
 export type DadosRecuperarSenha = {
   email: string;
+};
+
+export type RespostaRecuperarSenha = RespostaMensagem & {
+  token?: string;
 };
 
 // lacuna: POST /auth/redefinir-senha com o token que chega por e-mail

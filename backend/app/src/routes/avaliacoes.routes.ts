@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { autenticar, artesaoApenas, adminApenas } from "../middleware/auth";
 import { AvaliacoesController } from "../controllers/avaliacoes.controller";
+import { validarCorpo } from "../middleware/validacao";
 
 const router = Router();
 const controller = new AvaliacoesController();
@@ -26,6 +27,7 @@ router.put(
   "/admin/avaliacoes/:id/moderar",
   autenticar,
   adminApenas,
+  validarCorpo(z.object({ acao: z.enum(["REMOVER", "MANTER"]) })),
   (req, res, next) =>
     controller.moderar(req, res).catch(next)
 );

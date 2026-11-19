@@ -14,7 +14,7 @@ export const carrinhoService = {
     const itens = carrinho.itens.map((item: any) => ({
       produtoId: item.produto.id,
       quantidade: item.quantidade,
-      precoUnitario: Number(item.precoUnitario),
+      precoUnitario: Number(item.produto.preco),
       nome: item.produto.nome,
       imagemPrincipal: item.produto.imagens[0]?.url ?? "",
     }));
@@ -26,6 +26,9 @@ export const carrinhoService = {
   async adicionar(usuarioId: string, dados: { produtoId: string; quantidade: number }) {
     const produto = await produtoRepository.buscarPorId(dados.produtoId);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
+    if (produto.pausado || produto.statusValidacao !== "APROVADA" || !Number.isInteger(dados.quantidade) || dados.quantidade < 1) {
+      throw new ErroApp(409, "Produto indisponível ou quantidade inválida.");
+    }
 
     let carrinho = await carrinhoRepository.buscarPorUsuarioId(usuarioId);
     if (!carrinho) {
@@ -40,6 +43,10 @@ export const carrinhoService = {
     }
 
     const existente = await carrinhoRepository.buscarItem(carrinho.id, dados.produtoId);
+    const total = (existente?.quantidade ?? 0) + dados.quantidade;
+    if (total > (produto.estoque?.quantidadeDisponivel ?? 0) || (produto.pecaUnica && total > 1)) {
+      throw new ErroApp(409, "Quantidade acima do estoque disponível.");
+    }
 
     if (existente) {
       await carrinhoRepository.atualizarItem(carrinho.id, existente.numeroItem, existente.quantidade + dados.quantidade);
