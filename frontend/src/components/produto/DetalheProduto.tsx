@@ -76,12 +76,24 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
         title: "Peça no carrinho",
         description: `${plural(quantidade, "unidade", "unidades")} de ${produto.nome}`,
       });
-    } catch {
-      toaster.create({
-        type: "error",
-        title: "Não deu para adicionar",
-        description: "Tente de novo em instantes.",
-      });
+    } catch (erro) {
+      if (erro instanceof Error && erro.message === "AUTENTICACAO_NECESSARIA") {
+        toaster.create({
+          type: "warning",
+          title: "Entre para adicionar ao carrinho",
+          description: "Você precisa estar logado como comprador.",
+          action: {
+            label: "Entrar",
+            onClick: () => router.push("/entrar"),
+          },
+        });
+      } else {
+        toaster.create({
+          type: "error",
+          title: "Não deu para adicionar",
+          description: "Tente de novo em instantes.",
+        });
+      }
     }
     setAcao(null);
   }
@@ -149,7 +161,6 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
 export function DetalheProduto({ id }: { id: string }) {
   const { dados: produto, carregando, erro, recarregar } = useProduto(id);
 
-  // O dado chega no cliente, então o título da aba é ajustado aqui.
   useEffect(() => {
     if (!produto) return;
     document.title = `${produto.nome} · Origem`;
