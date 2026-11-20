@@ -1,7 +1,140 @@
 // Comandos comuns dos testes E2E do Origem contra frontend + backend real + Postgres.
 
-const API_URL = (Cypress.env("API_URL") || "http://localhost:4000").replace(/\/$/, "");
-const ADMIN_INVITE_CODE = Cypress.env("ADMIN_INVITE_CODE") || "origem-admin-2026";
+const ALLOWED_BASE_ORIGINS = new Set([
+  "http://localhost:3200",
+  "http://127.0.0.1:3200",
+]);
+
+const ALLOWED_API_ORIGINS = new Set([
+  "http://localhost:4200",
+  "http://127.0.0.1:4200",
+]);
+
+function normalizarOrigin(urlStr) {
+  try {
+    return new URL(urlStr).origin;
+  } catch {
+    return String(urlStr || "").replace(/\/$/, "");
+  }
+}
+
+function getApiUrl() {
+  const url = (
+    Cypress.expose("API_URL") ||
+    "http://localhost:4200"
+  ).replace(/\/$/, "");
+
+  const origin = normalizarOrigin(url);
+
+  if (url.includes(":4000") || url.includes(":3000")) {
+    throw new Error(
+      "[E2E Proteção] Execução bloqueada incondicionalmente: a API aponta para a porta do runtime principal (:3000 / :4000). " +
+      "Defina CYPRESS_API_URL apontando para o backend descartável (ex: CYPRESS_API_URL=http://localhost:4200).",
+    );
+  }
+
+  if (!ALLOWED_API_ORIGINS.has(origin)) {
+    throw new Error(
+      `[E2E Proteção] Execução bloqueada: API_URL (${url}) com origin ${origin} não consta na allowlist de origens autorizadas (${Array.from(ALLOWED_API_ORIGINS).join(", ")}).`,
+    );
+  }
+
+  return url;
+}
+
+before(() => {
+  const apiUrl = getApiUrl();
+  const expectedDb =
+    Cypress.expose("TEST_DATABASE_NAME");
+
+  if (!expectedDb) {
+    throw new Error(
+      "[E2E Execution Guard] Execução bloqueada incondicionalmente: a variável TEST_DATABASE_NAME não está configurada. " +
+      "Para proteger o banco principal contra qualquer escrita indevida, a suíte E2E exige a definição explícita do nome do banco de testes descartável esperado (ex: TEST_DATABASE_NAME=origem_test_...).",
+    );
+  }
+
+  // Trava de execução fechada: exige confirmação de preflight em /__test/identity com environment=test e banco descartável idêntico
+  cy.request({
+    method: "GET",
+    url: `${apiUrl}/__test/identity`,
+    failOnStatusCode: false,
+  }).then((res) => {
+    const db = String(res.body?.database || "");
+    const ehBancoValido =
+      db === expectedDb &&
+      !db.toLowerCase().includes("prod") &&
+      !db.toLowerCase().includes("dev") &&
+      db !== "origem";
+
+    if (res.status !== 200 || res.body?.environment !== "test" || !ehBancoValido) {
+      throw new Error(
+        `[E2E Execution Guard] Execução bloqueada incondicionalmente: o backend em ${apiUrl} não confirmou conexão com o banco descartável esperado (status=${res.status}, environment=${res.body?.environment}, database=${db}, esperado=${expectedDb}). ` +
+        `A suíte exige que /__test/identity retorne status 200, environment="test" e o database exatamente igual a TEST_DATABASE_NAME (obtido via SELECT current_database()) antes de autorizar qualquer teste.`,
+      );
+    }
+    cy.log(`[E2E Preflight OK] Backend e banco de testes confirmados: env=${res.body.environment}, database=${db}`);
+    // Limpeza de avisos somente após o preflight ser aprovado com sucesso
+    cy.task("limparAvisos");
+  });
+});
+
+beforeEach(() => {
+  const baseUrl = Cypress.config("baseUrl") || "";
+  const baseOrigin = normalizarOrigin(baseUrl);
+
+  if (baseUrl.includes(":3000")) {
+    throw new Error(
+      "[E2E Proteção] Execução bloqueada incondicionalmente: baseUrl aponta para o frontend principal (:3000). " +
+      "Defina CYPRESS_BASE_URL apontando para o frontend descartável (ex: CYPRESS_BASE_URL=http://localhost:3200).",
+    );
+  }
+
+  if (!ALLOWED_BASE_ORIGINS.has(baseOrigin)) {
+    throw new Error(
+      `[E2E Proteção] Execução bloqueada: baseUrl (${baseUrl}) com origin ${baseOrigin} não consta na allowlist de origens autorizadas (${Array.from(ALLOWED_BASE_ORIGINS).join(", ")}).`,
+    );
+  }
+
+  const apiUrlPermitida = getApiUrl();
+  const apiOriginPermitida = normalizarOrigin(apiUrlPermitida);
+
+  // Segurança de API efetiva no build: compara cada requisição disparada pelo navegador com a origem permitida exata
+  cy.intercept("*", (req) => {
+    let reqOrigin = "";
+    try {
+      reqOrigin = new URL(req.url).origin;
+    } catch {
+      reqOrigin = "";
+    }
+
+    if (!reqOrigin || req.url.startsWith("data:") || req.url.startsWith("blob:")) {
+      return;
+    }
+
+    // Permite chamadas internas da UI (páginas, chunks estáticos, CSS, imagens servidas pelo Next.js)
+    if (reqOrigin === baseOrigin) {
+      return;
+    }
+
+    // Chamadas de backend/API devem bater estritamente com a origem permitida da API descartável
+    if (ALLOWED_API_ORIGINS.has(reqOrigin) && reqOrigin === apiOriginPermitida) {
+      return;
+    }
+
+    // Bloqueia com erro qualquer tentativa de envio para o runtime principal (:3000 / :4000) ou outra origem não autorizada
+    throw new Error(
+      `[E2E Segurança de API] Violação detectada no build da UI: requisição para ${req.url} (origem ${reqOrigin}) diverge da API descartável permitida (${apiOriginPermitida}). Certifique-se de que o build da UI foi gerado com NEXT_PUBLIC_API_URL=${apiUrlPermitida}.`,
+    );
+  });
+});
+
+function getAdminInviteCode() {
+  return (
+    Cypress.expose("ADMIN_INVITE_CODE") ||
+    "origem-admin-2026"
+  );
+}
 
 const HIDRATACAO = [
   /^Minified React error #(418|423|425); visit https:\/\/react\.dev\/errors\/\1\b/,
@@ -46,12 +179,13 @@ Cypress.Commands.add("registrarUsuario", (papel, extra = {}) => {
   const nome = extra.nome || `Teste ${papel} ${seq}`;
   const corpo = { nome, email, senha, papel, ...extra };
   if (papel === "ADMINISTRADOR" && !corpo.codigoConvite) {
-    corpo.codigoConvite = ADMIN_INVITE_CODE;
+    corpo.codigoConvite = getAdminInviteCode();
   }
 
-  return cy.request("POST", `${API_URL}/auth/register`, corpo).then(() =>
+  const apiUrl = getApiUrl();
+  return cy.request("POST", `${apiUrl}/auth/register`, corpo).then(() =>
     cy
-      .request("POST", `${API_URL}/auth/login`, { email, senha })
+      .request("POST", `${apiUrl}/auth/login`, { email, senha })
       .then(({ body }) => ({ ...body, email, senha })),
   );
 });
@@ -76,6 +210,7 @@ Cypress.Commands.add("visitarComo", (papel, url, gravarAntes = {}) => {
 
 Cypress.Commands.add("criarProdutoAprovado", (overrides = {}) => {
   const marcador = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const apiUrl = getApiUrl();
   return cy.registrarUsuario("ARTESAO").then((artesao) =>
     cy.registrarUsuario("ADMINISTRADOR").then((admin) => {
       const payload = {
@@ -92,7 +227,7 @@ Cypress.Commands.add("criarProdutoAprovado", (overrides = {}) => {
       return cy
         .request({
           method: "POST",
-          url: `${API_URL}/produtos`,
+          url: `${apiUrl}/produtos`,
           headers: { Authorization: `Bearer ${artesao.token}` },
           body: payload,
         })
@@ -100,7 +235,7 @@ Cypress.Commands.add("criarProdutoAprovado", (overrides = {}) => {
           cy
             .request({
               method: "PUT",
-              url: `${API_URL}/produtos/admin/produtos/${criado.id}/validacao`,
+              url: `${apiUrl}/produtos/admin/produtos/${criado.id}/validacao`,
               headers: { Authorization: `Bearer ${admin.token}` },
               body: { status: "APROVADA", justificativa: "Aprovado para teste E2E." },
             })
@@ -108,12 +243,33 @@ Cypress.Commands.add("criarProdutoAprovado", (overrides = {}) => {
               id: String(criado.id),
               nome: payload.nome,
               preco: payload.preco,
+              categoria: payload.categoria,
+              tecnica: payload.tecnica,
+              origem: payload.origem,
+              estoque: payload.estoque,
               artesao,
               admin,
             })),
         );
     }),
   );
+});
+
+Cypress.Commands.add("limparArmazenamento", () => {
+  cy.clearLocalStorage();
+  cy.clearCookies();
+});
+
+Cypress.Commands.add("medirTempo", (rotulo, acaoVisitaOuClique, seletorEsperado) => {
+  const inicio = Date.now();
+  acaoVisitaOuClique();
+  cy.get(seletorEsperado, { timeout: 8000 }).should("be.visible");
+  cy.hidratado();
+  return cy.then(() => {
+    const duracaoMs = Date.now() - inicio;
+    cy.log(`⏱️ ${rotulo}: ${duracaoMs}ms`);
+    return duracaoMs;
+  });
 });
 
 Cypress.Commands.add("lerLocal", (chave) =>

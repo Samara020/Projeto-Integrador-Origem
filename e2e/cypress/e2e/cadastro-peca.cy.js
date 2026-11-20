@@ -1,5 +1,10 @@
 // TC02 e TC12: cadastro de peça pelo artesão contra backend real + Postgres.
 
+before(() => {
+  // A API não semeia catálogo em um banco vazio; cria uma categoria real no banco descartável.
+  cy.criarProdutoAprovado({ nome: `Fixture Categoria ${Date.now()}`, categoria: "Cerâmica" });
+});
+
 function abrirCadastro() {
   cy.visitarComo("ARTESAO", "/painel/artesao/pecas/nova");
   cy.contains("h1", "Cadastrar nova peça").should("be.visible");

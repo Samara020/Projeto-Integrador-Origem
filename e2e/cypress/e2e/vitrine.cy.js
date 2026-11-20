@@ -1,4 +1,4 @@
-// TC03 e TC05: vitrine, busca e disponibilidade das peças contra backend real + Postgres.
+// TC03, Card 18 Item 4, TC05 e TC18: vitrine, catálogo, busca e filtros contra backend real + Postgres.
 
 describe("TC03 · exibição e busca de produtos disponíveis", () => {
   let disponivel;
@@ -111,5 +111,76 @@ describe("TC05 · peça indisponível não entra no carrinho", () => {
     cy.contains("Esta peça não pode ser comprada agora.").should("be.visible");
     cy.contains("button", "Adicionar ao carrinho").should("not.exist");
     cy.contains("button", "Comprar agora").should("not.exist");
+  });
+});
+
+describe("Card 18 Item 4 / TC03 · filtros por origem, região e categorias no catálogo", () => {
+  let ceramicaCaruaru;
+  let madeiraPetrolina;
+
+  before(() => {
+    const tag = `FiltroE2E${Date.now()}`;
+    cy.criarProdutoAprovado({
+      nome: `Vaso Barro ${tag}`,
+      categoria: "Cerâmica",
+      origem: "Caruaru, PE",
+      preco: 85,
+      estoque: 3,
+    }).then((p) => {
+      ceramicaCaruaru = p;
+    });
+
+    cy.criarProdutoAprovado({
+      nome: `Carranca Entalhada ${tag}`,
+      categoria: "Madeira",
+      origem: "Petrolina, PE",
+      preco: 180,
+      estoque: 2,
+    }).then((p) => {
+      madeiraPetrolina = p;
+    });
+  });
+
+  it("filtra por categoria exibindo apenas os itens correspondentes", () => {
+    cy.visit(`/catalogo?categoria=${encodeURIComponent(ceramicaCaruaru.categoria)}`);
+    cy.hidratado();
+
+    cy.contains("main", ceramicaCaruaru.nome).should("be.visible");
+    cy.contains("main", madeiraPetrolina.nome).should("not.exist");
+  });
+
+  it("filtra por origem / região exibindo a peça do local selecionado", () => {
+    cy.visit(`/catalogo?origem=${encodeURIComponent("Caruaru")}`);
+    cy.hidratado();
+
+    cy.contains("main", ceramicaCaruaru.nome).should("be.visible");
+
+    cy.visit(`/catalogo?regiao=${encodeURIComponent("Petrolina")}`);
+    cy.hidratado();
+
+    cy.contains("main", madeiraPetrolina.nome).should("be.visible");
+  });
+
+  it("combina termo de busca com categoria e disponibilidade", () => {
+    cy.visit(
+      `/catalogo?termo=${encodeURIComponent(ceramicaCaruaru.nome)}&categoria=${encodeURIComponent(
+        ceramicaCaruaru.categoria,
+      )}&disponivel=true`,
+    );
+    cy.hidratado();
+
+    cy.contains('p[aria-live="polite"]', "1 peça encontrada").should("be.visible");
+    cy.contains("main", ceramicaCaruaru.nome).should("be.visible");
+  });
+
+  it("filtro sem correspondência exibe estado vazio e permite limpar todos os filtros", () => {
+    cy.visit("/catalogo?regiao=RegiaoInexistenteE2E&categoria=CategoriaInexistenteE2E");
+    cy.hidratado();
+
+    cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
+    cy.contains("Nenhuma peça com esses filtros").should("be.visible");
+
+    cy.contains("button", /Limpar \d+ filtros?|Limpar filtros/).click();
+    cy.location("search").should("eq", "");
   });
 });
