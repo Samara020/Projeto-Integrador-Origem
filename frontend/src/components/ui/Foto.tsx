@@ -3,7 +3,10 @@ import Image, { type ImageProps } from "next/image";
 // Foto resiliente: aceita data URL, blob, URLs externas (sem exigir whitelist por host)
 // e trata string vazia com fundo neutro sem quebrar o next/image.
 export function Foto({ src, alt, className, ...resto }: Omit<ImageProps, "unoptimized">) {
-  const endereco = typeof src === "string" ? src.trim() : ((src as { src?: string }).src ?? "");
+  const enderecoOriginal = typeof src === "string" ? src.trim() : ((src as { src?: string }).src ?? "");
+  const endereco = enderecoOriginal === "https://storage.sistemaorigem.com/placeholder.jpg"
+    ? "/produtos/vaso-ceramica.jpg"
+    : enderecoOriginal;
   if (!endereco) {
     return (
       <span

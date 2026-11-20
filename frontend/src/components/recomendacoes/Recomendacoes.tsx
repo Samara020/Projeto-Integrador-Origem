@@ -79,11 +79,17 @@ function Descobertas({ vistos }: { vistos: PecaVista[] }) {
   const ultimo = vistos[0];
   const pecasDoArtesao = itens.filter((p) => ultimo && p.artesao.id === ultimo.artesaoId);
 
+  if (todas.erro) {
+    return <EstadoErro mensagem={todas.erro.message} aoTentarDeNovo={todas.recarregar} />;
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <section aria-labelledby="artesaos-titulo" className="flex flex-col gap-2 rounded-raio border border-borda bg-superficie p-4">
         <h2 id="artesaos-titulo" className="font-titulo text-h3 font-bold text-tinta">Artesãos que você pode gostar</h2>
-        {artesaos.length === 0 ? (
+        {todas.carregando ? (
+          <Esqueleto className="h-6 w-64" />
+        ) : artesaos.length === 0 ? (
           <p className="text-apoio text-tinta-2">Abra mais peças e as sugestões de artesãos aparecem aqui.</p>
         ) : (
           <p className="text-apoio text-tinta-2">

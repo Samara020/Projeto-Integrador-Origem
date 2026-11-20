@@ -99,6 +99,18 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
           <dt className="text-tinta-3">Origem</dt>
           <dd className="font-medium text-tinta">{produto.regiao.nome}</dd>
         </div>
+        {produto.material && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Material</dt>
+            <dd className="font-medium text-tinta">{produto.material}</dd>
+          </div>
+        )}
+        {produto.dimensoes && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Dimensões</dt>
+            <dd className="font-medium text-tinta">{produto.dimensoes}</dd>
+          </div>
+        )}
         <div className="flex gap-2">
           <dt className="sr-only">Disponibilidade</dt>
           <dd className={`font-bold ${status.cor}`}>{status.texto}</dd>

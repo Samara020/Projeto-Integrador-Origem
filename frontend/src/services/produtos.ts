@@ -8,8 +8,11 @@ import type {
   RespostaRecomendacoes,
 } from "@/types";
 
-type ProdutoApiResposta = ProdutoDetalhe & {
+type ImagemItem = string | { url?: string };
+
+type ProdutoApiResposta = Omit<ProdutoDetalhe, "imagens"> & {
   origem?: string;
+  imagens?: ImagemItem[];
 };
 
 export const produtosService = {
@@ -34,13 +37,29 @@ export const produtosService = {
         sinal,
       },
     );
+    const primeiraImagem =
+      Array.isArray(p.imagens) && p.imagens.length > 0
+        ? typeof p.imagens[0] === "string"
+          ? p.imagens[0]
+          : (p.imagens[0]?.url ?? "")
+        : "";
+
     return {
       ...p,
-      imagemPrincipal: p.imagemPrincipal ?? p.imagens?.[0] ?? "",
+      imagemPrincipal: p.imagemPrincipal ?? primeiraImagem,
+      descricao: p.descricao ?? "",
+      material: p.material ?? "",
+      dimensoes: p.dimensoes ?? "",
+      estoque: typeof p.estoque === "number" ? p.estoque : 0,
+      totalAvaliacoes: typeof p.totalAvaliacoes === "number" ? p.totalAvaliacoes : 0,
+      categoria:
+        typeof p.categoria === "string"
+          ? { id: p.categoria, nome: p.categoria }
+          : (p.categoria ?? { id: "geral", nome: "Geral" }),
       tecnica:
         typeof p.tecnica === "string"
           ? { id: p.tecnica, nome: p.tecnica }
-          : p.tecnica,
+          : (p.tecnica ?? { id: "geral", nome: "Geral" }),
       regiao:
         typeof p.regiao === "string"
           ? { id: p.regiao, nome: p.regiao }
@@ -50,12 +69,15 @@ export const produtosService = {
             }),
       disponibilidade:
         p.disponibilidade ?? ((p.estoque ?? 0) > 0 ? "DISPONIVEL" : "VENDIDO"),
+      imagens: Array.isArray(p.imagens) && p.imagens.length > 0
+        ? p.imagens.map((img) => typeof img === "string" ? img : img?.url ?? "")
+        : p.imagemPrincipal ? [p.imagemPrincipal] : [],
       artesao: {
-        id: p.artesao?.id ?? "1000",
+        id: String(p.artesao?.id ?? "1000"),
         nome: p.artesao?.nome ?? "Artesão",
         cidade:
           p.artesao?.cidade ??
-          (typeof p.regiao === "object" && p.regiao ? p.regiao.nome : "Pernambuco"),
+          (typeof p.regiao === "object" && p.regiao ? p.regiao.nome : typeof p.origem === "string" ? p.origem : "Pernambuco"),
         loja: p.artesao?.loja ?? p.artesao?.nome ?? "Ateliê",
       },
     };

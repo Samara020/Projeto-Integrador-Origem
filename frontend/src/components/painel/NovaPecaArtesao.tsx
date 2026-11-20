@@ -18,11 +18,12 @@ import {
   lerImagemCompactada,
   LIMITE_BYTES_TOTAL_IMAGENS,
 } from "@/lib/imagem";
+import { validarNovaPeca, type ErrosNovaPeca } from "@/lib/validacao";
 import type { NovoProduto } from "@/types";
 
 const MAXIMO_FOTOS = 5;
 
-type Erros = Partial<Record<keyof NovoProduto | "fotos", string>>;
+type Erros = ErrosNovaPeca;
 
 const FORMULARIO_VAZIO: NovoProduto = {
   nome: "",
@@ -87,24 +88,6 @@ function FormularioNovaPeca({
     setErros((atual) => ({ ...atual, [campo]: undefined }));
   }
 
-  function validar(peca: NovoProduto): Erros {
-    const problemas: Erros = {};
-    if (!peca.nome.trim()) problemas.nome = "Dê um nome à peça.";
-    if (!peca.categoria) problemas.categoria = "Escolha a categoria.";
-    if (peca.descricao.trim().length < 20)
-      problemas.descricao = "Conte a história da peça em pelo menos 20 caracteres.";
-    if (!peca.tecnica) problemas.tecnica = "Escolha a técnica.";
-    if (!peca.material.trim()) problemas.material = "Informe o material.";
-    if (!peca.dimensoes.trim()) problemas.dimensoes = "Informe as dimensões.";
-    if (peca.peso <= 0) problemas.peso = "Informe o peso em kg.";
-    if (peca.preco <= 0) problemas.preco = "Informe o preço.";
-    if (peca.modalidadeProducao !== "PECA_UNICA" && peca.estoque < 1)
-      problemas.estoque = "Tenha pelo menos uma peça pronta.";
-    if (!peca.informacoesOrigem.trim()) problemas.informacoesOrigem = "Conte de onde vem a peça.";
-    if (peca.imagens.length === 0) problemas.fotos = "Adicione ao menos uma foto.";
-    return problemas;
-  }
-
   function montar(): NovoProduto {
     return {
       ...form,
@@ -121,7 +104,7 @@ function FormularioNovaPeca({
   function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const peca = montar();
-    const problemas = validar(peca);
+    const problemas = validarNovaPeca(peca);
     setErros(problemas);
     if (Object.values(problemas).some(Boolean)) {
       setAvisoFotos(null);

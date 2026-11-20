@@ -104,6 +104,36 @@ describe("fluxos integrados e persistência real", () => {
     );
     expect(add.status).toBe(200);
 
+    // F05: redução atômica via PUT preserva o item; erro de estoque preserva quantidade anterior
+    const reduzir = await put<{ mensagem: string }>(
+      `/carrinho/itens/${encodeURIComponent(prod.id)}`,
+      { quantidade: 1 },
+      { token: comprador.token },
+    );
+    expect(reduzir.status).toBe(200);
+
+    const acimaEstoque = await put<{ mensagem: string }>(
+      `/carrinho/itens/${encodeURIComponent(prod.id)}`,
+      { quantidade: 10 },
+      { token: comprador.token },
+    );
+    expect(acimaEstoque.status).toBe(409);
+
+    const carrinhoAposPut = await get<{ itens: { produtoId: string; quantidade: number }[] }>(
+      "/carrinho",
+      { token: comprador.token },
+    );
+    expect(carrinhoAposPut.corpo.itens).toEqual(
+      expect.arrayContaining([expect.objectContaining({ produtoId: prod.id, quantidade: 1 })]),
+    );
+
+    const ajustarVolta = await put<{ mensagem: string }>(
+      `/carrinho/itens/${encodeURIComponent(prod.id)}`,
+      { quantidade: 2 },
+      { token: comprador.token },
+    );
+    expect(ajustarVolta.status).toBe(200);
+
     const cotacao = await post<{ servico: { id: string }; valor: number }>(
       "/painel/envios/cotacao",
       { cep: "50030-230", pesoKg: 1.6, dimensoes: { altura: 20, largura: 20, profundidade: 20 } },

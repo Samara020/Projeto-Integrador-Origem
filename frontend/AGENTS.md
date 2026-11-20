@@ -122,30 +122,15 @@ Todo hook de leitura devolve o mesmo formato: `{ dados, carregando, erro, recarr
 
 Para validar os estados de erro na interface, utilize falhas controladas no backend/ambiente de teste ou mocks de `http.ts` nos testes unitários.
 
-### Lacunas do contrato (combinar com o backend)
+### Contrato real dos services (alinhado ao backend Express)
 
-O contrato ainda não tem, e a Avaliação 1 pede:
+Todas as rotas e formatos de resposta seguem `../docs/ContratoDeAPI.md` e a normalização de caminhos em `src/lib/http.ts`:
 
-- `GET /categorias`, `GET /tecnicas`, `GET /regioes`.
-- `GET /produtos/{id}/avaliacoes`.
-- Filtros `tecnica` e `regiao` em `GET /produtos` (hoje só `termo`, `categoria`, `origem`).
-- `GET /indicadores` (números da vitrine: artesãos, peças, nota média).
-- Formato do corpo de erro. A Fake API usa `{ "mensagem": "..." }`.
-- Campos de detalhe do produto: descrição, técnica, região, estoque, galeria de imagens, disponibilidade, total de avaliações.
-- Região e disponibilidade no item de `GET /produtos` (o card mostra os dois).
-- `nome` e `imagemPrincipal` no item de `GET /carrinho`.
-- Perfil do artesão (`GET /artesaos/{id}/perfil`): foto, técnica, especialidade, verificado, história, citação, imagens, média e total de avaliações, peças vendidas.
-- `POST /auth/redefinir-senha` com o token que chega por e-mail.
-- `GET /comprador/avaliacoes`; `compraVerificada` e `respostaArtesao` na avaliação; `dimensoes` e `material` no detalhe da peça.
-- `POST /suporte/tickets/{id}/mensagens` (mensagens do chat, classificação e sugestões da triagem); `prioridade` no ticket.
-- `POST /produtos/{id}/personalizacoes` (solicitação ao artesão) e histórico de peças vistas.
-- `codigoConvite` em `POST /auth/register` para administrador (sem ele, 403).
-- `tecnica` e `regiao` em `POST /auth/register` para artesão. O Figma também pede CPF/CNPJ e localização: o front ainda não coleta, porque o contrato não recebe.
-- Fila de validação de origem (`GET /admin/produtos/pendentes`): filtro `?status` e campos de auditoria (`statusValidacao`, `justificativa`, `decididoEm`, `enviadoEm`, `tecnica`, `regiao`, `imagemPrincipal`, `informacoesOrigem`, `certificado`).
-- `GET /admin/avaliacoes?status=` (fila de moderação) e ação `MANTER` em `PUT /admin/avaliacoes/{id}/moderar`.
-- Perfil e senha do administrador: `GET` e `PUT /admin/perfil`, `PUT /admin/senha`.
-
-Os campos marcados com "lacuna" em `src/types/index.ts` são exatamente estes.
+- Catálogo e produtos: `GET /categorias`, `GET /tecnicas`, `GET /regioes`, `GET /indicadores`, `GET /produtos` (com `termo`, `categoria`, `tecnica`, `regiao`/`origem`, `precoMax`, `avaliacaoMin`, `disponivel`, `pecaUnica`, `ordenar`, `pagina`, `limite`), `GET /produtos/:id`, `GET /produtos/comparar`, `GET /produtos/recomendacoes`, `GET /produtos/:id/avaliacoes`.
+- Autenticação e sessão: `POST /auth/register`, `POST /auth/login`, `POST /auth/recuperar-senha`, `POST /auth/redefinir-senha`. Respostas `401` fora de `/auth/*` limpam a sessão e redirecionam para `/entrar?motivo=sessao-expirada&volta=...`.
+- Carrinho, frete, checkout e pedidos: `GET /carrinho`, `POST /carrinho/itens`, `PUT /carrinho/itens/:produtoId` (ajuste absoluto `>= 1`), `DELETE /carrinho/itens/:produtoId`, `POST /painel/envios/cotacao`, `POST /pedidos/checkout`, `POST /pagamentos`, `GET /comprador/pedidos`.
+- Avaliações, suporte e personalização: `POST /avaliacoes`, `GET /avaliacoes/comprador/avaliacoes`, `POST /suporte/tickets`, `GET /suporte/tickets`, `GET /suporte/tickets/:id`, `POST /suporte/tickets/:id/mensagens`, `PUT /suporte/tickets/:id/status`, `POST /produtos/:id/personalizacoes`, `GET /comprador/personalizacoes`.
+- Painéis do artesão e administrador: `/artesaos/:id/perfil`, `/artesao/*`, `/produtos/artesao/pecas*`, `/painel/artesao/*`, `/painel/admin/*`, `/produtos/admin/produtos/*` e `/avaliacoes/admin/avaliacoes*`.
 
 Se faltar campo para a sua tela: proponha a mudança em `../docs/ContratoDeAPI.md` no mesmo PR. Não invente campo só no front.
 

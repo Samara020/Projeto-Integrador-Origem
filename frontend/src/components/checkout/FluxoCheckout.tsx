@@ -8,6 +8,7 @@ import { FormularioPagamento } from "@/components/checkout/FormularioPagamento";
 import { Container } from "@/components/layout/Container";
 import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { useCheckout } from "@/hooks/useCheckout";
 import { formatarMoeda } from "@/lib/formato";
@@ -93,7 +94,11 @@ export function FluxoCheckout() {
 
       {checkout.carregando && <CheckoutCarregando />}
 
-      {!checkout.carregando && checkout.carrinho.itens.length === 0 && (
+      {!checkout.carregando && checkout.erro && (
+        <EstadoErro mensagem={checkout.erro.message} aoTentarDeNovo={checkout.recarregar} />
+      )}
+
+      {!checkout.carregando && !checkout.erro && checkout.carrinho.itens.length === 0 && (
         <EstadoVazio
           titulo="Não há peças para finalizar"
           descricao="Adicione uma peça ao carrinho antes de seguir para o checkout."
@@ -106,7 +111,7 @@ export function FluxoCheckout() {
         />
       )}
 
-      {!checkout.carregando && checkout.carrinho.itens.length > 0 && etapa === 2 && (
+      {!checkout.carregando && !checkout.erro && checkout.carrinho.itens.length > 0 && etapa === 2 && (
         <FormularioEntrega
           subtotal={checkout.carrinho.valorTotal}
           cotacao={checkout.cotacao}
@@ -119,6 +124,7 @@ export function FluxoCheckout() {
       )}
 
       {!checkout.carregando &&
+        !checkout.erro &&
         checkout.carrinho.itens.length > 0 &&
         etapa === 3 &&
         checkout.pedido && (

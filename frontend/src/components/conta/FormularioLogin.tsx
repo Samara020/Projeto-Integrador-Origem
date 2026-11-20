@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { AvisoFormulario } from "@/components/conta/AvisoFormulario";
 import { Botao, BotaoLink } from "@/components/ui/Botao";
 import { Campo } from "@/components/ui/Campo";
@@ -13,14 +13,31 @@ import { validarEmail, validarSenhaLogin } from "@/lib/validacao";
 
 type Erros = { email?: string; senha?: string };
 
+const ASSINAR_VAZIO = () => () => {};
+
+function motivoSessaoCliente(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("motivo") === "sessao-expirada"
+    ? "Sua sessão expirou. Entre novamente para continuar."
+    : null;
+}
+
 export function FormularioLogin() {
   const router = useRouter();
   const { usuario, entrar, sair } = useSessao();
+  const avisoUrl = useSyncExternalStore(
+    ASSINAR_VAZIO,
+    motivoSessaoCliente,
+    () => null,
+  );
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState<Erros>({});
   const [falha, setFalha] = useState<string | null>(null);
+  const [avisoDispensado, setAvisoDispensado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const avisoSessao = avisoDispensado ? null : avisoUrl;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,6 +64,7 @@ export function FormularioLogin() {
 
     setEnviando(true);
     setFalha(null);
+    setAvisoDispensado(true);
     try {
       const sessao = await entrar({ email: email.trim().toLowerCase(), senha });
       router.push(destinoAposEntrar(sessao.usuario.papel, voltaDaUrl()));
@@ -83,7 +101,7 @@ export function FormularioLogin() {
 
   return (
     <form onSubmit={enviar} noValidate className="flex flex-col gap-2">
-      {falha && <AvisoFormulario mensagem={falha} />}
+      {(falha || avisoSessao) && <AvisoFormulario mensagem={falha ?? avisoSessao ?? ""} />}
 
       <Campo
         id="login-email"

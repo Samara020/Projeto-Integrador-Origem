@@ -65,23 +65,19 @@ export const carrinhoService = {
     return salvar(itens);
   },
 
+  // PUT /carrinho/itens/{produtoId} (>= 1) ou DELETE /carrinho/itens/{produtoId} (<= 0)
   async alterarQuantidade(
     produtoId: string,
     quantidade: number,
   ): Promise<Carrinho> {
     if (ehCompradorAutenticado()) {
-      const atual = await this.obter();
-      const anterior = atual.itens.find((item) => item.produtoId === produtoId)?.quantidade ?? 0;
-      const diferenca = quantidade - anterior;
-      if (quantidade > 0 && diferenca > 0) {
-        await http<{ mensagem: string }>("/carrinho/itens", {
-          metodo: "POST",
-          corpo: { produtoId, quantidade: diferenca },
-        });
-      } else if (diferenca < 0) {
-        await http(`/carrinho/itens/${encodeURIComponent(produtoId)}`, { metodo: "DELETE" });
-        if (quantidade > 0) await http("/carrinho/itens", { metodo: "POST", corpo: { produtoId, quantidade } });
+      if (quantidade <= 0) {
+        return this.remover(produtoId);
       }
+      await http(`/carrinho/itens/${encodeURIComponent(produtoId)}`, {
+        metodo: "PUT",
+        corpo: { quantidade },
+      });
       return this.obter();
     }
 

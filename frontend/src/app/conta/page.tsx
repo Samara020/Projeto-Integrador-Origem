@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HistoricoCompras } from "@/components/conta/HistoricoCompras";
+import { GuardaPapelPage } from "@/components/seguranca/GuardaPapelPage";
 
 export const metadata: Metadata = {
   title: "Compras realizadas",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function PaginaConta() {
-  return <HistoricoCompras />;
+  return (
+    <GuardaPapelPage papel="COMPRADOR">
+      <HistoricoCompras />
+    </GuardaPapelPage>
+  );
 }

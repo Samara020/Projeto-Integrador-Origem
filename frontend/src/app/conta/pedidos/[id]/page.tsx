@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import { DetalhePedido } from "@/components/conta/DetalhePedido";
+import { GuardaPapelPage } from "@/components/seguranca/GuardaPapelPage";
 
 export const metadata: Metadata = {
   title: "Acompanhamento de pedido",
   description: "Acompanhe os detalhes da sua compra na Origem.",
 };
 
-export default async function PaginaPedido({
-  params,
-}: PageProps<"/conta/pedidos/[id]">) {
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function PaginaPedido({ params }: Props) {
   const { id } = await params;
-  return <DetalhePedido id={id} />;
+  return (
+    <GuardaPapelPage papel="COMPRADOR">
+      <DetalhePedido id={id} />
+    </GuardaPapelPage>
+  );
 }

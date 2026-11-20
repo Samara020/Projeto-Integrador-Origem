@@ -9,11 +9,21 @@ import type {
 } from "@/types";
 
 export const pedidosService = {
-  cotarFrete(dados: DadosFrete): Promise<CotacaoFrete> {
-    return http<CotacaoFrete>("/envios/cotacao", {
-      metodo: "POST",
-      corpo: dados,
-    });
+  async cotarFrete(dados: DadosFrete): Promise<CotacaoFrete> {
+    try {
+      return await http<CotacaoFrete>("/envios/cotacao", {
+        metodo: "POST",
+        corpo: dados,
+      });
+    } catch (e: unknown) {
+      if (e instanceof ApiError && e.status === 404) {
+        return await http<CotacaoFrete>("/painel/envios/cotacao", {
+          metodo: "POST",
+          corpo: dados,
+        });
+      }
+      throw e;
+    }
   },
   async checkout(
     endereco: EnderecoEntrega,

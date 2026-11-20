@@ -6,11 +6,11 @@ import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { useMetricasAdmin } from "@/hooks/useAdmin";
-import { formatarInteiro, formatarMoeda } from "@/lib/formato";
+import { formatarInteiro, formatarMoeda, plural } from "@/lib/formato";
 import type { MetricasAdmin } from "@/types";
 
 const cartoes = [
-  { titulo: "Total de vendas", valor: "vendas" },
+  { titulo: "Volume de vendas", valor: "vendas" },
   { titulo: "Artesãos ativos", valor: "artesaos" },
   { titulo: "Produtos cadastrados", valor: "produtos" },
   { titulo: "Tickets de suporte", valor: "tickets" },
@@ -69,10 +69,9 @@ export default function DashboardAdmin() {
             <h1 id="admin-titulo" className="font-titulo text-h1 font-bold text-tinta">O pulso do marketplace, em um só lugar.</h1>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
               {cartoes.map((cartao) => {
-                const valorVendas = dados.totalVendas || dados.volumeTransacionadoGlobal;
                 const valor =
                   cartao.valor === "vendas"
-                    ? formatarMoeda(valorVendas)
+                    ? formatarMoeda(dados.volumeTransacionadoGlobal)
                     : cartao.valor === "artesaos"
                       ? formatarInteiro(dados.totalArtesaosAtivos)
                       : cartao.valor === "produtos"
@@ -80,9 +79,13 @@ export default function DashboardAdmin() {
                         : cartao.valor === "tickets"
                           ? formatarInteiro(dados.ticketsSuporte)
                           : formatarInteiro(dados.validacoesPendentes);
+                const variacaoTexto =
+                  dados.variacaoVendas !== 0
+                    ? ` (${dados.variacaoVendas > 0 ? "+" : ""}${dados.variacaoVendas}%)`
+                    : "";
                 const detalhe =
                   cartao.valor === "vendas"
-                    ? `${dados.variacaoVendas >= 0 ? "+" : ""}${dados.variacaoVendas}% no período`
+                    ? `${plural(dados.totalVendas, "venda realizada", "vendas realizadas")}${variacaoTexto}`
                     : cartao.valor === "artesaos"
                       ? `${formatarInteiro(dados.novosArtesaosNoMes)} novos este mês`
                       : cartao.valor === "produtos"
