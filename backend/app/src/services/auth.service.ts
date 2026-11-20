@@ -40,6 +40,8 @@ async function entregarToken(entrega: Entrega, email: string, token: string, exp
   }
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const authService = {
   async cadastrar(dados: {
     nome: string;
@@ -48,6 +50,12 @@ export const authService = {
     papel: string;
     codigoConvite?: string;
   }) {
+    if (typeof dados.nome !== "string" || !dados.nome.trim()) {
+      throw new ErroApp(400, "Preencha nome, e-mail e senha.");
+    }
+    if (typeof dados.email !== "string" || !dados.email.trim() || !EMAIL_REGEX.test(dados.email.trim())) {
+      throw new ErroApp(400, "Formato de e-mail inválido.");
+    }
     const emailNormalizado = dados.email.trim().toLowerCase();
     const existe = await usuarioRepository.buscarPorEmail(emailNormalizado);
 

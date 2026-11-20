@@ -26,6 +26,27 @@ type NovoProduto = {
   capacidadeProducao?: number | null;
 };
 
+type AtualizacaoProduto = Partial<Omit<Pick<
+  NovoProduto,
+  | "nome"
+  | "descricao"
+  | "tecnica"
+  | "preco"
+  | "origem"
+  | "modalidadeProducao"
+  | "material"
+  | "dimensoes"
+  | "informacoesOrigem"
+  | "certificado"
+  | "prazoProducaoDias"
+  | "capacidadeProducao"
+  | "sku"
+>, "peso" | "sku">> & {
+  pecaUnica?: boolean;
+  peso?: number;
+  sku?: string;
+};
+
 const PLACEHOLDER = "https://storage.sistemaorigem.com/placeholder.jpg";
 
 const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDisponivel ?? 0;
@@ -127,7 +148,7 @@ export const produtoService = {
   },
 
   async buscarPorId(id: string) {
-    const produto = await produtoRepository.buscarPorId(id);
+    const produto = await produtoRepository.buscarPublicoPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
     const avaliacoes = (produto as any).avaliacoes ?? [];
@@ -138,6 +159,7 @@ export const produtoService = {
       nome: produto.nome,
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
+      statusValidacao: produto.statusValidacao,
       seloAtivo: produto.seloAtivo,
       disponibilidade: disponibilidadeDe(produto),
       descricao: produto.descricao ?? "",
@@ -149,8 +171,14 @@ export const produtoService = {
         ? Math.round((notasValidas.reduce((s: number, a: any) => s + a.nota, 0) / notasValidas.length) * 10) / 10
         : 0,
       totalAvaliacoes: notasValidas.length,
-      dimensoes: "",
-      material: "",
+      dimensoes: produto.dimensoes ?? "",
+      material: produto.material ?? "",
+      peso: Number(produto.peso ?? 0),
+      certificado: produto.certificado ?? null,
+      informacoesOrigem: produto.informacoesOrigem ?? "",
+      prazoProducaoDias: produto.prazoProducaoDias ?? null,
+      capacidadeProducao: produto.capacidadeProducao ?? null,
+      sku: produto.sku ?? skuDe(produto.id),
       regiao: { id: produto.origem, nome: produto.origem },
       artesao: {
         ...dadosDoArtesao(produto.loja),
@@ -234,12 +262,20 @@ export const produtoService = {
       lojaId: loja.id,
       imagens: dados.imagens,
       estoque: dados.estoque,
+      material: dados.material,
+      dimensoes: dados.dimensoes,
+      peso: dados.peso ?? 0,
+      certificado: dados.certificado,
+      sku: dados.sku?.trim() || null,
+      informacoesOrigem: dados.informacoesOrigem,
+      prazoProducaoDias: dados.prazoProducaoDias,
+      capacidadeProducao: dados.capacidadeProducao,
     });
 
     // Novo produto nasce PENDENTE e só entra no catálogo após aprovação durável.
     return {
       id: produto.id,
-      sku: dados.sku ?? skuDe(produto.id),
+      sku: produto.sku ?? skuDe(produto.id),
       statusValidacao: produto.statusValidacao,
       criadoEm: new Date().toISOString(),
     };
@@ -253,25 +289,48 @@ export const produtoService = {
     );
 
     // Somente colunas existentes no SQL; demais campos do corpo sao ignorados.
-    const permitido: Record<string, unknown> = {};
-    for (const campo of ["nome", "descricao", "tecnica", "preco", "origem", "modalidadeProducao"]) {
-      if (dados?.[campo] !== undefined) permitido[campo] = dados[campo];
+    const permitido: AtualizacaoProduto = {
+      ...(dados?.nome !== undefined && { nome: dados.nome }),
+      ...(dados?.descricao !== undefined && { descricao: dados.descricao }),
+      ...(dados?.tecnica !== undefined && { tecnica: dados.tecnica }),
+      ...(dados?.preco !== undefined && { preco: dados.preco }),
+      ...(dados?.origem !== undefined && { origem: dados.origem }),
+      ...(dados?.modalidadeProducao !== undefined && { modalidadeProducao: dados.modalidadeProducao }),
+      ...(dados?.material !== undefined && { material: dados.material }),
+      ...(dados?.dimensoes !== undefined && { dimensoes: dados.dimensoes }),
+      ...(dados?.peso !== undefined && { peso: dados.peso }),
+      ...(dados?.certificado !== undefined && { certificado: dados.certificado }),
+      ...(dados?.informacoesOrigem !== undefined && { informacoesOrigem: dados.informacoesOrigem }),
+      ...(dados?.prazoProducaoDias !== undefined && { prazoProducaoDias: dados.prazoProducaoDias }),
+      ...(dados?.capacidadeProducao !== undefined && { capacidadeProducao: dados.capacidadeProducao }),
+    };
+    if (dados?.sku !== undefined) {
+      if (typeof dados.sku !== "string" || !dados.sku.trim()) {
+        throw new ErroApp(400, "O SKU deve ser um texto não vazio.");
+      }
+      permitido.sku = dados.sku.trim();
     }
     if (permitido.modalidadeProducao !== undefined) {
       permitido.pecaUnica = permitido.modalidadeProducao === "PECA_UNICA";
     }
 
-    const pecaUnica = (permitido.pecaUnica as boolean | undefined) ?? produto.pecaUnica;
-    validarPecaUnica(pecaUnica, dados?.estoque ?? quantidadeDe(produto));
-
-    const atualizado = await produtoRepository.atualizar(id, permitido);
+    let estoqueNovo: number | undefined;
     if (dados?.estoque !== undefined) {
-      await produtoRepository.atualizarEstoque(id, Number(dados.estoque));
+      if (typeof dados.estoque !== "number" || !Number.isInteger(dados.estoque) || dados.estoque < 0) {
+        throw new ErroApp(400, "A quantidade em estoque deve ser um número inteiro maior ou igual a zero.");
+      }
+      estoqueNovo = dados.estoque;
     }
+
+    const pecaUnica = (permitido.pecaUnica as boolean | undefined) ?? produto.pecaUnica;
+    validarPecaUnica(pecaUnica, estoqueNovo ?? quantidadeDe(produto));
+
+    const atualizado = await produtoRepository.atualizarComEstoque(id, permitido, estoqueNovo);
 
     return {
       id: atualizado.id,
       preco: Number(atualizado.preco),
+      sku: atualizado.sku,
       atualizadoEm: new Date().toISOString(),
     };
   },
@@ -328,7 +387,7 @@ export const produtoService = {
     const itens = produtosFiltrados.map((p: any) => ({
       id: p.id,
       nome: p.nome,
-      sku: skuDe(p.id),
+      sku: p.sku ?? skuDe(p.id),
       imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
       estoque: quantidadeDe(p),
       situacao: situacaoDe(quantidadeDe(p), p.pausado),
@@ -396,8 +455,13 @@ export const produtoService = {
         tecnica: p.tecnica,
         regiao: p.origem,
         enviadoEm: p.enviadoEm ?? null,
-        informacoesOrigem: p.descricao ?? "",
-        certificado: null,
+        informacoesOrigem: p.informacoesOrigem ?? "",
+        certificado: p.certificado ?? null,
+        material: p.material ?? "",
+        dimensoes: p.dimensoes ?? "",
+        peso: Number(p.peso ?? 0),
+        prazoProducaoDias: p.prazoProducaoDias ?? null,
+        capacidadeProducao: p.capacidadeProducao ?? null,
         statusValidacao: p.statusValidacao,
         justificativa: p.justificativaValidacao ?? null,
         decididoEm: p.decididoEm ?? null,

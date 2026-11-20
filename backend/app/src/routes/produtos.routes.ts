@@ -45,14 +45,19 @@ router.post("/", autenticar, artesaoApenas, validarCorpo(schemaProduto), (req, r
   return controller.criar(req, res).catch(next);
 });
 
-router.put("/:id", autenticar, artesaoApenas, (req, res, next) => {
-  if (req.body?.imagens !== undefined) {
-    const erro = validarImagens(req.body.imagens);
-    if (erro) throw new ErroApp(400, erro);
-  }
-  return controller.atualizar(req, res).catch(next);
-});
-
+router.put(
+  "/:id",
+  autenticar,
+  artesaoApenas,
+  validarCorpo(schemaProduto.partial()),
+  (req, res, next) => {
+    // Additional imagem validation if present
+    if (req.body?.imagens !== undefined) {
+      const erro = validarImagens(req.body.imagens);
+      if (erro) throw new ErroApp(400, erro);
+    }
+    return controller.atualizar(req, res).catch(next);
+  })
 router.delete("/:id", autenticar, artesaoApenas, (req, res, next) =>
   controller.inativar(req, res).catch(next)
 );

@@ -7,8 +7,13 @@ import prisma from "../src/lib/prisma";
 import { limparBanco } from "./helpers";
 
 const app = criarApp();
+const CODIGO_CONVITE_TESTE = "origem-admin-convite-teste";
 
 describe("Autenticação - cadastro e login", () => {
+  beforeAll(() => {
+    process.env.ADMIN_INVITE_CODE = CODIGO_CONVITE_TESTE;
+  });
+
   beforeEach(async () => {
     await limparBanco();
   });
@@ -62,7 +67,7 @@ describe("Autenticação - cadastro e login", () => {
           email: "admin@test.com",
           senha: "senha123",
           papel: "ADMINISTRADOR",
-          codigoConvite: "origem-admin-2026",
+          codigoConvite: CODIGO_CONVITE_TESTE,
         })
         .expect(201);
 
@@ -138,6 +143,68 @@ describe("Autenticação - cadastro e login", () => {
           papel: "SUPERADMIN",
         })
         .expect(400);
+    });
+
+    test("não deve cadastrar com nome vazio ou contendo apenas espaços", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "   ",
+          email: "nomevazio@test.com",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(400);
+    });
+
+    test("não deve cadastrar com nome de tipo não-string", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: 12345,
+          email: "nometipo@test.com",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(400);
+    });
+
+    test("não deve cadastrar com e-mail de formato inválido ou tipo incorreto", async () => {
+      const emailsInvalidos = [
+        "sem-arroba",
+        "semdominio@",
+        "@semusuario.com",
+        "invalido com espacos@test.com",
+        "   ",
+        12345,
+        null,
+      ];
+
+      for (const email of emailsInvalidos) {
+        await request(app)
+          .post("/auth/register")
+          .send({
+            nome: "Comprador Valido",
+            email,
+            senha: "senha123",
+            papel: "COMPRADOR",
+          })
+          .expect(400);
+      }
+    });
+
+    test("deve salvar nome com trim aplicado", async () => {
+      const resposta = await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "   Nome Com Espacos   ",
+          email: "trim.nome@test.com",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(201);
+
+      expect(resposta.body.nome).toBe("Nome Com Espacos");
     });
   });
 

@@ -237,6 +237,8 @@ Lista de produtos para comparação.
 
 Atualiza produto próprio. `403` se o produto não pertencer à loja do usuário.
 
+> **Validação de estoque:** O endpoint validade estoque disponível **antes** de qualquer escrita no banco. Se o payload indicar `estoque` negativo, a resposta é **400** e **nenhum dado é alterado** (preço e estoque permanecem inalterados - escrita atômica/rollback).
+
 `DELETE /produtos/:id` — `autenticar` + `artesaoApenas`
 
 Inativa produto (define estoque 0). `403` se não for dono.

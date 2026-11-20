@@ -18,6 +18,58 @@ type FiltrosProduto = {
   limite: number;
 };
 
+type DadosProdutoNovo = {
+  nome: string;
+  descricao?: string | null;
+  tecnica: string;
+  preco: number;
+  origem: string;
+  modalidadeProducao: string;
+  pecaUnica: boolean;
+  lojaId: Id;
+  categoriaId: Id;
+  imagens: string[];
+  estoque: number;
+  pontoReposicao?: number;
+  material?: string | null;
+  dimensoes?: string | null;
+  peso?: number | null;
+  certificado?: string | null;
+  informacoesOrigem?: string | null;
+  prazoProducaoDias?: number | null;
+  capacidadeProducao?: number | null;
+  sku?: string | null;
+};
+
+type DadosProdutoAtualizacao = Partial<Omit<Pick<
+  DadosProdutoNovo,
+  | "nome"
+  | "descricao"
+  | "tecnica"
+  | "preco"
+  | "origem"
+  | "modalidadeProducao"
+  | "material"
+  | "dimensoes"
+  | "certificado"
+  | "informacoesOrigem"
+  | "prazoProducaoDias"
+  | "capacidadeProducao"
+  | "sku"
+>, "peso" | "sku">> & {
+  pecaUnica?: boolean;
+  peso?: number;
+  sku?: string;
+};
+
+type DadosValidacaoProduto = {
+  statusValidacao: "APROVADA" | "REPROVADA";
+  seloAtivo: boolean;
+  justificativa: string | null;
+  decididoEm: Date;
+  decididoPorId: number;
+};
+
 const inclusaoPadrao = {
   categoria: true,
   loja: { include: { usuario: { select: { id: true, nome: true } } } },
@@ -121,61 +173,81 @@ export const produtoRepository = {
     });
   },
 
-  criar(dados: {
-    nome: string;
-    descricao?: string | null;
-    tecnica: string;
-    preco: number;
-    origem: string;
-    modalidadeProducao: string;
-    pecaUnica: boolean;
-    lojaId: Id;
-    categoriaId: Id;
-    imagens: string[];
-    estoque: number;
-    pontoReposicao?: number;
-  }) {
-    return prisma.produto.create({
-      data: {
-        nome: dados.nome,
-        descricao: dados.descricao ?? null,
-        tecnica: dados.tecnica,
-        preco: dados.preco,
-        origem: dados.origem,
-        modalidadeProducao: dados.modalidadeProducao,
-        pecaUnica: dados.pecaUnica,
-        statusValidacao: "PENDENTE",
-        seloAtivo: false,
-        enviadoEm: new Date(),
-        lojaId: toId(dados.lojaId),
-        categoriaId: toId(dados.categoriaId),
-        imagens: dados.imagens.length
-          ? { create: dados.imagens.map((url) => ({ url })) }
-          : undefined,
-        estoque: {
-          create: {
-            quantidadeDisponivel: dados.estoque,
-            pontoReposicao: dados.pontoReposicao ?? 0,
-          },
-        },
+  buscarPublicoPorId(id: Id) {
+    return prisma.produto.findFirst({
+      where: {
+        id: toId(id),
+        excluido: false,
+        pausado: false,
+        statusValidacao: "APROVADA",
       },
-      include: { imagens: true },
+      include: { ...inclusaoPadrao, imagens: true },
     });
   },
 
-  atualizar(
-    id: Id,
-    dados: {
-      nome?: string;
-      descricao?: string | null;
-      tecnica?: string;
-      preco?: number;
-      origem?: string;
-      modalidadeProducao?: string;
-      pecaUnica?: boolean;
-    }
-  ) {
+  criar(dados: DadosProdutoNovo) {
+    return prisma.$transaction(async (tx) => {
+      const criado = await tx.produto.create({
+        data: {
+          nome: dados.nome,
+          descricao: dados.descricao ?? null,
+          tecnica: dados.tecnica,
+          preco: dados.preco,
+          origem: dados.origem,
+          modalidadeProducao: dados.modalidadeProducao,
+          pecaUnica: dados.pecaUnica,
+          statusValidacao: "PENDENTE",
+          seloAtivo: false,
+          enviadoEm: new Date(),
+          lojaId: toId(dados.lojaId),
+          categoriaId: toId(dados.categoriaId),
+          material: dados.material ?? null,
+          dimensoes: dados.dimensoes ?? null,
+          peso: dados.peso ?? 0,
+          certificado: dados.certificado ?? null,
+          informacoesOrigem: dados.informacoesOrigem ?? null,
+          prazoProducaoDias: dados.prazoProducaoDias ?? null,
+          capacidadeProducao: dados.capacidadeProducao ?? null,
+          sku: dados.sku?.trim() || null,
+          imagens: dados.imagens.length
+            ? { create: dados.imagens.map((url: string) => ({ url })) }
+            : undefined,
+          estoque: {
+            create: {
+              quantidadeDisponivel: dados.estoque,
+              pontoReposicao: dados.pontoReposicao ?? 0,
+            },
+          },
+        },
+        include: { imagens: true },
+      });
+      const sku = String(dados.sku?.trim() || `ORG-${String(criado.id).padStart(6, "0")}`);
+      if (criado.sku === sku) return criado;
+      return tx.produto.update({
+        where: { id: criado.id },
+        data: { sku },
+        include: { imagens: true },
+      });
+    });
+  },
+
+  atualizar(id: Id, dados: DadosProdutoAtualizacao) {
     return prisma.produto.update({ where: { id: toId(id) }, data: dados });
+  },
+
+  atualizarComEstoque(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
+    const produtoId = toId(id);
+    return prisma.$transaction(async (tx) => {
+      const atualizado = await tx.produto.update({ where: { id: produtoId }, data: dados });
+      if (quantidade !== undefined) {
+        await tx.estoque.upsert({
+          where: { produtoId },
+          update: { quantidadeDisponivel: quantidade },
+          create: { produtoId, quantidadeDisponivel: quantidade, pontoReposicao: 0 },
+        });
+      }
+      return atualizado;
+    });
   },
 
   /** Inativar = zerar o estoque (o SQL nao tem coluna de situacao). */
@@ -217,13 +289,7 @@ export const produtoRepository = {
 
   atualizarValidacao(
     id: Id,
-    dados: {
-      statusValidacao: "APROVADA" | "REPROVADA";
-      seloAtivo: boolean;
-      justificativa: string | null;
-      decididoEm: Date;
-      decididoPorId: number;
-    }
+    dados: DadosValidacaoProduto
   ) {
     return prisma.produto.updateMany({
       where: { id: toId(id), statusValidacao: "PENDENTE" },

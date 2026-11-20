@@ -1,5 +1,4 @@
 import { ErroApp } from "../middleware/error";
-import { opcaoPorId } from "../lib/frete";
 import {
   carrinhoRepository,
   pedidoRepository,
@@ -43,7 +42,7 @@ export const pedidoService = {
     }
   ) {
     const carrinho = await carrinhoRepository.buscarPorUsuarioId(usuarioId);
-    if (!carrinho || carrinho.itens.length === 0) {
+    if (!carrinho) {
       throw new ErroApp(400, "Carrinho vazio.");
     }
 
@@ -56,33 +55,18 @@ export const pedidoService = {
       cpf: e.cpf ?? "00000000000",
     };
 
-    const itens = carrinho.itens.map((item: any) => ({
-      produtoId: item.produtoId,
-      quantidade: item.quantidade,
-      precoUnitario: item.produto.preco,
-      subtotal: Number(item.produto.preco) * item.quantidade,
-    }));
-    const opcao = opcaoPorId(dados.opcaoEnvioId);
-    for (const item of carrinho.itens) {
-      const config = item.produto.loja.configuracaoEnvio as { opcoes?: { id: string; ativa: boolean }[] } | null;
-      if (config?.opcoes?.some(o => o.id === opcao.id && !o.ativa)) throw new ErroApp(409, "Opção de envio indisponível para uma das lojas.");
-    }
-    const valorFrete = opcao.valor;
-    const valorTotal = itens.reduce((s: number, i: any) => s + i.subtotal, 0) + valorFrete;
-
-    const pedido = await pedidoRepository.criarCheckout({
+    const resultado = await pedidoRepository.criarCheckout({
       usuarioId,
       carrinhoId: carrinho.id,
       endereco,
-      itens,
-      valorFrete,
+      opcaoEnvioId: dados.opcaoEnvioId,
     });
 
     return {
-      pedidoId: pedido.id,
-      status: pedido.status,
-      valorTotal,
-      valorFrete,
+      pedidoId: resultado.pedido.id,
+      status: resultado.pedido.status,
+      valorTotal: resultado.valorTotal,
+      valorFrete: resultado.valorFrete,
     };
   },
 
@@ -185,6 +169,12 @@ export const pedidoService = {
 
     if (STATUS_FINAIS.includes(pedido.status)) {
       throw new ErroApp(409, `Pedido ja esta ${pedido.status} e nao pode mais ser alterado.`);
+    }
+
+    const itens = (pedido as any).itens ?? [];
+    const lojasDoPedido = new Set(itens.map((item: any) => Number(item.produto?.lojaId)));
+    if (lojasDoPedido.size > 1) {
+      throw new ErroApp(409, "Pedidos com itens de várias lojas não podem ser alterados globalmente. Separe em subpedidos antes.");
     }
 
     if (dados.statusProducao === "ENVIADO" && !dados.codigoRastreio) {

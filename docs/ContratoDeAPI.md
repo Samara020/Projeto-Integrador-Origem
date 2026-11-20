@@ -122,6 +122,15 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 > precisa de `sku`, `material`, `dimensoes`, `peso`, `certificado` e
 > `informacoesOrigem`, e a resposta devolve o `sku` gerado.
 
+> **Persistência obrigatória:** `sku`, `peso`, `dimensoes`, `certificado`,
+> `informacoesOrigem` são gravados em `create`/`update`/`list` e retornados
+> em `GET /produtos`, `GET /produtos/:id` e listagens. Campos `pendentes`
+> também devolvem esses dados sem substituí-los por `descricao`/`null`.
+
+> **Schema & Migration:** Coluna `peso` `DECIMAL(10,2)` `NOT NULL DEFAULT 0`,
+> backfill via migration `20261120160000_backfill_peso_not_null`. Migração
+> versionada no `prisma/migrations/` do banco descartável `origem_audit` (:55432).
+
 ```json
 {
   "nome": "Luminária Mandacaru",
@@ -152,6 +161,8 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 
 #### PUT /produtos/{id}
 Atualiza os dados de uma peça existente (Exclusivo para o artesão dono da peça).
+
+> **Validação de estoque:** O endpoint validade estoque disponível **antes** de qualquer escrita no banco. Se o payload indicar `estoque` negativo, a resposta é **400** e **nenhum dado é alterado** (preço e estoque permanecem inalterados - escrita atômica/rollback).
 
 ```json
 {
@@ -440,6 +451,30 @@ Remove um item do carrinho.
 }
 ```
 
+#### PUT /carrinho
+Atualiza quantidade de item no carrinho.
+
+*Body (schema rigoroso antes do controller):*
+```json
+{
+  "quantidade": 3
+}
+```
+
+**Regras (validadas via schema Zod antes do controller):**
+- Aceita somente objeto `{ quantidade: number }` com valor **inteiro >= 1**.
+- Payload inválido (objeto vazio, quantidade < 1, quantidade decimal/float) retorna **400**.
+- Se quantidade deixar estoque negativo, retorna **409** (estoque insuficiente).
+- A atualização valida estoque existente, pausa, `statusValidacao` e exclusão com atomicidade/rollback.
+- Sem estoque disponível: retorna **409**, **não** aceita produto indisponível.
+
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Item atualizado no carrinho."
+}
+```
+
 #### POST /pedidos/checkout
 Efetiva a criação do pedido a partir do carrinho atual.
 
@@ -565,12 +600,23 @@ Atualiza o status de produção/envio do pedido.
   "codigoRastreioCorreios": "AB123456789BR"
 }
 ```
+
 *Response (200 OK):*
 ```json
 {
   "id": "ped_501",
   "statusProducao": "ENVIADO"
 }
+```
+
+> **Regra de pedido multiloja (única política coerente):** Pedidos com itens de
+> lojas diferentes (múltiples artesãos) **não podem ser cancelados/alterados**
+> globalmente. Se o pedido contém itens de mais de uma loja, qualquer tentativa
+> de mutação de status (`ENVIADO`, `CANCELADO`, `EM_PRODUCAO`, etc.) retorna
+> **409** com mensagem sobre separação em subpedidos. Essa regra substitui
+> guardas duplicadas e é aplicada no service layer antes de qualquer update no
+> banco, garantindo atomicidade/rollback. O rastreio só pode ser informado quando
+> o status global permanecer inalterado (pedido de loja única).
 ```
 
 ---
