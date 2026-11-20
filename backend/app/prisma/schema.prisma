@@ -1,5 +1,4 @@
 // Schema alinhado a database/sql/ (fonte de modelagem do banco relacional).
-// As migraÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes do Prisma gerenciam a estrutura do banco em prisma/migrations.
 
 generator client {
   provider = "prisma-client-js"
