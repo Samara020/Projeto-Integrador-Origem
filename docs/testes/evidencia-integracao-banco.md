@@ -7,10 +7,5 @@
 
 ## Log Completo de Execucao
 
-``text
-
 > @origem/backend@1.0.0 test
 > jest --runInBand --verbose
-
-
-``
