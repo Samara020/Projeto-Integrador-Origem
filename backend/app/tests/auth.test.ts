@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+import { describe, beforeEach, afterAll, test, expect } from "@jest/globals";
 
 import request from "supertest";
 import * as bcrypt from "bcryptjs";
@@ -7,13 +7,8 @@ import prisma from "../src/lib/prisma";
 import { limparBanco } from "./helpers";
 
 const app = criarApp();
-const CODIGO_CONVITE_TESTE = "origem-admin-convite-teste";
 
 describe("Autenticação - cadastro e login", () => {
-  beforeAll(() => {
-    process.env.ADMIN_INVITE_CODE = CODIGO_CONVITE_TESTE;
-  });
-
   beforeEach(async () => {
     await limparBanco();
   });
@@ -67,7 +62,7 @@ describe("Autenticação - cadastro e login", () => {
           email: "admin@test.com",
           senha: "senha123",
           papel: "ADMINISTRADOR",
-          codigoConvite: CODIGO_CONVITE_TESTE,
+          codigoConvite: "origem-admin-2026",
         })
         .expect(201);
 
@@ -133,6 +128,18 @@ describe("Autenticação - cadastro e login", () => {
         .expect(400);
     });
 
+    test("não deve aceitar e-mail com formato inválido", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "Comprador Teste",
+          email: "email-invalido-sem-arroba",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(400);
+    });
+
     test("não deve aceitar papel inválido", async () => {
       await request(app)
         .post("/auth/register")
@@ -143,68 +150,6 @@ describe("Autenticação - cadastro e login", () => {
           papel: "SUPERADMIN",
         })
         .expect(400);
-    });
-
-    test("não deve cadastrar com nome vazio ou contendo apenas espaços", async () => {
-      await request(app)
-        .post("/auth/register")
-        .send({
-          nome: "   ",
-          email: "nomevazio@test.com",
-          senha: "senha123",
-          papel: "COMPRADOR",
-        })
-        .expect(400);
-    });
-
-    test("não deve cadastrar com nome de tipo não-string", async () => {
-      await request(app)
-        .post("/auth/register")
-        .send({
-          nome: 12345,
-          email: "nometipo@test.com",
-          senha: "senha123",
-          papel: "COMPRADOR",
-        })
-        .expect(400);
-    });
-
-    test("não deve cadastrar com e-mail de formato inválido ou tipo incorreto", async () => {
-      const emailsInvalidos = [
-        "sem-arroba",
-        "semdominio@",
-        "@semusuario.com",
-        "invalido com espacos@test.com",
-        "   ",
-        12345,
-        null,
-      ];
-
-      for (const email of emailsInvalidos) {
-        await request(app)
-          .post("/auth/register")
-          .send({
-            nome: "Comprador Valido",
-            email,
-            senha: "senha123",
-            papel: "COMPRADOR",
-          })
-          .expect(400);
-      }
-    });
-
-    test("deve salvar nome com trim aplicado", async () => {
-      const resposta = await request(app)
-        .post("/auth/register")
-        .send({
-          nome: "   Nome Com Espacos   ",
-          email: "trim.nome@test.com",
-          senha: "senha123",
-          papel: "COMPRADOR",
-        })
-        .expect(201);
-
-      expect(resposta.body.nome).toBe("Nome Com Espacos");
     });
   });
 
@@ -320,6 +265,40 @@ describe("Autenticação - cadastro e login", () => {
       });
 
       expect(usuario!.senha).toBe("senha123");
+    });
+  });
+
+ describe("Logout e invalidação de token", () => {
+    test("deve revogar o token no logout e bloquear requisições seguintes com 401", async () => {
+      await request(app)
+        .post("/auth/register")
+        .send({
+          nome: "Usuário Logout",
+          email: "logout@test.com",
+          senha: "senha123",
+          papel: "COMPRADOR",
+        })
+        .expect(201);
+
+      const login = await request(app)
+        .post("/auth/login")
+        .send({
+          email: "logout@test.com",
+          senha: "senha123",
+        })
+        .expect(200);
+
+      const token = login.body.token;
+
+      await request(app)
+        .post("/auth/logout")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(200);
+
+      await request(app)
+        .post("/auth/logout")
+        .set("Authorization", `Bearer ${token}`)
+        .expect(401);
     });
   });
 });

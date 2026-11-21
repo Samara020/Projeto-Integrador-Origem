@@ -242,11 +242,11 @@ describe("authService", () => {
       (http as jest.Mock).mockResolvedValueOnce(resposta);
 
       await expect(
-        authService.redefinirSenha({ token: "tok_abc", senha: "novaSenha123" }),
+        authService.redefinirSenha({ token: "tok_abc", novaSenha: "novaSenha123" }),
       ).resolves.toEqual(resposta);
       expect(http).toHaveBeenCalledWith("/auth/redefinir-senha", {
         metodo: "POST",
-        corpo: { token: "tok_abc", senha: "novaSenha123" },
+        corpo: { token: "tok_abc", novaSenha: "novaSenha123" },
       });
     });
 
@@ -254,7 +254,7 @@ describe("authService", () => {
       (http as jest.Mock).mockRejectedValueOnce(new ApiError(400, "O link de recuperação expirou. Peça um novo."));
 
       await expect(
-        authService.redefinirSenha({ token: "", senha: "novaSenha123" }),
+        authService.redefinirSenha({ token: "", novaSenha: "novaSenha123" }),
       ).rejects.toMatchObject({
         status: 400,
         message: "O link de recuperação expirou. Peça um novo.",

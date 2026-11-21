@@ -24,11 +24,18 @@ export class ProdutosController {
   }
 
   async recomendados(req: Request, res: Response) {
-    const produtoId = (req.query.produtoId as string) ?? "";
-    const resultado = await produtoService.recomendados(produtoId);
+    const resultado = await produtoService.recomendados({
+      produtoId: req.query.produtoId as string | undefined,
+      categoria: req.query.categoria as string | undefined,
+      tecnica: req.query.tecnica as string | undefined,
+      regiao: req.query.regiao as string | undefined,
+      limite: req.query.limite as string | undefined,
+    });
     res.setHeader("X-Recomendacao-Fonte", resultado.fonte);
-    const { fonte, ...corpo } = resultado;
-    return res.json(corpo);
+    return res.json({
+      recomendados: resultado.recomendados,
+      produtosRecomendados: resultado.produtosRecomendados,
+    });
   }
 
   async criar(req: Request, res: Response) {
@@ -70,7 +77,7 @@ export class ProdutosController {
   }
 
   async validar(req: Request, res: Response) {
-    const resultado = await produtoService.validar(req.params.id, req.body, req.usuario!.id);
+    const resultado = await produtoService.validar(req.params.id, req.body);
     return res.json(resultado);
   }
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { LoaderCircle, ShoppingCart } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toaster } from "@/components/ui/toaster";
 import { useCarrinho } from "@/hooks/useCarrinho";
 import type { ProdutoResumo } from "@/types";
 
-// Botão quadrado do card. Adiciona uma unidade e avisa por toast.
 export function BotaoCarrinho({ produto }: { produto: ProdutoResumo }) {
+  const router = useRouter();
   const { adicionar } = useCarrinho();
   const [enviando, setEnviando] = useState(false);
   const indisponivel = produto.disponibilidade !== "DISPONIVEL";
@@ -21,12 +22,24 @@ export function BotaoCarrinho({ produto }: { produto: ProdutoResumo }) {
         title: "Peça no carrinho",
         description: produto.nome,
       });
-    } catch {
-      toaster.create({
-        type: "error",
-        title: "Não deu para adicionar",
-        description: "Tente de novo em instantes.",
-      });
+    } catch (erro) {
+      if (erro instanceof Error && erro.message === "AUTENTICACAO_NECESSARIA") {
+        toaster.create({
+          type: "warning",
+          title: "Entre para adicionar ao carrinho",
+          description: "Você precisa estar logado como comprador.",
+          action: {
+            label: "Entrar",
+            onClick: () => router.push("/entrar"),
+          },
+        });
+      } else {
+        toaster.create({
+          type: "error",
+          title: "Não deu para adicionar",
+          description: "Tente de novo em instantes.",
+        });
+      }
     } finally {
       setEnviando(false);
     }

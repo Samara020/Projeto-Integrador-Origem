@@ -1,4 +1,4 @@
-### Isso não é o resultado definitivo do contrato de API
+﻿### Isso não é o resultado definitivo do contrato de API
 
 # Modelo de Contrato de API Completo - Sistema Origem
 
@@ -27,7 +27,7 @@ Este documento estabelece o contrato de API RESTful completo para o **Sistema Or
 ### 2.1. Módulo: Identidade, Segurança e Acesso (HU-01)
 
 #### POST /auth/register
-Cadastra um novo usuário no sistema.
+Cadastra um novo usuário no sistema. Valida tipos, `nome` não vazio com pelo menos 2 caracteres após `trim`, formato de `email`, `senha` com mínimo de 8 caracteres (armazenada exclusivamente com hash `bcrypt` custo 12) e `papel` válido.
 
 ```json
 {
@@ -51,7 +51,7 @@ Cadastra um novo usuário no sistema.
 *Proposta do frontend (lacuna):* para `"papel": "ADMINISTRADOR"`, o corpo leva também `"codigoConvite"`, o código que a equipe entrega a quem vai administrar. Sem código válido, a resposta é `403 Forbidden` com `{ "mensagem": "Código de convite inválido." }`. Comprador e artesão não enviam o campo.
 
 #### POST /auth/login
-Autentica o usuário e emite o token de sessão.
+Autentica o usuário e emite o token de sessão JWT.
 
 ```json
 {
@@ -72,6 +72,16 @@ Autentica o usuário e emite o token de sessão.
 }
 ```
 
+#### POST /auth/logout
+Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
+
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Sessão encerrada com sucesso."
+}
+```
+
 #### POST /auth/recuperar-senha
 Solicita o envio de instrução/token para redefinição de senha.
 
@@ -86,6 +96,23 @@ Solicita o envio de instrução/token para redefinição de senha.
   "mensagem": "E-mail de recuperação enviado com sucesso."
 }
 ```
+
+#### POST /auth/redefinir-senha
+Define uma nova senha a partir do token de recuperação emitido para o usuário. A nova senha passa a ser armazenada com hash `bcrypt` custo 12.
+
+```json
+{
+  "token": "tok_recuperacao_123",
+  "novaSenha": "novaSenhaSegura123"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Senha redefinida com sucesso."
+}
+```
+*Erros:* `400 Bad Request` quando o token ou a nova senha (mínimo 8 caracteres) forem inválidos; `401 Unauthorized` quando o token de recuperação estiver expirado ou já utilizado.
 
 ---
 
@@ -738,32 +765,45 @@ Lista os tickets de suporte abertos pelo usuário ou geridos pela equipe.
 ### 2.10. Módulo: Recomendações e Painéis de Gestão (HU-15, HU-16, HU-17)
 
 #### GET /produtos/recomendacoes
-Retorna recomendações personalizadas de produtos para o cliente.
+Retorna recomendações personalizadas de produtos disponíveis para o cliente.
 
-Parâmetro: `produtoId` (peça que o cliente está vendo).
+Parâmetros de consulta (todos opcionais):
+- `produtoId`: peça de referência que o cliente está vendo.
+- `categoria`: nome da categoria desejada.
+- `tecnica`: nome da técnica artesanal desejada.
+- `regiao`: nome da região desejada.
+- `limite`: quantidade máxima de recomendações (padrão `4`, intervalo `1..20`).
+
+Cabeçalho de resposta:
+- `X-Recomendacao-Fonte`: `ia` (quando respondido pelo `modulo-ia`) ou `baseline` (quando o módulo não está configurado, está indisponível, excede 2 s ou nenhum critério foi informado).
 
 *Response (200 OK):*
 ```json
 {
   "recomendados": [
     {
-      "id": "prd_202",
-      "nome": "Escultura em Madeira",
-      "preco": 450.00,
-      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal."
+      "id": "2013",
+      "nome": "Santo Antônio de Barro",
+      "preco": 260.00,
+      "imagemPrincipal": "/produtos/vaso-ceramica.jpg",
+      "artesao": { "id": "1006", "nome": "Ateliê Mãos da Mata" },
+      "seloAtivo": true,
+      "regiao": { "id": "Zona da Mata - PE", "nome": "Zona da Mata - PE" },
+      "modalidadeProducao": "PECA_UNICA",
+      "disponibilidade": "DISPONIVEL",
+      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região.",
+      "score": 1.0
     }
   ]
 }
 ```
 
-> Integração com o módulo de IA (HU-17, `modulo-ia/`): cada item tem os campos
-> de `ProdutoResumo` e um `motivo` opcional com a justificativa da IA. A rota do
-> site chama `POST /recommendations` do módulo (chave em `X-API-Key`) e troca os
-> IDs devolvidos pelos cartões das peças. Se o módulo estiver fora do ar,
-> responder com erro ou passar de 2 s, a rota usa o baseline local e o item vem
-> sem `motivo`. Lista vazia esconde a seção "Você também pode gostar".
-> As sugestões da IA e do baseline local incluem somente peças com
-> `disponibilidade: "DISPONIVEL"`; peças reservadas ou vendidas ficam de fora.
+> Integração com o módulo de IA (HU-17, `modulo-ia/`):
+> - O **backend principal** (`GET /produtos/recomendacoes`) consulta o catálogo ativo no PostgreSQL, envia `POST /recommendations` ao `modulo-ia` (autenticado por `X-API-Key`, timeout de `2 s`) levando os critérios solicitados e o catálogo enxuto (`catalog: [{ product_id, name, category, technique, region, available }]`), e hidrata os IDs retornados com os produtos reais do catálogo, anexando `motivo` (`reason`) e `score`.
+> - A IA aplica pesos de categoria (`50%`), técnica (`30%`) e região (`20%`) com fallback progressivo de critérios.
+> - Somente peças válidas, aprovadas e com `disponibilidade: "DISPONIVEL"` (estoque > 0) entram na resposta; o produto de referência e itens reservados/vendidos/inativos são sempre excluídos.
+> - Se o `modulo-ia` estiver fora do ar, responder erro (`4xx`/`5xx`) ou ultrapassar `2 s`, o backend aplica automaticamente o baseline local com os mesmos pesos e devolve `200 OK` com `X-Recomendacao-Fonte: baseline` (itens sem `motivo`).
+> - Lista vazia (`recomendados: []`) é resposta válida (RF-11): na página do produto, a seção *"Você também pode gostar"* é ocultada; na página `/recomendacoes`, é exibido estado vazio com link para o catálogo.
 
 #### GET /artesao/painel/metricas
 Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.

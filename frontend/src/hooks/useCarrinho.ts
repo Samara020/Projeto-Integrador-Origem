@@ -1,103 +1,133 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useSessao } from "@/hooks/useSessao";
-import { ApiError } from "@/lib/http";
+import { authService } from "@/services/auth";
 import { carrinhoService } from "@/services/carrinho";
 import { CARRINHO_VAZIO, carrinhoStore } from "@/store/carrinho";
 import type { ProdutoResumo } from "@/types";
 
-let chaveCarregada: string | null = null;
+let tokenCarregado: string | null | undefined = undefined;
 let carregamento: Promise<void> | null = null;
 
-function carregarPara(chave: string, forcar = false): Promise<void> {
-  if (!forcar && chaveCarregada === chave) return Promise.resolve();
-  if (!forcar && carregamento && chaveCarregada === null) return carregamento;
+function sincronizarCarrinho(forcar = false): Promise<void> {
+  const tokenAtual = authService.sessaoAtual()?.token ?? null;
 
-  chaveCarregada = null;
+  if (!forcar && tokenCarregado === tokenAtual) return Promise.resolve();
+  if (carregamento) return carregamento;
+
   carregamento = carrinhoService
     .obter()
     .then((carrinho) => {
-      chaveCarregada = chave;
+      tokenCarregado = tokenAtual;
       carrinhoStore.definir(carrinho);
     })
     .finally(() => {
       carregamento = null;
     });
+
   return carregamento;
 }
 
 export function useCarrinho() {
-  const { usuario, pronta } = useSessao();
-  const [tentativa, setTentativa] = useState(0);
-  const [estadoCarga, setEstadoCarga] = useState<{
-    chave: string;
-    erro: ApiError | null;
-  } | null>(null);
-
-  const chaveSessao = pronta ? `${usuario?.id ?? "visitante"}:${tentativa}` : null;
-
   const carrinho = useSyncExternalStore(
     carrinhoStore.assinar,
     carrinhoStore.obter,
     () => CARRINHO_VAZIO,
   );
 
+  const [erro, setErro] = useState<Error | null>(null);
+  const [carregando, setCarregando] = useState(
+    tokenCarregado !== (authService.sessaoAtual()?.token ?? null),
+  );
+
+  const carregar = useCallback(async (forcar: boolean) => {
+    setCarregando(true);
+    setErro(null);
+    try {
+      await sincronizarCarrinho(forcar);
+    } catch (causa) {
+      setErro(
+        causa instanceof Error
+          ? causa
+          : new Error("Não foi possível carregar o carrinho."),
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  const recarregar = useCallback(() => carregar(true), [carregar]);
+
   useEffect(() => {
-    if (!chaveSessao) return;
     let ativo = true;
-    const forcar = tentativa > 0;
-    carregarPara(chaveSessao, forcar)
+    void sincronizarCarrinho(false)
       .then(() => {
-        if (ativo) setEstadoCarga({ chave: chaveSessao, erro: null });
-      })
-      .catch((causa) => {
         if (!ativo) return;
-        setEstadoCarga({
-          chave: chaveSessao,
-          erro:
-            causa instanceof ApiError
-              ? causa
-              : new ApiError(0, "Não foi possível carregar seu carrinho."),
-        });
+        setErro(null);
+        setCarregando(false);
+      })
+      .catch((causa: unknown) => {
+        if (!ativo) return;
+        setErro(
+          causa instanceof Error
+            ? causa
+            : new Error("Não foi possível carregar o carrinho."),
+        );
+        setCarregando(false);
       });
+
     return () => {
       ativo = false;
     };
-  }, [chaveSessao, tentativa]);
-
-  const recarregar = useCallback(() => {
-    setTentativa((n) => n + 1);
   }, []);
 
-  const atual = chaveSessao && estadoCarga?.chave === chaveSessao ? estadoCarga : null;
-  const carregando = !pronta || (chaveCarregada !== chaveSessao && !atual);
+  async function atualizarComTratamento(acao: () => Promise<unknown>) {
+    setErro(null);
+    try {
+      await acao();
+    } catch (causa) {
+      setErro(
+        causa instanceof Error
+          ? causa
+          : new Error("Não foi possível atualizar o carrinho."),
+      );
+      throw causa;
+    }
+  }
 
   return {
     carrinho,
     carregando,
-    erro: atual?.erro ?? null,
+    erro,
     recarregar,
     totalItens: carrinho.itens.reduce((n, item) => n + item.quantidade, 0),
 
     async adicionar(produto: ProdutoResumo, quantidade = 1) {
-      carrinhoStore.definir(
-        await carrinhoService.adicionar(produto, quantidade),
-      );
+      await atualizarComTratamento(async () => {
+        carrinhoStore.definir(
+          await carrinhoService.adicionar(produto, quantidade),
+        );
+      });
     },
 
     async alterarQuantidade(produtoId: string, quantidade: number) {
-      carrinhoStore.definir(
-        await carrinhoService.alterarQuantidade(produtoId, quantidade),
-      );
+      await atualizarComTratamento(async () => {
+        carrinhoStore.definir(
+          await carrinhoService.alterarQuantidade(produtoId, quantidade),
+        );
+      });
     },
 
     async remover(produtoId: string) {
-      carrinhoStore.definir(await carrinhoService.remover(produtoId));
+      await atualizarComTratamento(async () => {
+        carrinhoStore.definir(await carrinhoService.remover(produtoId));
+      });
     },
 
     async esvaziar() {
-      carrinhoStore.definir(await carrinhoService.esvaziar());
+      await atualizarComTratamento(async () => {
+        carrinhoStore.definir(await carrinhoService.esvaziar());
+      });
     },
   };
 }

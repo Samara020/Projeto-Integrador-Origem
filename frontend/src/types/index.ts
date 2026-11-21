@@ -83,6 +83,15 @@ export type FiltrosProdutos = {
 // motivo: justificativa do módulo de IA (HU-17). Ausente quando a sugestão vem do baseline.
 export type ProdutoSugerido = ProdutoResumo & {
   motivo?: string;
+  score?: number;
+};
+
+export type FiltrosRecomendacao = {
+  produtoId?: string;
+  categoria?: string;
+  tecnica?: string;
+  regiao?: string;
+  limite?: number;
 };
 
 export type RespostaRecomendacoes = {
@@ -524,7 +533,7 @@ export type RespostaRecuperarSenha = RespostaMensagem & {
 // lacuna: POST /auth/redefinir-senha com o token que chega por e-mail
 export type DadosRedefinirSenha = {
   token: string;
-  senha: string;
+  novaSenha: string;
 };
 
 // Avaliação após a compra (HU-19): POST /avaliacoes

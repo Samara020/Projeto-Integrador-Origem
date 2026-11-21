@@ -21,7 +21,6 @@ import { useCarrinho } from "@/hooks/useCarrinho";
 import { registrarVisita } from "@/hooks/useHistorico";
 import { useProduto } from "@/hooks/useProdutos";
 import { formatarMoeda, formatarNota, plural } from "@/lib/formato";
-import { ApiError } from "@/lib/http";
 import type { Disponibilidade, ModalidadeProducao, ProdutoDetalhe } from "@/types";
 
 const MODALIDADES: Record<ModalidadeProducao, string> = {
@@ -77,13 +76,24 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
         title: "Peça no carrinho",
         description: `${plural(quantidade, "unidade", "unidades")} de ${produto.nome}`,
       });
-    } catch (causa) {
-      toaster.create({
-        type: "error",
-        title: "Não deu para adicionar",
-        description:
-          causa instanceof ApiError ? causa.message : "Tente de novo em instantes.",
-      });
+    } catch (erro) {
+      if (erro instanceof Error && erro.message === "AUTENTICACAO_NECESSARIA") {
+        toaster.create({
+          type: "warning",
+          title: "Entre para adicionar ao carrinho",
+          description: "Você precisa estar logado como comprador.",
+          action: {
+            label: "Entrar",
+            onClick: () => router.push("/entrar"),
+          },
+        });
+      } else {
+        toaster.create({
+          type: "error",
+          title: "Não deu para adicionar",
+          description: "Tente de novo em instantes.",
+        });
+      }
     }
     setAcao(null);
   }
@@ -99,18 +109,6 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
           <dt className="text-tinta-3">Origem</dt>
           <dd className="font-medium text-tinta">{produto.regiao.nome}</dd>
         </div>
-        {produto.material && (
-          <div className="flex gap-2">
-            <dt className="text-tinta-3">Material</dt>
-            <dd className="font-medium text-tinta">{produto.material}</dd>
-          </div>
-        )}
-        {produto.dimensoes && (
-          <div className="flex gap-2">
-            <dt className="text-tinta-3">Dimensões</dt>
-            <dd className="font-medium text-tinta">{produto.dimensoes}</dd>
-          </div>
-        )}
         <div className="flex gap-2">
           <dt className="sr-only">Disponibilidade</dt>
           <dd className={`font-bold ${status.cor}`}>{status.texto}</dd>
@@ -149,7 +147,7 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
             {produto.artesao.nome} e da mesma técnica no catálogo.
           </p>
           <BotaoLink
-            href={`/catalogo?tecnica=${encodeURIComponent(produto.tecnica.id)}`}
+            href={`/catalogo?tecnica=${produto.tecnica.id}`}
             variante="contorno"
           >
             Ver peças de {produto.tecnica.nome.toLowerCase()}
@@ -163,7 +161,6 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
 export function DetalheProduto({ id }: { id: string }) {
   const { dados: produto, carregando, erro, recarregar } = useProduto(id);
 
-  // O dado chega no cliente, então o título da aba é ajustado aqui.
   useEffect(() => {
     if (!produto) return;
     document.title = `${produto.nome} · Origem`;

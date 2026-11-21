@@ -1,10 +1,30 @@
 import { ErroApp } from "../middleware/error";
 import { toId } from "../lib/ids";
 import {
+  seloAtivoDe,
+  statusValidacaoDe,
+  validacoes,
+} from "../lib/memoria";
+import {
+  type ItemCatalogoIA,
+  moduloIaConfigurado,
+  solicitarRecomendacoesIA,
+} from "../lib/modulo-ia";
+import {
   categoriaRepository,
   produtoRepository,
   lojaRepository,
 } from "../repositories";
+
+export type FiltrosRecomendacao = {
+  produtoId?: string;
+  categoria?: string;
+  tecnica?: string;
+  regiao?: string;
+  limite?: number | string;
+};
+
+export type FonteRecomendacao = "ia" | "baseline";
 
 type NovoProduto = {
   nome: string;
@@ -26,27 +46,6 @@ type NovoProduto = {
   capacidadeProducao?: number | null;
 };
 
-type AtualizacaoProduto = Partial<Omit<Pick<
-  NovoProduto,
-  | "nome"
-  | "descricao"
-  | "tecnica"
-  | "preco"
-  | "origem"
-  | "modalidadeProducao"
-  | "material"
-  | "dimensoes"
-  | "informacoesOrigem"
-  | "certificado"
-  | "prazoProducaoDias"
-  | "capacidadeProducao"
-  | "sku"
->, "peso" | "sku">> & {
-  pecaUnica?: boolean;
-  peso?: number;
-  sku?: string;
-};
-
 const PLACEHOLDER = "https://storage.sistemaorigem.com/placeholder.jpg";
 
 const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDisponivel ?? 0;
@@ -54,7 +53,7 @@ const quantidadeDe = (produto: any): number => produto.estoque?.quantidadeDispon
 const skuDe = (id: number) => "ORG-" + String(id).padStart(6, "0");
 
 const disponibilidadeDe = (produto: any) =>
-  quantidadeDe(produto) > 0 && !produto.pausado ? "DISPONIVEL" : "VENDIDO";
+  quantidadeDe(produto) > 0 ? "DISPONIVEL" : "VENDIDO";
 
 const situacaoDe = (quantidade: number, pausado = false) =>
   pausado
@@ -64,6 +63,159 @@ const situacaoDe = (quantidade: number, pausado = false) =>
       : quantidade < 5
         ? "ESTOQUE_BAIXO"
         : "ATIVO";
+
+const LIMITE_RECOMENDACAO_PADRAO = 4;
+const LIMITE_RECOMENDACAO_MAXIMO = 20;
+
+const PESOS_RECOMENDACAO = {
+  category: 0.5,
+  technique: 0.3,
+  region: 0.2,
+} as const;
+
+type AtributoRecomendacao = keyof typeof PESOS_RECOMENDACAO;
+
+type ContextoRecomendacao = Partial<Record<AtributoRecomendacao, string>>;
+
+const normalizarTexto = (valor?: unknown): string | undefined => {
+  if (typeof valor !== "string") return undefined;
+  const limpo = valor.trim();
+  return limpo.length > 0 ? limpo : undefined;
+};
+
+const normalizarLimiteRecomendacao = (valor?: number | string): number => {
+  if (valor === undefined || valor === "") return LIMITE_RECOMENDACAO_PADRAO;
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return LIMITE_RECOMENDACAO_PADRAO;
+  return Math.min(
+    Math.max(Math.trunc(numero), 1),
+    LIMITE_RECOMENDACAO_MAXIMO
+  );
+};
+
+const atributosIguais = (a?: string | null, b?: string | null): boolean => {
+  if (!a || !b) return false;
+  return a.trim().toLocaleLowerCase("pt-BR") === b.trim().toLocaleLowerCase("pt-BR");
+};
+
+const paraItemCatalogoIA = (produto: any): ItemCatalogoIA => ({
+  product_id: String(produto.id),
+  name: produto.nome,
+  category: produto.categoria?.nome ?? null,
+  technique: produto.tecnica ?? null,
+  region: produto.origem ?? null,
+  available: quantidadeDe(produto) > 0 && !produto.pausado && !produto.excluido,
+});
+
+const paraProdutoRecomendado = (
+  produto: any,
+  extras?: { motivo?: string; score?: number }
+) => ({
+  id: String(produto.id),
+  nome: produto.nome,
+  preco: Number(produto.preco),
+  imagemPrincipal: produto.imagens?.[0]?.url ?? PLACEHOLDER,
+  tecnica: produto.tecnica,
+  artesao: {
+    id: String(produto.loja?.usuario?.id ?? "1000"),
+    nome: produto.loja?.usuario?.nome ?? "Artesão",
+  },
+  seloAtivo: seloAtivoDe(produto.id),
+  regiao: {
+    id: produto.origem ?? "PE",
+    nome: produto.origem ?? "Pernambuco",
+  },
+  modalidadeProducao: produto.modalidadeProducao ?? "PRONTA_ENTREGA",
+  disponibilidade: disponibilidadeDe(produto),
+  ...(extras?.motivo ? { motivo: extras.motivo } : {}),
+  ...(extras?.score !== undefined ? { score: extras.score } : {}),
+});
+
+const atributoDoProduto = (
+  produto: any,
+  atributo: AtributoRecomendacao
+): string | null => {
+  if (atributo === "category") return produto.categoria?.nome ?? null;
+  if (atributo === "technique") return produto.tecnica ?? null;
+  return produto.origem ?? null;
+};
+
+const calcularScoreBaseline = (
+  contexto: ContextoRecomendacao,
+  candidato: any
+): number => {
+  let score = 0;
+  let pesoTotal = 0;
+
+  for (const [atributo, peso] of Object.entries(PESOS_RECOMENDACAO) as [
+    AtributoRecomendacao,
+    number,
+  ][]) {
+    const valorContexto = contexto[atributo];
+    if (!valorContexto) continue;
+    pesoTotal += peso;
+    if (atributosIguais(valorContexto, atributoDoProduto(candidato, atributo))) {
+      score += peso;
+    }
+  }
+
+  return pesoTotal === 0 ? 0 : Number((score / pesoTotal).toFixed(4));
+};
+
+const recomendarBaseline = (
+  catalogoDisponivel: any[],
+  contexto: ContextoRecomendacao,
+  referenciaId: string | undefined,
+  limite: number
+) => {
+  const candidatos = catalogoDisponivel.filter(
+    (p) => String(p.id) !== referenciaId
+  );
+
+  const estagios: AtributoRecomendacao[][] = contexto.category
+    ? [
+        ["category", "technique", "region"],
+        ["category", "technique"],
+        ["category", "region"],
+        ["category"],
+      ]
+    : [["technique", "region"], ["technique"], ["region"]];
+
+  const selecionados: any[] = [];
+  const idsSelecionados = new Set<string>();
+
+  for (const estagio of estagios) {
+    const compativeis = candidatos
+      .filter((candidato) => {
+        const idTexto = String(candidato.id);
+        if (idsSelecionados.has(idTexto)) return false;
+        return estagio.every((atributo) =>
+          atributosIguais(
+            contexto[atributo],
+            atributoDoProduto(candidato, atributo)
+          )
+        );
+      })
+      .map((candidato) => ({
+        candidato,
+        score: calcularScoreBaseline(contexto, candidato),
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return String(a.candidato.id).localeCompare(String(b.candidato.id));
+      });
+
+    for (const { candidato } of compativeis) {
+      const idTexto = String(candidato.id);
+      if (idsSelecionados.has(idTexto)) continue;
+      idsSelecionados.add(idTexto);
+      selecionados.push(paraProdutoRecomendado(candidato));
+      if (selecionados.length >= limite) return selecionados;
+    }
+  }
+
+  return selecionados;
+};
 
 const dadosDoArtesao = (loja: any) => ({
   id: loja.usuario.id,
@@ -111,14 +263,8 @@ export const produtoService = {
     const [total, itens] = await produtoRepository.listar({
       termo: filtros.termo,
       categoria: filtros.categoria,
-      categoriaId: filtros.categoriaId,
       tecnica: filtros.tecnica,
       regiao: filtros.regiao,
-      origem: filtros.origem,
-      avaliacaoMin:
-        filtros.avaliacaoMin !== undefined && filtros.avaliacaoMin !== ""
-          ? Number(filtros.avaliacaoMin)
-          : undefined,
       disponivel,
       destaque,
       precoMax,
@@ -138,47 +284,33 @@ export const produtoService = {
         preco: Number(produto.preco),
         imagemPrincipal: produto.imagens[0]?.url ?? PLACEHOLDER,
         artesao: dadosDoArtesao(produto.loja),
-        seloAtivo: produto.seloAtivo,
+        seloAtivo: seloAtivoDe(produto.id),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
         disponibilidade: disponibilidadeDe(produto),
-        avaliacaoMedia: produto.avaliacaoMedia ?? 0,
       })),
     };
   },
 
   async buscarPorId(id: string) {
-    const produto = await produtoRepository.buscarPublicoPorId(id);
+    const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-
-    const avaliacoes = (produto as any).avaliacoes ?? [];
-    const notasValidas = avaliacoes.filter((a: any) => a.status === "PUBLICADO");
 
     return {
       id: produto.id,
       nome: produto.nome,
       preco: Number(produto.preco),
       modalidadeProducao: produto.modalidadeProducao,
-      statusValidacao: produto.statusValidacao,
-      seloAtivo: produto.seloAtivo,
+      seloAtivo: seloAtivoDe(produto.id),
       disponibilidade: disponibilidadeDe(produto),
       descricao: produto.descricao ?? "",
       imagens: produto.imagens.map((i: any) => i.url),
       categoria: { id: produto.categoria.id, nome: produto.categoria.nome },
       tecnica: produto.tecnica,
       estoque: quantidadeDe(produto),
-      avaliacaoMedia: notasValidas.length
-        ? Math.round((notasValidas.reduce((s: number, a: any) => s + a.nota, 0) / notasValidas.length) * 10) / 10
-        : 0,
-      totalAvaliacoes: notasValidas.length,
-      dimensoes: produto.dimensoes ?? "",
-      material: produto.material ?? "",
-      peso: Number(produto.peso ?? 0),
-      certificado: produto.certificado ?? null,
-      informacoesOrigem: produto.informacoesOrigem ?? "",
-      prazoProducaoDias: produto.prazoProducaoDias ?? null,
-      capacidadeProducao: produto.capacidadeProducao ?? null,
-      sku: produto.sku ?? skuDe(produto.id),
+      totalAvaliacoes: 0,
+      dimensoes: "",
+      material: "",
       regiao: { id: produto.origem, nome: produto.origem },
       artesao: {
         ...dadosDoArtesao(produto.loja),
@@ -200,42 +332,125 @@ export const produtoService = {
     };
   },
 
-  async recomendados(produtoId: string) {
-    if (!/^\d+$/.test(produtoId)) return { recomendados: [], produtosRecomendados: [], fonte: "baseline" };
-    const produto = await produtoRepository.buscarPorId(produtoId);
-    if (!produto) return { recomendados: [], produtosRecomendados: [], fonte: "baseline" };
-    const catalogo = (await produtoRepository.catalogoParaRecomendacao())
-      .filter(p => p.id !== produto.id && p.statusValidacao === "APROVADA" && (p.estoque?.quantidadeDisponivel ?? 0) > 0);
-    let fonte = "baseline";
-    let selecionados = [...catalogo].sort((a, b) =>
-      Number(b.categoriaId === produto.categoriaId) - Number(a.categoriaId === produto.categoriaId)
-      || Number(b.tecnica === produto.tecnica) - Number(a.tecnica === produto.tecnica) || b.id - a.id).slice(0, 4);
-    const base = process.env.RECOMENDACAO_API_URL;
-    if (base) {
-      try {
-        const resposta = await fetch(base.replace(/\/$/, "") + "/recommendations", {
-          method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": process.env.RECOMENDACAO_API_KEY ?? "" },
-          body: JSON.stringify({ product_id: String(produto.id), category: produto.categoria.nome, technique: produto.tecnica, region: produto.origem, limit: 4 }),
-          signal: AbortSignal.timeout(2000),
-        });
-        if (resposta.ok) {
-          const corpo = await resposta.json() as { recommendations?: { product_id: string }[] };
-          if (Array.isArray(corpo.recommendations)) {
-            const ids = new Set(corpo.recommendations.map(p => String(p.product_id)));
-            const validos = catalogo.filter(p => ids.has(String(p.id)));
-            if (validos.length || corpo.recommendations.length === 0) { selecionados = validos.slice(0, 4); fonte = "ia"; }
-          }
+  async recomendados(entrada: string | FiltrosRecomendacao = {}) {
+    const filtros: FiltrosRecomendacao =
+      typeof entrada === "string" ? { produtoId: entrada } : entrada;
+
+    const produtoId = normalizarTexto(filtros.produtoId);
+    const categoria = normalizarTexto(filtros.categoria);
+    const tecnica = normalizarTexto(filtros.tecnica);
+    const regiao = normalizarTexto(filtros.regiao);
+    const limite = normalizarLimiteRecomendacao(filtros.limite);
+
+    const catalogoBruto = await produtoRepository.catalogoParaRecomendacao();
+    const catalogoAprovado = catalogoBruto.filter(
+      (p: any) => statusValidacaoDe(p.id) === "APROVADA"
+    );
+    const porId = new Map<string, any>(
+      catalogoAprovado.map((p: any) => [String(p.id), p])
+    );
+    const catalogoDisponivel = catalogoAprovado.filter(
+      (p: any) => quantidadeDe(p) > 0
+    );
+
+    let produtoReferencia: any = null;
+    if (produtoId) {
+      produtoReferencia = porId.get(produtoId) ?? null;
+      if (!produtoReferencia) {
+        try {
+          produtoReferencia = await produtoRepository.buscarPorId(produtoId);
+        } catch {
+          // ID inválido: sem produto de referência, retorna lista vazia sem quebrar.
         }
-      } catch { /* O catálogo real fornece o baseline se o módulo não estiver disponível. */ }
+      }
+      if (!produtoReferencia) {
+        return {
+          recomendados: [],
+          produtosRecomendados: [],
+          fonte: "baseline" as FonteRecomendacao,
+        };
+      }
     }
-    const recomendados = selecionados.map(p => ({
-      id: String(p.id), nome: p.nome, preco: Number(p.preco), imagemPrincipal: p.imagens[0]?.url ?? "",
-      tecnica: p.tecnica, artesao: { id: String(p.loja.usuario.id), nome: p.loja.usuario.nome },
-      seloAtivo: p.seloAtivo, regiao: { id: p.origem, nome: p.origem },
-      modalidadeProducao: p.modalidadeProducao, disponibilidade: "DISPONIVEL",
-    }));
-    return { recomendados, produtosRecomendados: recomendados, fonte };
+
+    // Sem produto de referência e sem filtros: retorna peças disponíveis em destaque do catálogo.
+    if (!produtoId && !categoria && !tecnica && !regiao) {
+      const destaques = catalogoDisponivel
+        .slice(0, limite)
+        .map((p: any) => paraProdutoRecomendado(p));
+      return {
+        recomendados: destaques,
+        produtosRecomendados: destaques,
+        fonte: "baseline" as FonteRecomendacao,
+      };
+    }
+
+    const contexto: ContextoRecomendacao = {
+      category: categoria ?? produtoReferencia?.categoria?.nome ?? undefined,
+      technique: tecnica ?? produtoReferencia?.tecnica ?? undefined,
+      region: regiao ?? produtoReferencia?.origem ?? undefined,
+    };
+
+    if (moduloIaConfigurado()) {
+      const itensCatalogoIA: ItemCatalogoIA[] = catalogoAprovado.map(
+        paraItemCatalogoIA
+      );
+      if (produtoReferencia && !porId.has(String(produtoReferencia.id))) {
+        itensCatalogoIA.push({
+          ...paraItemCatalogoIA(produtoReferencia),
+          available: false,
+        });
+      }
+
+      const sugestoesIA = await solicitarRecomendacoesIA({
+        ...(produtoReferencia ? { product_id: String(produtoReferencia.id) } : {}),
+        ...(categoria ? { category: categoria } : {}),
+        ...(tecnica ? { technique: tecnica } : {}),
+        ...(regiao ? { region: regiao } : {}),
+        limit: limite,
+        catalog: itensCatalogoIA,
+      });
+
+      if (sugestoesIA !== null) {
+        const vistos = new Set<string>();
+        const recomendados = sugestoesIA
+          .map((item) => {
+            if (vistos.has(item.product_id)) return null;
+            if (produtoReferencia && item.product_id === String(produtoReferencia.id)) {
+              return null;
+            }
+            const produto = porId.get(item.product_id);
+            if (!produto || quantidadeDe(produto) <= 0) return null;
+            vistos.add(item.product_id);
+            return paraProdutoRecomendado(produto, {
+              motivo: item.reason,
+              score: item.score,
+            });
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+          .slice(0, limite);
+
+        return {
+          recomendados,
+          produtosRecomendados: recomendados,
+          fonte: "ia" as FonteRecomendacao,
+        };
+      }
+    }
+
+    const recomendados = recomendarBaseline(
+      catalogoDisponivel,
+      contexto,
+      produtoReferencia ? String(produtoReferencia.id) : undefined,
+      limite
+    );
+
+    return {
+      recomendados,
+      produtosRecomendados: recomendados,
+      fonte: "baseline" as FonteRecomendacao,
+    };
   },
+
   async criar(dados: NovoProduto, usuarioId: string) {
     let loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
     if (!loja) {
@@ -262,21 +477,20 @@ export const produtoService = {
       lojaId: loja.id,
       imagens: dados.imagens,
       estoque: dados.estoque,
-      material: dados.material,
-      dimensoes: dados.dimensoes,
-      peso: dados.peso ?? 0,
-      certificado: dados.certificado,
-      sku: dados.sku?.trim() || null,
-      informacoesOrigem: dados.informacoesOrigem,
-      prazoProducaoDias: dados.prazoProducaoDias,
-      capacidadeProducao: dados.capacidadeProducao,
     });
 
-    // Novo produto nasce PENDENTE e só entra no catálogo após aprovação durável.
+    // Novo produto aguarda curadoria (estado em memoria; o SQL nao persiste).
+    validacoes.set(produto.id, {
+      status: "PENDENTE",
+      seloAtivo: false,
+      justificativa: null,
+      decididoEm: null,
+    });
+
     return {
       id: produto.id,
-      sku: produto.sku ?? skuDe(produto.id),
-      statusValidacao: produto.statusValidacao,
+      sku: dados.sku ?? skuDe(produto.id),
+      statusValidacao: statusValidacaoDe(produto.id),
       criadoEm: new Date().toISOString(),
     };
   },
@@ -289,48 +503,25 @@ export const produtoService = {
     );
 
     // Somente colunas existentes no SQL; demais campos do corpo sao ignorados.
-    const permitido: AtualizacaoProduto = {
-      ...(dados?.nome !== undefined && { nome: dados.nome }),
-      ...(dados?.descricao !== undefined && { descricao: dados.descricao }),
-      ...(dados?.tecnica !== undefined && { tecnica: dados.tecnica }),
-      ...(dados?.preco !== undefined && { preco: dados.preco }),
-      ...(dados?.origem !== undefined && { origem: dados.origem }),
-      ...(dados?.modalidadeProducao !== undefined && { modalidadeProducao: dados.modalidadeProducao }),
-      ...(dados?.material !== undefined && { material: dados.material }),
-      ...(dados?.dimensoes !== undefined && { dimensoes: dados.dimensoes }),
-      ...(dados?.peso !== undefined && { peso: dados.peso }),
-      ...(dados?.certificado !== undefined && { certificado: dados.certificado }),
-      ...(dados?.informacoesOrigem !== undefined && { informacoesOrigem: dados.informacoesOrigem }),
-      ...(dados?.prazoProducaoDias !== undefined && { prazoProducaoDias: dados.prazoProducaoDias }),
-      ...(dados?.capacidadeProducao !== undefined && { capacidadeProducao: dados.capacidadeProducao }),
-    };
-    if (dados?.sku !== undefined) {
-      if (typeof dados.sku !== "string" || !dados.sku.trim()) {
-        throw new ErroApp(400, "O SKU deve ser um texto não vazio.");
-      }
-      permitido.sku = dados.sku.trim();
+    const permitido: Record<string, unknown> = {};
+    for (const campo of ["nome", "descricao", "tecnica", "preco", "origem", "modalidadeProducao"]) {
+      if (dados?.[campo] !== undefined) permitido[campo] = dados[campo];
     }
     if (permitido.modalidadeProducao !== undefined) {
       permitido.pecaUnica = permitido.modalidadeProducao === "PECA_UNICA";
     }
 
-    let estoqueNovo: number | undefined;
-    if (dados?.estoque !== undefined) {
-      if (typeof dados.estoque !== "number" || !Number.isInteger(dados.estoque) || dados.estoque < 0) {
-        throw new ErroApp(400, "A quantidade em estoque deve ser um número inteiro maior ou igual a zero.");
-      }
-      estoqueNovo = dados.estoque;
-    }
-
     const pecaUnica = (permitido.pecaUnica as boolean | undefined) ?? produto.pecaUnica;
-    validarPecaUnica(pecaUnica, estoqueNovo ?? quantidadeDe(produto));
+    validarPecaUnica(pecaUnica, dados?.estoque ?? quantidadeDe(produto));
 
-    const atualizado = await produtoRepository.atualizarComEstoque(id, permitido, estoqueNovo);
+    const atualizado = await produtoRepository.atualizar(id, permitido);
+    if (dados?.estoque !== undefined) {
+      await produtoRepository.atualizarEstoque(id, Number(dados.estoque));
+    }
 
     return {
       id: atualizado.id,
       preco: Number(atualizado.preco),
-      sku: atualizado.sku,
       atualizadoEm: new Date().toISOString(),
     };
   },
@@ -387,7 +578,7 @@ export const produtoService = {
     const itens = produtosFiltrados.map((p: any) => ({
       id: p.id,
       nome: p.nome,
-      sku: p.sku ?? skuDe(p.id),
+      sku: skuDe(p.id),
       imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
       estoque: quantidadeDe(p),
       situacao: situacaoDe(quantidadeDe(p), p.pausado),
@@ -442,53 +633,47 @@ export const produtoService = {
   async listarPendentes(filtros: { status?: string }) {
     const todos = await produtoRepository.listarTodos();
     const produtos = todos.filter(
-      (p: any) => !filtros.status || p.statusValidacao === filtros.status
+      (p: any) => !filtros.status || statusValidacaoDe(p.id) === filtros.status
     );
 
     return {
       total: produtos.length,
-      itens: produtos.map((p: any) => ({
-        id: p.id,
-        nome: p.nome,
-        imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
-        artesao: dadosDoArtesao(p.loja),
-        tecnica: p.tecnica,
-        regiao: p.origem,
-        enviadoEm: p.enviadoEm ?? null,
-        informacoesOrigem: p.informacoesOrigem ?? "",
-        certificado: p.certificado ?? null,
-        material: p.material ?? "",
-        dimensoes: p.dimensoes ?? "",
-        peso: Number(p.peso ?? 0),
-        prazoProducaoDias: p.prazoProducaoDias ?? null,
-        capacidadeProducao: p.capacidadeProducao ?? null,
-        statusValidacao: p.statusValidacao,
-        justificativa: p.justificativaValidacao ?? null,
-        decididoEm: p.decididoEm ?? null,
-        decididoPorId: p.decididoPorId ?? null,
-      })),
+      itens: produtos.map((p: any) => {
+        const decisao = validacoes.get(p.id);
+        return {
+          id: p.id,
+          nome: p.nome,
+          imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
+          artesao: dadosDoArtesao(p.loja),
+          tecnica: p.tecnica,
+          regiao: p.origem,
+          enviadoEm: null,
+          informacoesOrigem: "",
+          certificado: null,
+          statusValidacao: statusValidacaoDe(p.id),
+          justificativa: decisao?.justificativa ?? null,
+          decididoEm: decisao?.decididoEm ?? null,
+        };
+      }),
     };
   },
 
-  async validar(id: string, dados: { status: "APROVADA" | "REPROVADA"; justificativa: string }, usuarioId: string) {
-    if (!["APROVADA", "REPROVADA"].includes(dados.status)) throw new ErroApp(400, "Decisão de validação inválida.");
-    if (dados.status === "REPROVADA" && (dados.justificativa?.trim().length ?? 0) < 10) throw new ErroApp(400, "Explique o motivo da reprovação em pelo menos 10 caracteres.");
+  async validar(id: string, dados: { status: "APROVADA" | "REPROVADA"; justificativa: string }) {
     const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
+    // Decisao de curadoria so existe em memoria (o SQL nao tem coluna para ela).
     const decisao = {
-      statusValidacao: dados.status,
+      status: dados.status,
       seloAtivo: dados.status === "APROVADA",
       justificativa: dados.justificativa ?? null,
       decididoEm: new Date(),
-      decididoPorId: toId(usuarioId),
     };
-    const atualizada = await produtoRepository.atualizarValidacao(id, decisao);
-    if (atualizada.count !== 1) throw new ErroApp(409, "Esta peça já foi avaliada.");
+    validacoes.set(toId(id), decisao);
 
     return {
       id: produto.id,
-      statusValidacao: decisao.statusValidacao,
+      statusValidacao: decisao.status,
       seloAtivo: decisao.seloAtivo,
     };
   },

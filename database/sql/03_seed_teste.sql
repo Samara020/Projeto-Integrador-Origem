@@ -1,4 +1,3 @@
-
 BEGIN;
 
 INSERT INTO categoria (id_categoria, nome, descricao)
@@ -8,13 +7,13 @@ INSERT INTO usuario
     (id_usuario, nome, email, senha, telefone, usuario_tipo)
 VALUES
     (9001, 'Comprador Teste', 'comprador.teste@example.com',
-     'senha_ficticia_teste', '81999990001', 'COMPRADOR');
+     '$2a$12$XZS04IjymcUs4910YRcqJONBL1mvLusxmyD5ZwtczpIzg.8WmEo2q', '81999990001', 'COMPRADOR');
 
 INSERT INTO usuario
     (id_usuario, nome, email, senha, telefone, usuario_tipo)
 VALUES
     (9002, 'Artesão Teste', 'artesao.teste@example.com',
-     'senha_ficticia_teste', '81999990002', 'VENDEDOR');
+     '$2a$12$XZS04IjymcUs4910YRcqJONBL1mvLusxmyD5ZwtczpIzg.8WmEo2q', '81999990002', 'VENDEDOR');
 
 INSERT INTO loja (id_loja, nome, descricao, fk_usuario_id_usuario)
 VALUES

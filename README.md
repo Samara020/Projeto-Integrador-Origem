@@ -467,13 +467,16 @@ Requisito: Docker com Compose v2.
 ```bash
 git clone https://github.com/Samara020/Projeto-Integrador-Origem.git
 cd Projeto-Integrador-Origem
+cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 docker compose up --build
 ```
 
 - Frontend: http://localhost:3000
+- Backend (API principal): http://localhost:4000 (health: `/health`)
 - Módulo de IA: http://localhost:3001 (health: `/readyz`)
+- PostgreSQL: `localhost:5433`
 
-O frontend só sobe depois que o módulo de IA responde ao healthcheck (`depends_on: service_healthy`).
+O backend aguarda o PostgreSQL ficar saudável (`depends_on: service_healthy`) e integra `GET /produtos/recomendacoes` ao módulo de IA (com fallback automático em caso de indisponibilidade). O frontend só sobe depois que o backend responde ao healthcheck.
 
 ### Testes
 

@@ -1,18 +1,17 @@
 import { http } from "@/lib/http";
 import type {
   FiltrosProdutos,
+  FiltrosRecomendacao,
   Paginado,
   ProdutoDetalhe,
   ProdutoResumo,
+  ProdutoSugerido,
   RespostaAvaliacoes,
   RespostaRecomendacoes,
 } from "@/types";
 
-type ImagemItem = string | { url?: string };
-
-type ProdutoApiResposta = Omit<ProdutoDetalhe, "imagens"> & {
+type ProdutoApiResposta = ProdutoDetalhe & {
   origem?: string;
-  imagens?: ImagemItem[];
 };
 
 export const produtosService = {
@@ -37,29 +36,13 @@ export const produtosService = {
         sinal,
       },
     );
-    const primeiraImagem =
-      Array.isArray(p.imagens) && p.imagens.length > 0
-        ? typeof p.imagens[0] === "string"
-          ? p.imagens[0]
-          : (p.imagens[0]?.url ?? "")
-        : "";
-
     return {
       ...p,
-      imagemPrincipal: p.imagemPrincipal ?? primeiraImagem,
-      descricao: p.descricao ?? "",
-      material: p.material ?? "",
-      dimensoes: p.dimensoes ?? "",
-      estoque: typeof p.estoque === "number" ? p.estoque : 0,
-      totalAvaliacoes: typeof p.totalAvaliacoes === "number" ? p.totalAvaliacoes : 0,
-      categoria:
-        typeof p.categoria === "string"
-          ? { id: p.categoria, nome: p.categoria }
-          : (p.categoria ?? { id: "geral", nome: "Geral" }),
+      imagemPrincipal: p.imagemPrincipal ?? p.imagens?.[0] ?? "",
       tecnica:
         typeof p.tecnica === "string"
           ? { id: p.tecnica, nome: p.tecnica }
-          : (p.tecnica ?? { id: "geral", nome: "Geral" }),
+          : p.tecnica,
       regiao:
         typeof p.regiao === "string"
           ? { id: p.regiao, nome: p.regiao }
@@ -69,30 +52,36 @@ export const produtosService = {
             }),
       disponibilidade:
         p.disponibilidade ?? ((p.estoque ?? 0) > 0 ? "DISPONIVEL" : "VENDIDO"),
-      imagens: Array.isArray(p.imagens) && p.imagens.length > 0
-        ? p.imagens.map((img) => typeof img === "string" ? img : img?.url ?? "")
-        : p.imagemPrincipal ? [p.imagemPrincipal] : [],
       artesao: {
-        id: String(p.artesao?.id ?? "1000"),
+        id: p.artesao?.id ?? "1000",
         nome: p.artesao?.nome ?? "Artesão",
         cidade:
           p.artesao?.cidade ??
-          (typeof p.regiao === "object" && p.regiao ? p.regiao.nome : typeof p.origem === "string" ? p.origem : "Pernambuco"),
+          (typeof p.regiao === "object" && p.regiao ? p.regiao.nome : "Pernambuco"),
         loja: p.artesao?.loja ?? p.artesao?.nome ?? "Ateliê",
       },
     };
   },
 
   async recomendados(
-    produtoId: string,
+    entrada: string | FiltrosRecomendacao,
     sinal?: AbortSignal,
   ): Promise<RespostaRecomendacoes> {
+    const filtros: FiltrosRecomendacao =
+      typeof entrada === "string" ? { produtoId: entrada } : entrada;
+
     const res = await http<
       | RespostaRecomendacoes
       | { produtosRecomendados?: unknown[] }
       | unknown[]
     >("/produtos/recomendacoes", {
-      parametros: { produtoId },
+      parametros: {
+        produtoId: filtros.produtoId,
+        categoria: filtros.categoria,
+        tecnica: filtros.tecnica,
+        regiao: filtros.regiao,
+        limite: filtros.limite,
+      },
       sinal,
     });
 
@@ -107,50 +96,61 @@ export const produtosService = {
             : []
         : [];
 
-    return {
-      recomendados: listaBruta
-        .map((item) => {
-          const p = item as Record<string, unknown>;
-          return {
-            id: String(p.id ?? ""),
-            nome: String(p.nome ?? ""),
-            preco: Number(p.preco ?? 0),
-            imagemPrincipal: String(
-              p.imagemPrincipal ??
-                (Array.isArray(p.imagens) && p.imagens.length > 0
-                  ? String((p.imagens[0] as { url?: string })?.url ?? "")
-                  : undefined) ??
-                "",
-            ),
-            artesao:
-              p.artesao && typeof p.artesao === "object"
-                ? {
-                    id: String((p.artesao as { id?: string | number }).id ?? "1000"),
-                    nome: String((p.artesao as { nome?: string }).nome ?? "Artesão"),
-                  }
-                : { id: "1000", nome: "Artesão" },
-            seloAtivo: Boolean(p.seloAtivo),
-            regiao:
-              typeof p.regiao === "string"
-                ? { id: p.regiao, nome: p.regiao }
-                : (p.regiao as { id: string; nome: string } | undefined) ?? {
-                    id: "",
-                    nome: "",
-                  },
-            disponibilidade:
-              ((p.disponibilidade as string) ?? "DISPONIVEL") as
-                | "DISPONIVEL"
-                | "RESERVADO"
-                | "VENDIDO",
-            modalidadeProducao:
-              (p.modalidadeProducao as "PRONTA_ENTREGA" | "SOB_ENCOMENDA" | "PECA_UNICA") ??
-              "PRONTA_ENTREGA",
-            motivo: typeof p.motivo === "string" ? p.motivo : undefined,
-            avaliacaoMedia: typeof p.avaliacaoMedia === "number" ? p.avaliacaoMedia : 0,
-          };
-        })
-        .filter((item) => item.disponibilidade === "DISPONIVEL"),
-    };
+    const recomendados = listaBruta
+      .map((item): ProdutoSugerido | null => {
+        if (!item || typeof item !== "object") return null;
+        const p = item as Record<string, unknown>;
+        const id = String(p.id ?? "").trim();
+        const nome = String(p.nome ?? "").trim();
+        if (!id || !nome) return null;
+
+        const disponibilidade =
+          ((p.disponibilidade as string) ?? "DISPONIVEL") as
+            | "DISPONIVEL"
+            | "RESERVADO"
+            | "VENDIDO";
+        if (disponibilidade !== "DISPONIVEL") return null;
+
+        return {
+          id,
+          nome,
+          preco: Number(p.preco ?? 0),
+          imagemPrincipal: String(
+            p.imagemPrincipal ??
+              (Array.isArray(p.imagens) && p.imagens.length > 0
+                ? String((p.imagens[0] as { url?: string })?.url ?? "")
+                : undefined) ??
+              "/produtos/vaso-ceramica.jpg",
+          ),
+          artesao:
+            p.artesao && typeof p.artesao === "object"
+              ? {
+                  id: String((p.artesao as { id?: string | number }).id ?? "1000"),
+                  nome: String((p.artesao as { nome?: string }).nome ?? "Artesão"),
+                }
+              : { id: "1000", nome: "Artesão" },
+          seloAtivo: Boolean(p.seloAtivo),
+          regiao:
+            typeof p.regiao === "string"
+              ? { id: p.regiao, nome: p.regiao }
+              : (p.regiao as { id: string; nome: string } | undefined) ?? {
+                  id: "PE",
+                  nome: "Pernambuco",
+                },
+          disponibilidade,
+          modalidadeProducao:
+            (p.modalidadeProducao as
+              | "PRONTA_ENTREGA"
+              | "SOB_ENCOMENDA"
+              | "PECA_UNICA") ?? "PRONTA_ENTREGA",
+          motivo: typeof p.motivo === "string" && p.motivo.trim() ? p.motivo : undefined,
+          score: typeof p.score === "number" ? p.score : undefined,
+          avaliacaoMedia: Number(p.avaliacaoMedia ?? 0),
+        };
+      })
+      .filter((item): item is ProdutoSugerido => item !== null);
+
+    return { recomendados };
   },
 
   avaliacoes(id: string, sinal?: AbortSignal) {

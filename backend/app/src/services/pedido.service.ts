@@ -1,4 +1,4 @@
-import { ErroApp } from "../middleware/error";
+﻿import { ErroApp } from "../middleware/error";
 import {
   carrinhoRepository,
   pedidoRepository,
@@ -30,7 +30,6 @@ export const pedidoService = {
   async checkout(
     usuarioId: string,
     dados: {
-      opcaoEnvioId?: string;
       enderecoEntrega: {
         cep: string;
         rua: string;
@@ -42,12 +41,11 @@ export const pedidoService = {
     }
   ) {
     const carrinho = await carrinhoRepository.buscarPorUsuarioId(usuarioId);
-    if (!carrinho) {
+    if (!carrinho || carrinho.itens.length === 0) {
       throw new ErroApp(400, "Carrinho vazio.");
     }
 
     const e = dados.enderecoEntrega;
-    // O SQL exige bairro, cidade e CPF; sem eles no payload, usa valores neutros.
     const endereco = {
       logradouro: `${e.rua}, ${e.numero} - CEP ${e.cep}`,
       bairro: e.bairro ?? "Nao informado",
@@ -55,18 +53,25 @@ export const pedidoService = {
       cpf: e.cpf ?? "00000000000",
     };
 
-    const resultado = await pedidoRepository.criarCheckout({
+    const itens = carrinho.itens.map((item: any) => ({
+      produtoId: item.produtoId,
+      quantidade: item.quantidade,
+      precoUnitario: item.precoUnitario,
+      subtotal: Number(item.precoUnitario) * item.quantidade,
+    }));
+    const valorTotal = itens.reduce((soma: number, item: any) => soma + item.subtotal, 0);
+
+    const pedido = await pedidoRepository.criarCheckout({
       usuarioId,
       carrinhoId: carrinho.id,
       endereco,
-      opcaoEnvioId: dados.opcaoEnvioId,
+      itens,
     });
 
     return {
-      pedidoId: resultado.pedido.id,
-      status: resultado.pedido.status,
-      valorTotal: resultado.valorTotal,
-      valorFrete: resultado.valorFrete,
+      pedidoId: pedido.id,
+      status: pedido.status,
+      valorTotal,
     };
   },
 
@@ -76,7 +81,7 @@ export const pedidoService = {
     return {
       id: p.id,
       status: p.status,
-      valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0) + Number(p.valorFrete),
+      valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0),
       criadoEm: p.data,
       itens: p.itens.map((i: any) => ({
         produtoId: i.produtoId,
@@ -103,7 +108,7 @@ export const pedidoService = {
       pedidos: pedidos.map((p: any) => ({
         id: p.id,
         status: p.status,
-        valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0) + Number(p.valorFrete),
+        valorTotal: p.itens.reduce((s: number, i: any) => s + Number(i.subtotal), 0),
         criadoEm: p.data,
         itens: p.itens.map((i: any) => ({
           produtoId: i.produtoId,
@@ -129,7 +134,7 @@ export const pedidoService = {
         const itensDaLoja = p.itens.filter(
           (i: any) => !i.produto?.lojaId || Number(i.produto.lojaId) === Number(loja.id)
         );
-        const rastreio = pedidoRepository.extrairRastreio(p.historico);
+        const rastreio = pedidoRepository.extrairRastreio(p.historico, loja.id);
         const statusProducao = p.status === "PAGO" ? "NOVO" : p.status;
         const local = p.enderecoEntrega?.cidade
           ? `${p.enderecoEntrega.cidade}, PE`
@@ -164,8 +169,22 @@ export const pedidoService = {
   ) {
     const { lojaRepository } = await import("../repositories/loja.repository");
     const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
-    const pedido = loja ? await pedidoRepository.buscarDaLoja(id, loja.id) : null;
+    const pedido: any = loja ? await pedidoRepository.buscarDaLoja(id, loja.id) : null;
     if (!pedido) throw new ErroApp(404, "Pedido nao encontrado.");
+
+    const lojasDistintas = new Set(
+      (pedido.itens ?? [])
+        .map((i: any) => i.produto?.lojaId)
+        .filter((lojaId: any) => lojaId !== undefined && lojaId !== null)
+        .map((lojaId: any) => Number(lojaId))
+    );
+
+    if (lojasDistintas.size > 1) {
+      throw new ErroApp(
+        409,
+        "Pedido com itens de múltiplas lojas não permite alteração global por uma única loja."
+      );
+    }
 
     if (STATUS_FINAIS.includes(pedido.status)) {
       throw new ErroApp(409, `Pedido ja esta ${pedido.status} e nao pode mais ser alterado.`);
@@ -184,6 +203,7 @@ export const pedidoService = {
     return pedidoRepository.atualizarStatus(pedido.id, {
       status: dados.statusProducao,
       codigoRastreio: dados.codigoRastreio ?? null,
+      lojaId: loja!.id,
     });
   },
 };

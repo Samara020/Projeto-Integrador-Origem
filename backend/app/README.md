@@ -30,6 +30,9 @@ JWT_SECRET="chave_secreta_mude_em_producao"
 JWT_EXPIRES_IN="7d"
 PORT=4000
 CORS_ORIGIN=http://localhost:3000
+RECOMENDACAO_API_URL="http://localhost:3001"
+RECOMENDACAO_API_KEY="origem-mockup-key"
+RECOMENDACAO_TIMEOUT_MS=2000
 ```
 
 | Variável | Descrição | Padrão |
@@ -41,6 +44,9 @@ CORS_ORIGIN=http://localhost:3000
 | `JWT_EXPIRES_IN` | Expiração do token | `7d` |
 | `PORT` | Porta da API | `4000` |
 | `CORS_ORIGIN` | Origem permitida pelo CORS | `http://localhost:3000` |
+| `RECOMENDACAO_API_URL` | URL do serviço de IA (`modulo-ia`, BentoML). Sem ela, usa baseline local | `""` |
+| `RECOMENDACAO_API_KEY` | Chave enviada no cabeçalho `X-API-Key` ao `modulo-ia` | `origem-mockup-key` |
+| `RECOMENDACAO_TIMEOUT_MS` | Timeout (ms) da chamada ao `modulo-ia` antes do fallback | `2000` |
 
 ---
 
