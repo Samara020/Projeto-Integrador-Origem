@@ -45,6 +45,6 @@ export const authService = {
     return http<RespostaMensagem>("/auth/recuperar-senha", { metodo: "POST", corpo: dados });
   },
   redefinirSenha(dados: DadosRedefinirSenha) {
-    return http<RespostaMensagem>("/auth/redefinir-senha", { metodo: "POST", corpo: dados });
+    return http<RespostaMensagem>("/auth/redefinir-senha", { metodo: "POST", corpo: { token: dados.token, novaSenha: dados.novaSenha } });
   },
 };

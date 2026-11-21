@@ -33,7 +33,7 @@ services:
     environment:
       # Se a senha tiver caracteres especiais (@ : / ? # %), codifique-os na URL (percent-encoding).
       DATABASE_URL: postgresql://origem_user:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}@postgres:5432/origem_db
-      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env}
       JWT_EXPIRES_IN: 7d
       PORT: "4000"
       CORS_ORIGIN: http://localhost:3000

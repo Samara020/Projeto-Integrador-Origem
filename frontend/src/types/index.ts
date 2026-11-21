@@ -520,7 +520,7 @@ export type DadosRecuperarSenha = {
 // lacuna: POST /auth/redefinir-senha com o token que chega por e-mail
 export type DadosRedefinirSenha = {
   token: string;
-  senha: string;
+  novaSenha: string;
 };
 
 // Avaliação após a compra (HU-19): POST /avaliacoes

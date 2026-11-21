@@ -1,4 +1,4 @@
-### Isso não é o resultado definitivo do contrato de API
+﻿### Isso não é o resultado definitivo do contrato de API
 
 # Modelo de Contrato de API Completo - Sistema Origem
 
@@ -27,7 +27,7 @@ Este documento estabelece o contrato de API RESTful completo para o **Sistema Or
 ### 2.1. Módulo: Identidade, Segurança e Acesso (HU-01)
 
 #### POST /auth/register
-Cadastra um novo usuário no sistema.
+Cadastra um novo usuário no sistema. Valida tipos, `nome` não vazio com pelo menos 2 caracteres após `trim`, formato de `email`, `senha` com mínimo de 8 caracteres (armazenada exclusivamente com hash `bcrypt` custo 12) e `papel` válido.
 
 ```json
 {
@@ -51,7 +51,7 @@ Cadastra um novo usuário no sistema.
 *Proposta do frontend (lacuna):* para `"papel": "ADMINISTRADOR"`, o corpo leva também `"codigoConvite"`, o código que a equipe entrega a quem vai administrar. Sem código válido, a resposta é `403 Forbidden` com `{ "mensagem": "Código de convite inválido." }`. Comprador e artesão não enviam o campo.
 
 #### POST /auth/login
-Autentica o usuário e emite o token de sessão.
+Autentica o usuário e emite o token de sessão JWT.
 
 ```json
 {
@@ -72,6 +72,16 @@ Autentica o usuário e emite o token de sessão.
 }
 ```
 
+#### POST /auth/logout
+Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
+
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Sessão encerrada com sucesso."
+}
+```
+
 #### POST /auth/recuperar-senha
 Solicita o envio de instrução/token para redefinição de senha.
 
@@ -86,6 +96,23 @@ Solicita o envio de instrução/token para redefinição de senha.
   "mensagem": "E-mail de recuperação enviado com sucesso."
 }
 ```
+
+#### POST /auth/redefinir-senha
+Define uma nova senha a partir do token de recuperação emitido para o usuário. A nova senha passa a ser armazenada com hash `bcrypt` custo 12.
+
+```json
+{
+  "token": "tok_recuperacao_123",
+  "novaSenha": "novaSenhaSegura123"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Senha redefinida com sucesso."
+}
+```
+*Erros:* `400 Bad Request` quando o token ou a nova senha (mínimo 8 caracteres) forem inválidos; `401 Unauthorized` quando o token de recuperação estiver expirado ou já utilizado.
 
 ---
 

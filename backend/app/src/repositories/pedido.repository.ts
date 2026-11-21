@@ -5,17 +5,13 @@ import { ErroApp } from "../middleware/error";
 const PREFIXO_RASTREIO = "Rastreio: ";
 
 export const pedidoRepository = {
-  /**
-   * Checkout atomico: valida e baixa o estoque, grava endereco, pedido, itens e
-   * historico e esvazia o carrinho. Qualquer falha desfaz tudo (rollback).
-   */
   criarCheckout(dados: {
     usuarioId: Id;
     carrinhoId: Id;
     endereco: { logradouro: string; bairro: string; cidade: string; cpf: string };
     itens: { produtoId: Id; quantidade: number; precoUnitario: any; subtotal: any }[];
   }) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       for (const item of dados.itens) {
         const baixa = await tx.estoque.updateMany({
           where: {
@@ -60,7 +56,6 @@ export const pedidoRepository = {
     });
   },
 
-  /** Pedido do comprador com itens, produto, historico e endereco de entrega. */
   buscarDetalhePorUsuario(id: Id, usuarioId: Id) {
     return prisma.pedido.findFirst({
       where: { id: toId(id), usuarioId: toId(usuarioId) },
@@ -75,10 +70,14 @@ export const pedidoRepository = {
     });
   },
 
-  /** Pedido que contem ao menos um item da loja informada. */
   buscarDaLoja(id: Id, lojaId: Id) {
     return prisma.pedido.findFirst({
       where: { id: toId(id), itens: { some: { produto: { lojaId: toId(lojaId) } } } },
+      include: {
+        itens: {
+          include: { produto: { select: { lojaId: true } } },
+        },
+      },
     });
   },
 
@@ -117,10 +116,9 @@ export const pedidoRepository = {
     });
   },
 
-  /** O SQL nao tem coluna de rastreio: o codigo fica no historico do pedido. */
-  async atualizarStatus(id: Id, dados: { status: string; codigoRastreio?: string | null }) {
+  async atualizarStatus(id: Id, dados: { status: string; codigoRastreio?: string | null; lojaId?: Id }) {
     const pedidoId = toId(id);
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       const pedidoAnterior = await tx.pedido.findUnique({
         where: { id: pedidoId },
         include: { itens: true },
@@ -134,16 +132,16 @@ export const pedidoRepository = {
         data: { status: dados.status },
       });
 
+      const prefixoLoja = dados.lojaId !== undefined ? `[Loja ${dados.lojaId}] ` : "";
       await tx.historicoPedido.create({
         data: {
           pedidoId,
           status: dados.status,
-          observacao: dados.codigoRastreio ? PREFIXO_RASTREIO + dados.codigoRastreio : null,
+          observacao: dados.codigoRastreio ? `${prefixoLoja}${PREFIXO_RASTREIO}${dados.codigoRastreio}` : null,
           data: new Date(),
         },
       });
 
-      // Se o pedido for cancelado, restaura as quantidades no estoque
       if (dados.status === "CANCELADO" && pedidoAnterior.status !== "CANCELADO") {
         for (const item of pedidoAnterior.itens) {
           await tx.estoque.updateMany({
@@ -161,8 +159,15 @@ export const pedidoRepository = {
     });
   },
 
-  extrairRastreio(historico: { observacao: string | null }[]): string | null {
-    const h = historico.find((x) => x.observacao?.startsWith(PREFIXO_RASTREIO));
-    return h ? h.observacao!.slice(PREFIXO_RASTREIO.length) : null;
+  extrairRastreio(historico: { observacao: string | null }[], lojaId?: Id): string | null {
+    if (lojaId !== undefined) {
+      const tagLoja = `[Loja ${lojaId}] ${PREFIXO_RASTREIO}`;
+      const hLoja = historico.find((x) => x.observacao?.startsWith(tagLoja));
+      if (hLoja) return hLoja.observacao!.slice(tagLoja.length);
+    }
+    const h = historico.find((x) => x.observacao?.includes(PREFIXO_RASTREIO));
+    if (!h?.observacao) return null;
+    const idx = h.observacao.indexOf(PREFIXO_RASTREIO);
+    return h.observacao.slice(idx + PREFIXO_RASTREIO.length);
   },
 };

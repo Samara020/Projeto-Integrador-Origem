@@ -62,7 +62,7 @@ export function FormularioRecuperacao() {
     setEnviando(true);
     setFalha(null);
     try {
-      const resposta = await authService.redefinirSenha({ token, senha });
+      const resposta = await authService.redefinirSenha({ token, novaSenha: senha });
       toaster.create({ type: "success", title: "Senha alterada", description: resposta.mensagem });
       router.push("/entrar");
     } catch (causa) {

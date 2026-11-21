@@ -1,62 +1,93 @@
 import { Router } from "express";
-import { AuthController } from "../controllers/auth.controller";
-import { verificarToken } from "../lib/jwt";
-import { autenticar, revogarToken } from "../middleware/auth";
+import { verify, type JwtPayload } from "jsonwebtoken";
+import { revogarToken } from "../lib/revogacao-token";
+import { autenticar } from "../middleware/auth";
 import { ErroApp } from "../middleware/error";
+import { authService } from "../services/auth.service";
 
-const router = Router();
-const controller = new AuthController();
-
+const roteador = Router();
 const PAPEIS_VALIDOS = ["COMPRADOR", "ARTESAO", "ADMINISTRADOR"];
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-router.post("/register", (req, res, next) => {
-  const corpo = req.body;
-  if (!corpo || typeof corpo !== "object" || !corpo.nome || !corpo.email || !corpo.senha) {
-    throw new ErroApp(400, "Preencha nome, e-mail e senha.");
+roteador.post("/register", async (req, res, next) => {
+  try {
+    const corpo = req.body ?? {};
+    if (typeof corpo.nome !== "string" || corpo.nome.trim().length < 2) {
+      throw new ErroApp(400, "Informe um nome válido com pelo menos 2 caracteres.");
+    }
+    if (typeof corpo.email !== "string" || !EMAIL_VALIDO.test(corpo.email.trim())) {
+      throw new ErroApp(400, "Informe um endereço de e-mail válido.");
+    }
+    if (typeof corpo.senha !== "string" || corpo.senha.length < 8) {
+      throw new ErroApp(400, "A senha precisa ter pelo menos 8 caracteres.");
+    }
+    if (typeof corpo.papel !== "string" || !PAPEIS_VALIDOS.includes(corpo.papel)) {
+      throw new ErroApp(400, "Papel inválido.");
+    }
+    if (corpo.codigoConvite !== undefined && typeof corpo.codigoConvite !== "string") {
+      throw new ErroApp(400, "Código de convite inválido.");
+    }
+
+    const resultado = await authService.cadastrar(corpo);
+    res.status(201).json(resultado);
+  } catch (erro) {
+    next(erro);
   }
-  if (typeof corpo.nome !== "string" || corpo.nome.trim().length < 2) {
-    throw new ErroApp(400, "Informe um nome válido com pelo menos 2 caracteres.");
-  }
-  if (typeof corpo.email !== "string" || !EMAIL_VALIDO.test(corpo.email.trim())) {
-    throw new ErroApp(400, "Informe um endereço de e-mail válido.");
-  }
-  if (typeof corpo.senha !== "string" || corpo.senha.length < 8) {
-    throw new ErroApp(400, "A senha precisa ter pelo menos 8 caracteres.");
-  }
-  if (typeof corpo.papel !== "string" || !PAPEIS_VALIDOS.includes(corpo.papel)) {
-    throw new ErroApp(400, "Escolha se você é comprador, artesão ou administrador.");
-  }
-  if (corpo.codigoConvite !== undefined && typeof corpo.codigoConvite !== "string") {
-    throw new ErroApp(400, "Código de convite inválido.");
-  }
-  return controller.cadastrar(req, res).catch(next);
 });
 
-router.post("/login", (req, res, next) => {
-  const corpo = req.body;
-  if (
-    !corpo ||
-    typeof corpo !== "object" ||
-    typeof corpo.email !== "string" ||
-    typeof corpo.senha !== "string" ||
-    !corpo.email.trim() ||
-    !corpo.senha
-  ) {
-    throw new ErroApp(400, "Informe e-mail e senha.");
+roteador.post("/login", async (req, res, next) => {
+  try {
+    const { email, senha } = req.body ?? {};
+    if (typeof email !== "string" || typeof senha !== "string" || !email.trim() || !senha) {
+      throw new ErroApp(400, "Informe e-mail e senha.");
+    }
+    const resultado = await authService.login({ email, senha });
+    res.json(resultado);
+  } catch (erro) {
+    next(erro);
   }
-  return controller.login(req, res).catch(next);
 });
 
-router.post("/logout", autenticar, (req, res) => {
-  const token = req.headers.authorization!.slice(7);
-  const decodido = verificarToken(token);
-  revogarToken(token, decodido.exp);
-  return res.status(200).json({ mensagem: "Sessão encerrada com sucesso." });
+roteador.post("/logout", autenticar, async (req, res, next) => {
+  try {
+    if (req.tokenBruto) {
+      const segredo = process.env.JWT_SECRET ?? "";
+      const payload = verify(req.tokenBruto, Buffer.from(segredo)) as JwtPayload;
+      await revogarToken(req.tokenBruto, payload.exp);
+    }
+    res.json({ mensagem: "Sessão encerrada com sucesso." });
+  } catch (erro) {
+    next(erro);
+  }
 });
 
-router.post("/recuperar-senha", (req, res, next) => {
-  return controller.recuperarSenha(req, res).catch(next);
+roteador.post("/recuperar-senha", async (req, res, next) => {
+  try {
+    const { email } = req.body ?? {};
+    if (typeof email !== "string" || !EMAIL_VALIDO.test(email.trim())) {
+      throw new ErroApp(400, "Informe um endereço de e-mail válido.");
+    }
+    const resultado = await authService.recuperarSenha({ email });
+    res.json(resultado);
+  } catch (erro) {
+    next(erro);
+  }
 });
 
-export default router;
+roteador.post("/redefinir-senha", async (req, res, next) => {
+  try {
+    const { token, novaSenha } = req.body ?? {};
+    if (typeof token !== "string" || !token.trim()) {
+      throw new ErroApp(400, "Informe o token de redefinição de senha.");
+    }
+    if (typeof novaSenha !== "string" || novaSenha.length < 8) {
+      throw new ErroApp(400, "A nova senha precisa ter pelo menos 8 caracteres.");
+    }
+    const resultado = await authService.redefinirSenha({ token, novaSenha });
+    res.json(resultado);
+  } catch (erro) {
+    next(erro);
+  }
+});
+
+export default roteador;
