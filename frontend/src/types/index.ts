@@ -83,6 +83,15 @@ export type FiltrosProdutos = {
 // motivo: justificativa do módulo de IA (HU-17). Ausente quando a sugestão vem do baseline.
 export type ProdutoSugerido = ProdutoResumo & {
   motivo?: string;
+  score?: number;
+};
+
+export type FiltrosRecomendacao = {
+  produtoId?: string;
+  categoria?: string;
+  tecnica?: string;
+  regiao?: string;
+  limite?: number;
 };
 
 export type RespostaRecomendacoes = {

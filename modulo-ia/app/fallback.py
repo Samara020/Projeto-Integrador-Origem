@@ -1,5 +1,5 @@
 ﻿from app.catalog import available_products
-from app.recommendation import rank_candidates
+from app.recommendation import attributes_match, rank_candidates
 
 
 FALLBACK_STAGES = [
@@ -10,8 +10,8 @@ FALLBACK_STAGES = [
 ]
 
 
-def select_candidates(context, reference_product_id=None, limit=5):
-    candidates = available_products(reference_product_id)
+def select_candidates(context, reference_product_id=None, limit=5, catalog=None):
+    candidates = available_products(reference_product_id, catalog=catalog)
 
     stages = FALLBACK_STAGES
     if context.get("category") is None:
@@ -29,8 +29,7 @@ def select_candidates(context, reference_product_id=None, limit=5):
                 continue
 
             if all(
-                context.get(attribute) is not None
-                and context.get(attribute) == candidate.get(attribute)
+                attributes_match(context.get(attribute), candidate.get(attribute))
                 for attribute in stage
             ):
                 stage_candidates.append(candidate)

@@ -106,3 +106,57 @@ def test_recomendacoes_http_por_filtro_sem_categoria(filtros, esperados, motivo)
     assert {item["product_id"] for item in recomendacoes} == esperados
     assert all(item["score"] == 1.0 for item in recomendacoes)
     assert all(item["reason"] == motivo for item in recomendacoes)
+
+
+def test_recomendacoes_http_com_catalogo_dinamico():
+    catalogo = [
+        {
+            "product_id": "2001",
+            "name": "Vaso Cerâmica Raízes",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2013",
+            "name": "Santo Antônio de Barro",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2002",
+            "name": "Luminária de Barro",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Agreste - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2008",
+            "name": "Matriz Entalhada Pavão",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": False,
+        },
+    ]
+
+    response = requests.post(
+        f"{BASE_URL}/recommendations",
+        headers={"X-API-Key": API_KEY},
+        json={
+            "product_id": "2001",
+            "limit": 4,
+            "catalog": catalogo,
+        },
+        timeout=5,
+    )
+
+    assert response.status_code == 200
+    recomendacoes = response.json()["recommendations"]
+    assert [item["product_id"] for item in recomendacoes] == ["2013", "2002"]
+    assert recomendacoes[0]["score"] == 1.0
+    assert recomendacoes[1]["score"] == 0.8

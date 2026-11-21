@@ -179,11 +179,13 @@ describe("Produtos - endpoints e persistência", () => {
       .expect(403);
   });
 
-  test("GET /produtos/recomendacoes retorna lista", async () => {
+  test("GET /produtos/recomendacoes retorna lista e cabeçalho de fonte", async () => {
     const resposta = await request(app)
       .get("/produtos/recomendacoes?produtoId=qualquer")
       .expect(200);
+    expect(resposta.body).toHaveProperty("recomendados");
     expect(resposta.body).toHaveProperty("produtosRecomendados");
+    expect(resposta.headers["x-recomendacao-fonte"]).toBe("baseline");
   });
 
   test("GET /produtos/comparar retorna produtos comparados", async () => {

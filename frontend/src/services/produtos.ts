@@ -1,9 +1,11 @@
 import { http } from "@/lib/http";
 import type {
   FiltrosProdutos,
+  FiltrosRecomendacao,
   Paginado,
   ProdutoDetalhe,
   ProdutoResumo,
+  ProdutoSugerido,
   RespostaAvaliacoes,
   RespostaRecomendacoes,
 } from "@/types";
@@ -62,15 +64,24 @@ export const produtosService = {
   },
 
   async recomendados(
-    produtoId: string,
+    entrada: string | FiltrosRecomendacao,
     sinal?: AbortSignal,
   ): Promise<RespostaRecomendacoes> {
+    const filtros: FiltrosRecomendacao =
+      typeof entrada === "string" ? { produtoId: entrada } : entrada;
+
     const res = await http<
       | RespostaRecomendacoes
       | { produtosRecomendados?: unknown[] }
       | unknown[]
     >("/produtos/recomendacoes", {
-      parametros: { produtoId },
+      parametros: {
+        produtoId: filtros.produtoId,
+        categoria: filtros.categoria,
+        tecnica: filtros.tecnica,
+        regiao: filtros.regiao,
+        limite: filtros.limite,
+      },
       sinal,
     });
 
@@ -85,12 +96,24 @@ export const produtosService = {
             : []
         : [];
 
-    return {
-      recomendados: listaBruta.map((item) => {
+    const recomendados = listaBruta
+      .map((item): ProdutoSugerido | null => {
+        if (!item || typeof item !== "object") return null;
         const p = item as Record<string, unknown>;
+        const id = String(p.id ?? "").trim();
+        const nome = String(p.nome ?? "").trim();
+        if (!id || !nome) return null;
+
+        const disponibilidade =
+          ((p.disponibilidade as string) ?? "DISPONIVEL") as
+            | "DISPONIVEL"
+            | "RESERVADO"
+            | "VENDIDO";
+        if (disponibilidade !== "DISPONIVEL") return null;
+
         return {
-          id: String(p.id ?? ""),
-          nome: String(p.nome ?? ""),
+          id,
+          nome,
           preco: Number(p.preco ?? 0),
           imagemPrincipal: String(
             p.imagemPrincipal ??
@@ -114,17 +137,20 @@ export const produtosService = {
                   id: "PE",
                   nome: "Pernambuco",
                 },
-          disponibilidade:
-            ((p.disponibilidade as string) ?? "DISPONIVEL") as
-              | "DISPONIVEL"
-              | "RESERVADO"
-              | "VENDIDO",
-          modalidadeProducao: (p.modalidadeProducao as "PRONTA_ENTREGA" | "SOB_ENCOMENDA" | "PECA_UNICA") ?? "PRONTA_ENTREGA",
-          motivo: typeof p.motivo === "string" ? p.motivo : undefined,
-          avaliacaoMedia: 0,
+          disponibilidade,
+          modalidadeProducao:
+            (p.modalidadeProducao as
+              | "PRONTA_ENTREGA"
+              | "SOB_ENCOMENDA"
+              | "PECA_UNICA") ?? "PRONTA_ENTREGA",
+          motivo: typeof p.motivo === "string" && p.motivo.trim() ? p.motivo : undefined,
+          score: typeof p.score === "number" ? p.score : undefined,
+          avaliacaoMedia: Number(p.avaliacaoMedia ?? 0),
         };
-      }),
-    };
+      })
+      .filter((item): item is ProdutoSugerido => item !== null);
+
+    return { recomendados };
   },
 
   avaliacoes(id: string, sinal?: AbortSignal) {

@@ -2,7 +2,7 @@
 
 import { useConsulta } from "@/hooks/useConsulta";
 import { produtosService } from "@/services/produtos";
-import type { FiltrosProdutos } from "@/types";
+import type { FiltrosProdutos, FiltrosRecomendacao } from "@/types";
 
 export function useProdutos(filtros: FiltrosProdutos) {
   return useConsulta(`produtos:${JSON.stringify(filtros)}`, (sinal) =>
@@ -22,11 +22,27 @@ export function useProduto(id: string) {
   );
 }
 
-export function useRecomendados(produtoId: string) {
-  return useConsulta(`recomendados:${produtoId}`, (sinal) =>
-    produtoId
-      ? produtosService.recomendados(produtoId, sinal)
-      : Promise.resolve({ recomendados: [] }),
+export function useRecomendados(
+  entrada: string | FiltrosRecomendacao | null,
+) {
+  const filtros: FiltrosRecomendacao =
+    typeof entrada === "string"
+      ? { produtoId: entrada || undefined }
+      : (entrada ?? {});
+
+  const temCriterio = Boolean(
+    filtros.produtoId ||
+      filtros.categoria ||
+      filtros.tecnica ||
+      filtros.regiao,
+  );
+
+  return useConsulta(
+    `recomendados:${JSON.stringify(filtros)}`,
+    (sinal) =>
+      temCriterio
+        ? produtosService.recomendados(filtros, sinal)
+        : Promise.resolve({ recomendados: [] }),
   );
 }
 

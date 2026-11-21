@@ -14,14 +14,33 @@ export function moduloIaConfigurado(): boolean {
   return !!process.env.RECOMENDACAO_API_URL;
 }
 
+export type ContextoRecomendacaoIA = {
+  product_id?: string;
+  category?: string;
+  technique?: string;
+  region?: string;
+  limit?: number;
+};
+
 // Devolve null em qualquer falha (fora do ar, 4xx, 5xx, tempo esgotado),
 // para quem chama decidir o fallback.
 export async function recomendarComIA(
-  produtoId: string,
+  entrada: string | ContextoRecomendacaoIA,
   limite = 4,
 ): Promise<RecomendacaoIA[] | null> {
   const base = process.env.RECOMENDACAO_API_URL;
   if (!base) return null;
+
+  const corpoRequisicao =
+    typeof entrada === "string"
+      ? { product_id: entrada, limit: limite }
+      : {
+          ...(entrada.product_id ? { product_id: entrada.product_id } : {}),
+          ...(entrada.category ? { category: entrada.category } : {}),
+          ...(entrada.technique ? { technique: entrada.technique } : {}),
+          ...(entrada.region ? { region: entrada.region } : {}),
+          limit: entrada.limit ?? limite,
+        };
 
   try {
     const resposta = await fetch(`${base.replace(/\/$/, "")}/recommendations`, {
@@ -30,13 +49,15 @@ export async function recomendarComIA(
         "Content-Type": "application/json",
         "X-API-Key": process.env.RECOMENDACAO_API_KEY ?? "",
       },
-      body: JSON.stringify({ product_id: produtoId, limit: limite }),
+      body: JSON.stringify(corpoRequisicao),
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
       cache: "no-store",
     });
 
     if (!resposta.ok) {
-      console.warn(`[modulo-ia] status ${resposta.status} para ${produtoId}`);
+      console.warn(
+        `[modulo-ia] status ${resposta.status} para recomendação`,
+      );
       return null;
     }
 

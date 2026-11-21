@@ -1,6 +1,16 @@
 ﻿from app.config import WEIGHTS
 
 
+def attributes_match(context_value, candidate_value):
+    if context_value is None or candidate_value is None:
+        return False
+
+    if isinstance(context_value, str) and isinstance(candidate_value, str):
+        return context_value.strip().casefold() == candidate_value.strip().casefold()
+
+    return context_value == candidate_value
+
+
 def calculate_score(context, candidate):
     score = 0.0
     total_weight = 0.0
@@ -14,7 +24,7 @@ def calculate_score(context, candidate):
 
         total_weight += weight
 
-        if context_value == candidate_value:
+        if attributes_match(context_value, candidate_value):
             score += weight
 
     if total_weight == 0:
@@ -26,24 +36,15 @@ def calculate_score(context, candidate):
 def build_reason(context, candidate):
     matches = []
 
-    if (
-        context.get("category") is not None
-        and context.get("category") == candidate.get("category")
-    ):
+    if attributes_match(context.get("category"), candidate.get("category")):
         matches.append("mesma categoria")
 
-    if (
-        context.get("technique") is not None
-        and context.get("technique") == candidate.get("technique")
-    ):
+    if attributes_match(context.get("technique"), candidate.get("technique")):
         matches.append("mesma técnica artesanal")
 
-    if (
-        context.get("region") is not None
-        and context.get("region") == candidate.get("region")
-    ):
+    if attributes_match(context.get("region"), candidate.get("region")):
         matches.append("mesma região")
-    
+
     if not matches:
         return "Relação por atributos disponíveis no contexto."
 
