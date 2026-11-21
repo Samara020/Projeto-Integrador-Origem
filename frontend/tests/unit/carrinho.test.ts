@@ -1,8 +1,8 @@
 // TC04 e F05: inclusão, alteração atômica e remoção de itens no carrinho (services/carrinho.ts).
 import { ApiError, http } from "@/lib/http";
 import { carrinhoService } from "@/services/carrinho";
-import type { ItemCarrinho, ProdutoResumo } from "@/types";
-import { concluir, gravar, lerGravado } from "./apoio";
+import type { ProdutoResumo } from "@/types";
+import { gravar } from "./apoio";
 
 jest.mock("@/lib/http", () => ({
   ApiError: class ApiError extends Error {
@@ -55,96 +55,84 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+function sessaoComprador() {
+  gravar("sessao", {
+    token: TOKEN_COMPRADOR,
+    tipo: "Bearer",
+    usuario: { id: "1001", nome: "Comprador", papel: "COMPRADOR" },
+  });
+}
+
 describe("TC04 · carrinhoService", () => {
-  test("carrinho novo começa vazio, com total zero", async () => {
+  test("visitante sem sessão recebe carrinho vazio sem chamar o backend", async () => {
     await expect(carrinhoService.obter()).resolves.toEqual({ itens: [], valorTotal: 0 });
+    expect(mockedHttp).not.toHaveBeenCalled();
   });
 
-  test("adicionar inclui o item com nome, imagem e preço da peça", async () => {
-    const carrinho = await concluir(carrinhoService.adicionar(vaso, 1));
-
-    expect(carrinho.itens).toEqual([
-      {
-        produtoId: vaso.id,
-        quantidade: 1,
-        precoUnitario: vaso.preco,
-        nome: vaso.nome,
-        imagemPrincipal: vaso.imagemPrincipal,
-      },
-    ]);
-    expect(carrinho.valorTotal).toBe(vaso.preco);
+  test("visitante sem sessão precisa entrar antes de adicionar uma peça", async () => {
+    await expect(carrinhoService.adicionar(vaso, 1)).rejects.toThrow(
+      "AUTENTICACAO_NECESSARIA",
+    );
+    expect(mockedHttp).not.toHaveBeenCalled();
   });
 
-  test("adicionar a mesma peça de novo soma a quantidade, sem duplicar a linha", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
-    const carrinho = await concluir(carrinhoService.adicionar(vaso, 2));
+  test("adicionar envia POST com produto e quantidade e depois consulta o carrinho", async () => {
+    sessaoComprador();
+    const resposta = { itens: [], valorTotal: 0 };
+    mockedHttp.mockResolvedValueOnce({ mensagem: "Item adicionado." });
+    mockedHttp.mockResolvedValueOnce(resposta);
 
-    expect(carrinho.itens).toHaveLength(1);
-    expect(carrinho.itens[0].quantidade).toBe(3);
-    expect(carrinho.valorTotal).toBe(vaso.preco * 3);
+    await expect(carrinhoService.adicionar(vaso, 2)).resolves.toEqual(resposta);
+    expect(mockedHttp).toHaveBeenNthCalledWith(1, "/carrinho/itens", {
+      metodo: "POST",
+      corpo: { produtoId: vaso.id, quantidade: 2 },
+    });
+    expect(mockedHttp).toHaveBeenNthCalledWith(2, "/carrinho");
   });
 
-  test("valorTotal soma preço vezes quantidade de cada item", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 2));
-    const carrinho = await concluir(carrinhoService.adicionar(luminaria, 1));
+  test("o total exibido vem da resposta do backend", async () => {
+    sessaoComprador();
+    const resposta = { itens: [], valorTotal: 440 };
+    mockedHttp.mockResolvedValueOnce(resposta);
 
-    expect(carrinho.valorTotal).toBe(vaso.preco * 2 + luminaria.preco);
+    await expect(carrinhoService.obter()).resolves.toEqual(resposta);
+    expect(mockedHttp).toHaveBeenCalledWith("/carrinho");
   });
 
-  test("o carrinho fica gravado no localStorage e sobrevive a um novo obter()", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
+  test("remover envia DELETE para o item e consulta o estado persistido", async () => {
+    sessaoComprador();
+    const resposta = { itens: [], valorTotal: 0 };
+    mockedHttp.mockResolvedValueOnce({ mensagem: "Item removido." });
+    mockedHttp.mockResolvedValueOnce(resposta);
 
-    expect(lerGravado<ItemCarrinho[]>("carrinho")).toHaveLength(1);
-    expect((await carrinhoService.obter()).itens[0].produtoId).toBe(vaso.id);
+    await expect(carrinhoService.remover(vaso.id)).resolves.toEqual(resposta);
+    expect(mockedHttp).toHaveBeenNthCalledWith(1, `/carrinho/itens/${vaso.id}`, {
+      metodo: "DELETE",
+    });
+    expect(mockedHttp).toHaveBeenNthCalledWith(2, "/carrinho");
   });
 
-  test("alterarQuantidade troca só a quantidade do item pedido", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
-    await concluir(carrinhoService.adicionar(luminaria, 2));
-    const carrinho = await concluir(carrinhoService.alterarQuantidade(vaso.id, 4));
+  test("esvaziar remove cada item e consulta o carrinho ao final", async () => {
+    sessaoComprador();
+    mockedHttp.mockResolvedValueOnce({ itens: [
+      { produtoId: vaso.id, quantidade: 1 },
+      { produtoId: luminaria.id, quantidade: 2 },
+    ], valorTotal: 400 });
+    mockedHttp.mockResolvedValueOnce({ mensagem: "Item removido." });
+    mockedHttp.mockResolvedValueOnce({ mensagem: "Item removido." });
+    mockedHttp.mockResolvedValueOnce({ itens: [], valorTotal: 0 });
 
-    expect(carrinho.itens.map((item) => [item.produtoId, item.quantidade])).toEqual([
-      [vaso.id, 4],
-      [luminaria.id, 2],
-    ]);
-    expect(carrinho.valorTotal).toBe(vaso.preco * 4 + luminaria.preco * 2);
-  });
-
-  test("alterarQuantidade para zero tira só o item pedido", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
-    await concluir(carrinhoService.adicionar(luminaria, 2));
-    const carrinho = await concluir(carrinhoService.alterarQuantidade(vaso.id, 0));
-
-    expect(carrinho.itens.map((item) => [item.produtoId, item.quantidade])).toEqual([[luminaria.id, 2]]);
-    expect(carrinho.valorTotal).toBe(luminaria.preco * 2);
-  });
-
-  test("remover tira só o item pedido", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
-    await concluir(carrinhoService.adicionar(luminaria, 1));
-    const carrinho = await concluir(carrinhoService.remover(vaso.id));
-
-    expect(carrinho.itens.map((item) => item.produtoId)).toEqual([luminaria.id]);
-    expect(carrinho.valorTotal).toBe(luminaria.preco);
-  });
-
-  test("esvaziar zera o carrinho gravado", async () => {
-    await concluir(carrinhoService.adicionar(vaso, 1));
-    await carrinhoService.esvaziar();
-
-    expect(lerGravado<ItemCarrinho[]>("carrinho")).toEqual([]);
-    expect((await carrinhoService.obter()).valorTotal).toBe(0);
+    await expect(carrinhoService.esvaziar()).resolves.toEqual({ itens: [], valorTotal: 0 });
+    expect(mockedHttp).toHaveBeenNthCalledWith(2, `/carrinho/itens/${vaso.id}`, {
+      metodo: "DELETE",
+    });
+    expect(mockedHttp).toHaveBeenNthCalledWith(3, `/carrinho/itens/${luminaria.id}`, {
+      metodo: "DELETE",
+    });
   });
 });
 
 describe("F05 · carrinho autenticado atualiza quantidade atomicamente via PUT", () => {
-  const sessaoComprador = () =>
-    gravar("sessao", {
-      token: TOKEN_COMPRADOR,
-      tipo: "Bearer",
-      usuario: { id: "1001", nome: "Comprador", papel: "COMPRADOR" },
-    });
-
   test("alterarQuantidade (>= 1) envia apenas PUT /carrinho/itens/:produtoId e GET /carrinho, sem DELETE+POST", async () => {
     sessaoComprador();
     const atualizado = {

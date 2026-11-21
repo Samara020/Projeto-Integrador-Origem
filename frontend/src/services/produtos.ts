@@ -1,5 +1,6 @@
 import { http } from "@/lib/http";
 import type {
+  Categoria,
   FiltrosProdutos,
   FiltrosRecomendacao,
   Paginado,
@@ -10,7 +11,10 @@ import type {
   RespostaRecomendacoes,
 } from "@/types";
 
-type ProdutoApiResposta = ProdutoDetalhe & {
+type ProdutoApiResposta = Omit<ProdutoDetalhe, "categoria" | "imagens" | "imagemPrincipal"> & {
+  categoria?: string | Categoria;
+  imagens?: (string | { url?: string })[];
+  imagemPrincipal?: string;
   origem?: string;
 };
 
@@ -36,9 +40,19 @@ export const produtosService = {
         sinal,
       },
     );
+    const imagens = (p.imagens ?? [])
+      .map((imagem) =>
+        typeof imagem === "string" ? imagem : String(imagem.url ?? ""),
+      )
+      .filter(Boolean);
     return {
       ...p,
-      imagemPrincipal: p.imagemPrincipal ?? p.imagens?.[0] ?? "",
+      imagens,
+      imagemPrincipal: p.imagemPrincipal ?? imagens[0] ?? "",
+      categoria:
+        typeof p.categoria === "string"
+          ? { id: p.categoria, nome: p.categoria }
+          : (p.categoria ?? { id: "", nome: "" }),
       tecnica:
         typeof p.tecnica === "string"
           ? { id: p.tecnica, nome: p.tecnica }
