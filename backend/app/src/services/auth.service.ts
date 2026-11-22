@@ -140,6 +140,8 @@ export const authService = {
     }
     const emailNormalizado = dados.email.trim().toLowerCase();
     const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
+    const servidorTesteIsolado =
+      process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
 
     let tokenRecuperacao: string | undefined;
     if (usuario) {
@@ -173,7 +175,7 @@ export const authService = {
 
     return {
       mensagem: "Se o e-mail estiver cadastrado, enviamos as instruções para redefinição de senha.",
-      ...(process.env.NODE_ENV !== "production" && tokenRecuperacao
+      ...(servidorTesteIsolado && tokenRecuperacao
         ? { token: tokenRecuperacao, tokenRecuperacao }
         : {}),
     };

@@ -1,0 +1,23 @@
+TC17/publicacao - analise read-only checkout f053a8a (somente leitura, sem /tmp/.env/externos):
+
+1. Fixture 447 REPROVADA no banco; GET /produtos/447 200 retorna disponibilidade DISPONIVEL, seloAtivo=false; UI detalhe mostra "Comprar agora/Adicionar" ativos -> exposicao publica indevida (bug).
+
+2. Perfil publico /artesaos/968/perfil mostra somente 446 APROVADA; recomendacoes R1 excluem 447 -> corretos (nao sao bugs).
+
+3. Teste acesso.cy.js:272 exige 404 para produto REPROVADA, mas recebendo 200 -> falha de contrato.
+
+4. GET admin real /produtos/admin/produtos/pendentes?status=REPROVADA retorna 447 com data/justificativa mas SEM decididoPorId; banco 447.decidido_por_id=969.
+
+5. produto.service.ts:675-704 serializa lista de produtos pendentes sem campo decisoPorId; linha 729 persiste o campo no banco -> omitido na serializacao (contrato/auditoria omitida).
+
+6. acesso.cy.js:238 exigeNumero(decididoPorId)=admin.id, etapa nao alcancada porque 225 falha antes (GET statusValidacao undefined bloqueia fluxo).
+
+7. Distincao: exposicao publica indevida (produto REPROVADA visivel via GET 200) vs detalhe de permissao de painel privado vs compra efetiva (nao provada; flow checkout nao completo para 447).
+
+8. Origem: produto.service.ts:303 usa repository.buscarPorId sem filtro statusValidacao=APROVADA; repository.buscarPublicoPorId:176 existe com filtro completo mas nao usado pelo service publico.
+
+9. Build/backend: backend build atual 0 falhas; 18 modelos sem coluna e 34 erros TS/runtime sao somente historico (nao afetam build corrente); runtime ativo.
+
+10. Limites: somente leitura do checkout /home/nicko07/projetos/Projeto-Integrador-Origem; sem /tmp, .env, node_modules, logs externos; sem execucao de testes/SQL/migracao/edits; nao corrijo nem gero Client.
+
+Resumo P2 contrato/auditoriaomitida: campo decisoPorId ausente na serializacao service:675-704, GET publico expõe produto REPROVADA sem filtro adequado (service usa buscarPorId em vez de buscarPublicoPorId), ciclo teste falha 225->238 por dependencia omitida.

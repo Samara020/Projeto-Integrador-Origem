@@ -103,11 +103,14 @@ Solicita o envio de instrução/token para redefinição de senha.
 }
 ```
 
-> Em produção, o token de recuperação trafega apenas no link enviado por e-mail,
-> com validade de 15 minutos. Fora de produção, quando o e-mail existe, a
-> resposta também inclui `tokenRecuperacao` e o alias `token` com o mesmo valor,
-> para permitir a integração local sem servidor de e-mail. O frontend aceita o
-> `token` da URL (`?token=...`) ou o código colado pelo usuário.
+> Em produção e development, o token de recuperação trafega apenas pelo e-mail,
+> no link com validade de 15 minutos, ou pela entrada manual do código. A
+> resposta não contém segredo e o backend não registra link nem código em log.
+> Somente no servidor descartável de teste (`NODE_ENV=test` e
+> `ORIGEM_TEST_SERVER=1`), quando o e-mail existe, a resposta inclui
+> `tokenRecuperacao` e o alias `token` com o mesmo valor para o reteste
+> automatizado. O frontend consome o `token` da URL (`?token=...`) ou o código
+> colado pelo usuário.
 
 #### POST /auth/redefinir-senha
 Define uma nova senha a partir do token de recuperação emitido para o usuário. A nova senha passa a ser armazenada com hash `bcrypt` custo 12.

@@ -1,8 +1,8 @@
-# ADR-006 — Separar arquivos de imagem dos dados transacionais
+# ADR-007 — Separar arquivos de imagem dos dados transacionais
 
 - **Status:** Proposta
 - **Data:** 22/11/2026
-- **Responsável pelo registro:** Nicolas de Castro Albuquerque Natário
+- **Responsável pelo registro:** Nicolas de Castro Albuquerque Natário (ncan@cesar.school)
 - **Projeto:** Origem · marketplace da economia criativa e do artesanato de Pernambuco
 
 ## Contexto

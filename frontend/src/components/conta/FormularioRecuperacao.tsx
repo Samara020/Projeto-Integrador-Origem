@@ -27,6 +27,7 @@ export function FormularioRecuperacao() {
   const [etapa, setEtapa] = useState<1 | 2 | 3>(() => (tokenDaUrl ? 3 : 1));
   const [email, setEmail] = useState("");
   const [tokenManual, setTokenManual] = useState("");
+  const [tokenEmMemoria, setTokenEmMemoria] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [erros, setErros] = useState<{
@@ -39,7 +40,8 @@ export function FormularioRecuperacao() {
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const tokenEfetivo = (tokenDaUrl || tokenManual).trim();
+  const tokenEfetivo = (tokenDaUrl || tokenEmMemoria || tokenManual).trim();
+  const tokenIdentificado = Boolean(tokenDaUrl || tokenEmMemoria);
 
   async function pedirLink(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -55,7 +57,13 @@ export function FormularioRecuperacao() {
         resposta.mensagem ||
           "Se o e-mail estiver cadastrado, enviamos as instruções para redefinição de senha.",
       );
-      setEtapa(2);
+      const tokenBackend = (resposta.token || resposta.tokenRecuperacao || "").trim();
+      if (tokenBackend) {
+        setTokenEmMemoria(tokenBackend);
+        setEtapa(3);
+      } else {
+        setEtapa(2);
+      }
     } catch (causa) {
       setFalha(mensagemDe(causa, "Não foi possível enviar o link. Tente de novo."));
     } finally {
@@ -162,7 +170,7 @@ export function FormularioRecuperacao() {
 
       {etapa === 3 && (
         <form onSubmit={salvarSenha} noValidate className="flex flex-col gap-2">
-          {!tokenDaUrl && (
+          {!tokenIdentificado && (
             <Campo
               id="recuperar-token"
               rotulo="Código de recuperação"
@@ -175,7 +183,7 @@ export function FormularioRecuperacao() {
             />
           )}
 
-          {tokenDaUrl && (
+          {tokenIdentificado && (
             <p className="rounded-raio bg-superficie-2 px-3 py-2 text-legenda text-tinta-2">
               Código de recuperação identificado a partir do link.
             </p>
@@ -211,6 +219,7 @@ export function FormularioRecuperacao() {
                 setEtapa(1);
                 setFalha(null);
                 setTokenManual("");
+                setTokenEmMemoria("");
               }}
               className="text-terracota hover:underline"
             >

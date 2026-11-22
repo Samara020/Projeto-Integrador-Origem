@@ -534,6 +534,7 @@ export type DadosRecuperarSenha = {
 
 export type RespostaRecuperarSenha = RespostaMensagem & {
   token?: string;
+  tokenRecuperacao?: string;
 };
 
 // lacuna: POST /auth/redefinir-senha com o token que chega por e-mail
