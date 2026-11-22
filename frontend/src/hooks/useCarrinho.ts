@@ -104,8 +104,13 @@ export function useCarrinho() {
 
     async adicionar(produto: ProdutoResumo, quantidade = 1) {
       await atualizarComTratamento(async () => {
+        const sessao = authService.sessaoAtual();
+        const adicionar =
+          sessao?.token && sessao.usuario.papel === "COMPRADOR"
+            ? carrinhoService.adicionar(produto, quantidade)
+            : carrinhoService.adicionarVisitante(produto, quantidade);
         carrinhoStore.definir(
-          await carrinhoService.adicionar(produto, quantidade),
+          await adicionar,
         );
       });
     },

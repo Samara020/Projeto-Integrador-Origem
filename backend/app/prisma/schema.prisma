@@ -10,18 +10,23 @@ datasource db {
 }
 
 model Usuario {
-  id          Int    @id(map: "pk_usuario") @default(autoincrement()) @map("id_usuario")
-  nome        String @db.VarChar(150)
-  email       String @unique(map: "uq_usuario_email") @db.VarChar(254)
-  senha       String @db.VarChar(255)
+  id          Int     @id(map: "pk_usuario") @default(autoincrement()) @map("id_usuario")
+  nome        String  @db.VarChar(150)
+  email       String  @unique(map: "uq_usuario_email") @db.VarChar(254)
+  senha       String  @db.VarChar(255)
   telefone    String? @db.VarChar(20)
+  funcao      String? @db.VarChar(100)
   // COMPRADOR | ARTESAO | ADMINISTRADOR
-  usuarioTipo String @map("usuario_tipo") @db.VarChar(20)
+  usuarioTipo String  @map("usuario_tipo") @db.VarChar(20)
 
-  loja       Loja[]
-  carrinho   Carrinho?
-  pedidos    Pedido[]
-  avaliacoes Avaliacao[]
+  loja             Loja[]
+  carrinho         Carrinho?
+  pedidos          Pedido[]
+  avaliacoes       Avaliacao[]
+  tickets          Ticket[]
+  personalizacoes  Personalizacao[]
+  recuperacoes     RecuperacaoSenha[]
+  produtosDecididos Produto[] @relation("ProdutoDecididoPor")
 
   @@map("usuario")
 }
@@ -40,6 +45,14 @@ model Loja {
   id        Int     @id(map: "pk_loja") @default(autoincrement()) @map("id_loja")
   nome      String  @db.VarChar(150)
   descricao String?
+  regiao    String? @db.VarChar(150)
+  foto      String? @db.Text
+  fotoCapa  String? @db.Text @map("foto_capa")
+  redesSociais String? @db.VarChar(200) @map("redes_sociais")
+  tecnicas  Json    @default("[]")
+  certificacoes Json @default("[]")
+  dadosBancarios String? @db.VarChar(300) @map("dados_bancarios")
+  configuracaoEnvio Json? @map("configuracao_envio")
   usuarioId Int     @map("fk_usuario_id_usuario")
 
   usuario  Usuario   @relation(fields: [usuarioId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_loja_usuario")
@@ -62,18 +75,33 @@ model EnderecoEntrega {
 }
 
 model Produto {
-  id                 Int     @id(map: "pk_produto") @default(autoincrement()) @map("id_produto")
-  nome               String  @db.VarChar(150)
-  descricao          String?
-  tecnica            String  @db.VarChar(100)
-  preco              Decimal @db.Decimal(10, 2)
-  origem             String  @db.VarChar(150)
-  modalidadeProducao String  @map("modalidade_producao") @db.VarChar(30)
-  pecaUnica          Boolean @map("peca_unica")
-  pausado            Boolean @default(false)
-  excluido           Boolean @default(false)
-  lojaId             Int     @map("fk_loja_id_loja")
-  categoriaId        Int     @map("fk_categoria_id_categoria")
+  id                     Int       @id(map: "pk_produto") @default(autoincrement()) @map("id_produto")
+  nome                   String    @db.VarChar(150)
+  descricao              String?
+  tecnica                String    @db.VarChar(100)
+  preco                  Decimal   @db.Decimal(10, 2)
+  origem                 String    @db.VarChar(150)
+  modalidadeProducao     String    @map("modalidade_producao") @db.VarChar(30)
+  pecaUnica              Boolean   @map("peca_unica")
+  pausado                Boolean   @default(false)
+  excluido               Boolean   @default(false)
+  lojaId                 Int       @map("fk_loja_id_loja")
+  categoriaId            Int       @map("fk_categoria_id_categoria")
+  statusValidacao        String    @default("APROVADA") @map("status_validacao") @db.VarChar(20)
+  seloAtivo              Boolean   @default(false) @map("selo_ativo")
+  justificativaValidacao String?   @map("justificativa_validacao") @db.Text
+  enviadoEm              DateTime? @map("enviado_em") @db.Timestamp(6)
+  decididoEm             DateTime? @map("decidido_em") @db.Timestamp(6)
+  decididoPorId          Int?      @map("decidido_por_id")
+  decididoPor            Usuario?  @relation("ProdutoDecididoPor", fields: [decididoPorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_produto_decidido_por")
+  sku                    String?   @map("sku")
+  material               String?   @db.Text
+  dimensoes              String?   @db.Text
+  peso                   Decimal   @default(0) @db.Decimal(10, 2)
+  certificado            String?   @db.Text
+  informacoesOrigem      String?   @map("informacoes_origem") @db.Text
+  prazoProducaoDias      Int?      @map("prazo_producao_dias")
+  capacidadeProducao     Int?      @map("capacidade_producao")
 
   loja          Loja           @relation(fields: [lojaId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_produto_loja")
   categoria     Categoria      @relation(fields: [categoriaId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_produto_categoria")
@@ -82,6 +110,7 @@ model Produto {
   itensCarrinho ItemCarrinho[]
   itensPedido   ItemPedido[]
   avaliacoes    Avaliacao[]
+  personalizacoes Personalizacao[]
 
   @@index([lojaId], map: "idx_produto_loja")
   @@index([categoriaId], map: "idx_produto_categoria")
@@ -142,6 +171,7 @@ model Pedido {
   id                Int      @id(map: "pk_pedido") @default(autoincrement()) @map("id_pedidos")
   data              DateTime @db.Timestamp(6)
   status            String   @db.VarChar(30)
+  valorFrete        Decimal  @default(0) @db.Decimal(10, 2) @map("valor_frete")
   usuarioId         Int      @map("fk_usuario_id_usuario")
   enderecoEntregaId Int      @map("fk_endereco_de_entrega_id_endereco")
 
@@ -187,12 +217,16 @@ model Pagamento {
 }
 
 model Avaliacao {
-  id            Int      @id(map: "pk_avaliacao") @default(autoincrement()) @map("id_avaliacao")
-  nota          Int      @db.SmallInt
+  id            Int       @id(map: "pk_avaliacao") @default(autoincrement()) @map("id_avaliacao")
+  nota          Int       @db.SmallInt
   comentario    String?
-  dataAvaliacao DateTime @map("data_avaliacao") @db.Timestamp(6)
-  usuarioId     Int      @map("fk_usuario_id_usuario")
-  produtoId     Int      @map("fk_produto_id_produto")
+  dataAvaliacao DateTime  @map("data_avaliacao") @db.Timestamp(6)
+  status        String    @default("PUBLICADO") @db.VarChar(20)
+  motivo        String?   @db.VarChar(50)
+  sinalizadaEm  DateTime? @map("sinalizada_em") @db.Timestamp(6)
+  moderadaEm    DateTime? @map("moderada_em") @db.Timestamp(6)
+  usuarioId     Int       @map("fk_usuario_id_usuario")
+  produtoId     Int       @map("fk_produto_id_produto")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_avaliacao_usuario")
   produto Produto @relation(fields: [produtoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_avaliacao_produto")
@@ -213,4 +247,72 @@ model HistoricoPedido {
 
   @@index([pedidoId], map: "idx_historico_pedido")
   @@map("historico_pedido")
+}
+
+model Ticket {
+  id          Int      @id(map: "pk_ticket") @default(autoincrement()) @map("id_ticket")
+  usuarioId   Int      @map("fk_usuario_id_usuario")
+  assunto     String   @db.VarChar(150)
+  status      String   @default("TRIAGEM_INTELIGENTE") @db.VarChar(30)
+  prioridade  String   @default("NORMAL") @db.VarChar(20)
+  categoria   String?  @db.VarChar(30)
+  criadoEm    DateTime @map("criado_em") @default(now())
+  atualizadoEm DateTime @map("atualizado_em") @default(now())
+
+  usuario    Usuario         @relation(fields: [usuarioId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ticket_usuario")
+  mensagens  TicketMensagem[]
+
+  @@index([usuarioId], map: "idx_ticket_usuario")
+  @@map("ticket")
+}
+
+model TicketMensagem {
+  id        Int      @id(map: "pk_ticket_mensagem") @default(autoincrement()) @map("id_mensagem")
+  ticketId  Int      @map("fk_ticket_id_ticket")
+  autor     String   @db.VarChar(20)
+  texto     String   @db.Text
+  categoria String?  @db.VarChar(30)
+  sugestoes Json     @default("[]")
+  criadoEm  DateTime @map("criado_em") @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ticket_mensagem_ticket")
+
+  @@index([ticketId], map: "idx_ticket_mensagem_ticket")
+  @@map("ticket_mensagem")
+}
+
+model Personalizacao {
+  id                Int      @id(map: "pk_personalizacao") @default(autoincrement()) @map("id_personalizacao")
+  usuarioId         Int      @map("fk_usuario_id_usuario")
+  produtoId         Int      @map("fk_produto_id_produto")
+  cor               String?  @db.VarChar(100)
+  tamanho           String?  @db.VarChar(100)
+  inscricao         String?  @db.VarChar(200)
+  detalhes          String?  @db.Text
+  mensagem          String   @db.Text
+  status            String   @default("ENVIADA") @db.VarChar(20)
+  prazoAdicionalDias Int     @default(0) @map("prazo_adicional_dias")
+  precoAdicional    Decimal  @default(0) @db.Decimal(10, 2) @map("preco_adicional")
+  criadoEm          DateTime @map("criado_em") @default(now())
+
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_personalizacao_usuario")
+  produto  Produto   @relation(fields: [produtoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_personalizacao_produto")
+
+  @@index([usuarioId], map: "idx_personalizacao_usuario")
+  @@index([produtoId], map: "idx_personalizacao_produto")
+  @@map("personalizacao")
+}
+
+model RecuperacaoSenha {
+  id         Int       @id(map: "pk_recuperacao_senha") @default(autoincrement()) @map("id_recuperacao")
+  usuarioId  Int       @map("fk_usuario_id_usuario")
+  tokenHash  String    @unique(map: "uq_recuperacao_token") @map("token_hash") @db.Char(64)
+  expiraEm   DateTime  @map("expira_em")
+  usadoEm    DateTime? @map("usado_em")
+  criadoEm   DateTime  @map("criado_em") @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_recuperacao_usuario")
+
+  @@index([usuarioId], map: "idx_recuperacao_usuario")
+  @@map("recuperacao_senha")
 }

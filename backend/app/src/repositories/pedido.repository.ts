@@ -10,6 +10,7 @@ export const pedidoRepository = {
     carrinhoId: Id;
     endereco: { logradouro: string; bairro: string; cidade: string; cpf: string };
     itens: { produtoId: Id; quantidade: number; precoUnitario: any; subtotal: any }[];
+    valorFrete: number;
   }) {
     return prisma.$transaction(async (tx: any) => {
       for (const item of dados.itens) {
@@ -33,6 +34,7 @@ export const pedidoRepository = {
           enderecoEntregaId: endereco.id,
           status: "AGUARDANDO_PAGAMENTO",
           data: new Date(),
+          valorFrete: dados.valorFrete,
           itens: {
             create: dados.itens.map((i, indice) => ({
               numeroItem: indice + 1,

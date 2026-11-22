@@ -67,7 +67,7 @@ type DadosValidacaoProduto = {
   seloAtivo: boolean;
   justificativa: string | null;
   decididoEm: Date;
-  decididoPorId: number;
+  decididoPorId?: number | null;
 };
 
 const inclusaoPadrao = {
@@ -231,11 +231,7 @@ export const produtoRepository = {
     });
   },
 
-  atualizar(id: Id, dados: DadosProdutoAtualizacao) {
-    return prisma.produto.update({ where: { id: toId(id) }, data: dados });
-  },
-
-  atualizarComEstoque(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
+  atualizar(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
     const produtoId = toId(id);
     return prisma.$transaction(async (tx) => {
       const atualizado = await tx.produto.update({ where: { id: produtoId }, data: dados });
@@ -248,6 +244,10 @@ export const produtoRepository = {
       }
       return atualizado;
     });
+  },
+
+  atualizarComEstoque(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
+    return this.atualizar(id, dados, quantidade);
   },
 
   /** Inativar = zerar o estoque (o SQL nao tem coluna de situacao). */
@@ -291,14 +291,14 @@ export const produtoRepository = {
     id: Id,
     dados: DadosValidacaoProduto
   ) {
-    return prisma.produto.updateMany({
-      where: { id: toId(id), statusValidacao: "PENDENTE" },
+    return prisma.produto.update({
+      where: { id: toId(id) },
       data: {
         statusValidacao: dados.statusValidacao,
         seloAtivo: dados.seloAtivo,
         justificativaValidacao: dados.justificativa,
         decididoEm: dados.decididoEm,
-        decididoPorId: dados.decididoPorId,
+        ...(dados.decididoPorId !== undefined ? { decididoPorId: dados.decididoPorId } : {}),
       },
     });
   },

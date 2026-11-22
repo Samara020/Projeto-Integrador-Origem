@@ -18,9 +18,16 @@ async function garantirTabelas(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS sessoes_invalidadas_usuario (
       usuario_id VARCHAR(64) PRIMARY KEY,
-      invalidado_ate BIGINT NOT NULL
+      invalidado_ate BIGINT NOT NULL,
+      versao_sessao INTEGER NOT NULL DEFAULT 1
     )
   `);
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE sessoes_invalidadas_usuario
+      ADD COLUMN IF NOT EXISTS versao_sessao INTEGER NOT NULL DEFAULT 1
+    `);
+  } catch {}
   tabelasInicializadas = true;
 }
 
@@ -66,26 +73,55 @@ export async function tokenFoiRevogado(token: string): Promise<boolean> {
   return true;
 }
 
+export async function obterVersaoSessaoUsuario(usuarioId: string): Promise<number> {
+  await garantirTabelas();
+  const registros = await prisma.$queryRawUnsafe<{ versao_sessao?: number | bigint }[]>(
+    `SELECT versao_sessao FROM sessoes_invalidadas_usuario WHERE usuario_id = $1 LIMIT 1`,
+    String(usuarioId)
+  );
+  if (!registros || registros.length === 0) return 1;
+  return Number(registros[0].versao_sessao) || 1;
+}
+
 export async function invalidarSessoesUsuario(usuarioId: string): Promise<void> {
   await garantirTabelas();
   const agora = Math.floor(Date.now() / 1000);
   await prisma.$executeRawUnsafe(
-    `INSERT INTO sessoes_invalidadas_usuario (usuario_id, invalidado_ate)
-     VALUES ($1, $2)
-     ON CONFLICT (usuario_id) DO UPDATE SET invalidado_ate = EXCLUDED.invalidado_ate`,
+    `INSERT INTO sessoes_invalidadas_usuario (usuario_id, invalidado_ate, versao_sessao)
+     VALUES ($1, $2, 2)
+     ON CONFLICT (usuario_id) DO UPDATE SET
+       invalidado_ate = EXCLUDED.invalidado_ate,
+       versao_sessao = COALESCE(sessoes_invalidadas_usuario.versao_sessao, 1) + 1`,
     String(usuarioId),
     agora
   );
 }
 
-export async function sessaoUsuarioInvalidada(usuarioId: string, emitidoEm?: number): Promise<boolean> {
+export async function sessaoUsuarioInvalidada(
+  usuarioId: string,
+  emitidoEm?: number,
+  sv?: number
+): Promise<boolean> {
   await garantirTabelas();
-  const registros = await prisma.$queryRawUnsafe<{ invalidado_ate: bigint | number }[]>(
-    `SELECT invalidado_ate FROM sessoes_invalidadas_usuario WHERE usuario_id = $1 LIMIT 1`,
+  const registros = await prisma.$queryRawUnsafe<{ invalidado_ate: bigint | number; versao_sessao?: number | bigint }[]>(
+    `SELECT invalidado_ate, versao_sessao FROM sessoes_invalidadas_usuario WHERE usuario_id = $1 LIMIT 1`,
     String(usuarioId)
   );
   if (!registros || registros.length === 0) return false;
   const limite = Number(registros[0].invalidado_ate);
+  const versaoAtual = Number(registros[0].versao_sessao) || 1;
+
+  // 1. Tokens com claim de versão monotônica (sv):
+  // Exige correspondência estrita (sv === versaoAtual).
+  // Rejeita sv anterior (sv < versaoAtual) ou sv divergente/forjado (sv > versaoAtual).
+  if (typeof sv === "number") {
+    return sv !== versaoAtual;
+  }
+
+  // 2. Política para tokens legados sem sv:
+  // O limite é em segundos. Depois de qualquer bump de versão, um token emitido
+  // exatamente no segundo da invalidação não pode ser tratado como novo.
   if (emitidoEm === undefined) return true;
-  return emitidoEm < limite;
+  if (emitidoEm < limite) return true;
+  return emitidoEm === limite && versaoAtual > 1;
 }

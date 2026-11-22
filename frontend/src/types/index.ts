@@ -58,6 +58,11 @@ export type ProdutoDetalhe = ProdutoResumo & {
   // lacunas: a comparação mostra dimensões e material
   dimensoes: string;
   material: string;
+  sku?: string;
+  peso?: number | string;
+  certificado?: string | null;
+  informacoesOrigem?: string | null;
+  statusValidacao?: StatusValidacao;
 };
 
 export type OrdenacaoProdutos =
@@ -226,6 +231,7 @@ export type PedidoCriado = {
 export type PedidoResumo = {
   id: string;
   status: StatusPedido;
+  valorFrete?: number;
   valorTotal: number;
   criadoEm: string;
   // lacuna: o histórico e o acompanhamento exibem os itens comprados.

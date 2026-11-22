@@ -64,6 +64,14 @@ export function FluxoCheckout() {
                 {checkout.pedido.pedidoId}
               </dd>
             </div>
+            {checkout.pedido.valorFrete !== undefined && checkout.pedido.valorFrete > 0 && (
+              <div>
+                <dt className="text-tinta-3">Frete</dt>
+                <dd className="font-bold tabular-nums text-tinta">
+                  {formatarMoeda(checkout.pedido.valorFrete)}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-tinta-3">Total pago</dt>
               <dd className="font-bold tabular-nums text-tinta">

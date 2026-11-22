@@ -45,8 +45,22 @@ export const produtosService = {
         typeof imagem === "string" ? imagem : String(imagem.url ?? ""),
       )
       .filter(Boolean);
+    const pesoNormalizado =
+      typeof p.peso === "number"
+        ? p.peso
+        : typeof p.peso === "string"
+          ? Number(p.peso.replace(",", ".")) || undefined
+          : undefined;
+
     return {
       ...p,
+      peso: pesoNormalizado,
+      material: p.material ?? "",
+      dimensoes: p.dimensoes ?? "",
+      sku: p.sku,
+      certificado: p.certificado,
+      informacoesOrigem: p.informacoesOrigem,
+      statusValidacao: p.statusValidacao,
       imagens,
       imagemPrincipal: p.imagemPrincipal ?? imagens[0] ?? "",
       categoria:

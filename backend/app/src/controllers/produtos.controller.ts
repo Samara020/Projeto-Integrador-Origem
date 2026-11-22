@@ -13,7 +13,7 @@ export class ProdutosController {
   }
 
   async buscarPorId(req: Request, res: Response) {
-    const resultado = await produtoService.buscarPorId(req.params.id);
+    const resultado = await produtoService.buscarPublico(req.params.id);
     return res.json(resultado);
   }
 
@@ -77,7 +77,7 @@ export class ProdutosController {
   }
 
   async validar(req: Request, res: Response) {
-    const resultado = await produtoService.validar(req.params.id, req.body);
+    const resultado = await produtoService.validar(req.params.id, req.body, req.usuario?.id);
     return res.json(resultado);
   }
 }

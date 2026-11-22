@@ -5,6 +5,7 @@
 - **Armazenamento de Senhas:** Hash criptográfico **bcrypt** com custo (salt rounds) `12` (`bcryptjs`). Nenhuma senha nova ou do seed é armazenada em texto puro; contas legadas são automaticamente convertidas para hash bcrypt no primeiro login válido.
 - **Expiração do Token:** Configurável via `JWT_EXPIRES_IN` (padrão `7d`), assinado com `JWT_SECRET`.
 - **Logout e Invalidação de Sessão:** O cliente (`authService.sair()`) aciona `POST /auth/logout` para registrar o token na lista de revogação do servidor até sua expiração e remove os dados locais da sessão. Qualquer requisição subsequente com o token revogado é bloqueada pelo middleware `autenticar` com **`401 Unauthorized`**.
+- **Versão da Sessão (`sv`):** Todo token emitido pelo backend carrega `sv`, igual à versão atual da sessão do usuário. O middleware aceita apenas `sv` estritamente igual à versão persistida. Tokens legados sem `sv` são rejeitados se `iat` for anterior ao segundo da última invalidação; com versão maior que `1`, também são rejeitados os tokens legados emitidos nesse exato segundo. Um login novo no mesmo segundo recebe `sv` da versão atual e permanece válido.
 
 ## 2. Perfis de Usuário e Permissões
 

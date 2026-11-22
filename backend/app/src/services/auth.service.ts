@@ -2,7 +2,7 @@
 import { sign, verify, type JwtPayload } from "jsonwebtoken";
 import { enviarEmail } from "../lib/email";
 import { gerarToken } from "../lib/jwt";
-import { invalidarSessoesUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
+import { invalidarSessoesUsuario, obterVersaoSessaoUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
 import { ErroApp } from "../middleware/error";
 import { usuarioRepository } from "../repositories/usuario.repository";
 
@@ -65,10 +65,12 @@ export const authService = {
       papel: dados.papel,
     });
 
+    const sv = await obterVersaoSessaoUsuario(String(usuario.id));
     const token = gerarToken({
       id: String(usuario.id),
       email: usuario.email,
       papel: usuario.usuarioTipo,
+      sv,
     });
 
     return {
@@ -113,10 +115,12 @@ export const authService = {
       await usuarioRepository.atualizarSenha(usuario.id, novoHash);
     }
 
+    const sv = await obterVersaoSessaoUsuario(String(usuario.id));
     const token = gerarToken({
       id: String(usuario.id),
       email: usuario.email,
       papel: usuario.usuarioTipo,
+      sv,
     });
 
     return {
@@ -169,7 +173,9 @@ export const authService = {
 
     return {
       mensagem: "Se o e-mail estiver cadastrado, enviamos as instruções para redefinição de senha.",
-      ...(process.env.NODE_ENV !== "production" && tokenRecuperacao ? { tokenRecuperacao } : {}),
+      ...(process.env.NODE_ENV !== "production" && tokenRecuperacao
+        ? { token: tokenRecuperacao, tokenRecuperacao }
+        : {}),
     };
   },
 

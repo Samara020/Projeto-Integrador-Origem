@@ -8,7 +8,7 @@ if (!SEGREDO) {
 
 const PAPEIS_VALIDOS = ["COMPRADOR", "ARTESAO", "ADMINISTRADOR"];
 
-export const gerarToken = (payload: { id: string; email?: string; papel: string }): string =>
+export const gerarToken = (payload: { id: string; email?: string; papel: string; sv?: number }): string =>
   sign(
     payload,
     Buffer.from(SEGREDO),
@@ -32,10 +32,12 @@ export const verificarToken = (token: string) => {
     id: string;
     email?: string;
     papel: string;
+    sv?: number;
   };
 
   return {
     ...payload,
     iat: typeof payload.iat === "number" ? payload.iat : undefined,
+    sv: typeof payload.sv === "number" ? payload.sv : undefined,
   };
 };

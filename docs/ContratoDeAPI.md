@@ -72,6 +72,12 @@ Autentica o usuário e emite o token de sessão JWT.
 }
 ```
 
+> Tokens emitidos pelo backend incluem `sv`, versão monotônica da sessão. O
+> middleware exige `sv` igual à versão atual. Tokens legados sem `sv` são
+> rejeitados quando emitidos antes da invalidação; se a versão atual for maior
+> que `1`, também são rejeitados os emitidos exatamente no segundo da
+> invalidação. Logout e expiração natural continuam válidos.
+
 #### POST /auth/logout
 Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
 
@@ -93,9 +99,15 @@ Solicita o envio de instrução/token para redefinição de senha.
 *Response (200 OK):*
 ```json
 {
-  "mensagem": "E-mail de recuperação enviado com sucesso."
+  "mensagem": "Se o e-mail estiver cadastrado, enviamos as instruções para redefinição de senha."
 }
 ```
+
+> Em produção, o token de recuperação trafega apenas no link enviado por e-mail,
+> com validade de 15 minutos. Fora de produção, quando o e-mail existe, a
+> resposta também inclui `tokenRecuperacao` e o alias `token` com o mesmo valor,
+> para permitir a integração local sem servidor de e-mail. O frontend aceita o
+> `token` da URL (`?token=...`) ou o código colado pelo usuário.
 
 #### POST /auth/redefinir-senha
 Define uma nova senha a partir do token de recuperação emitido para o usuário. A nova senha passa a ser armazenada com hash `bcrypt` custo 12.
@@ -157,6 +169,7 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 > **Schema & Migration:** Coluna `peso` `DECIMAL(10,2)` `NOT NULL DEFAULT 0`,
 > backfill via migration `20261120160000_backfill_peso_not_null`. Migração
 > versionada no `prisma/migrations/` do banco descartável `origem_audit` (:55432).
+> As respostas serializam `peso` como `number`, nunca como string `Decimal`.
 
 ```json
 {
@@ -294,7 +307,7 @@ Lista todas as peças aguardando auditoria de origem (Exclusivo para `ADMINISTRA
 > - `enviadoEm` (lacuna, frontend): data de envio para análise, ISO 8601.
 > - `informacoesOrigem` (lacuna, frontend) e `certificado` (lacuna, frontend, `null` quando não enviado).
 > - `statusValidacao` (lacuna, frontend): `PENDENTE`, `APROVADA` ou `REPROVADA`.
-> - `justificativa` (lacuna, frontend) e `decididoEm` (lacuna, frontend): `null` enquanto pendente.
+> - `justificativa` (lacuna, frontend), `decididoPorId` (lacuna, frontend) e `decididoEm` (lacuna, frontend): `null` enquanto pendente; `decididoPorId` identifica o administrador responsável pela decisão.
 
 #### PUT /admin/produtos/{id}/validacao
 Analisa e altera o status de validação de origem e autenticidade da peça.
@@ -342,7 +355,10 @@ Retorna o catálogo de peças ativas com suporte a paginação e filtros combina
 ```
 
 #### GET /produtos/{id}
-Retorna informações detalhadas de uma peça específica e dados do artesão.
+Retorna informações detalhadas de uma peça específica e dados do artesão. A rota
+é pública apenas para peças aprovadas, não pausadas e não excluídas; peças
+pendentes, reprovadas, pausadas ou excluídas retornam `404`. A edição e a
+consulta do próprio catálogo do artesão usam rotas autenticadas separadas.
 
 *Response (200 OK):*
 ```json
@@ -350,6 +366,7 @@ Retorna informações detalhadas de uma peça específica e dados do artesão.
   "id": "prd_201",
   "nome": "Vaso de Cerâmica Marajoara",
   "preco": 380.00,
+  "statusValidacao": "APROVADA",
   "modalidadeProducao": "PECA_UNICA",
   "seloAtivo": true,
   "artesao": {
@@ -511,7 +528,8 @@ Efetiva a criação do pedido a partir do carrinho atual.
     "cep": "66000-000",
     "rua": "Rua Principal",
     "numero": "100"
-  }
+  },
+  "opcaoEnvioId": "economico"
 }
 ```
 *Response (201 Created):*
@@ -519,9 +537,16 @@ Efetiva a criação do pedido a partir do carrinho atual.
 {
   "pedidoId": "ped_501",
   "status": "AGUARDANDO_PAGAMENTO",
-  "valorTotal": 380.00
+  "valorFrete": 18.00,
+  "valorTotal": 398.00
 }
 ```
+
+> `opcaoEnvioId` é opcional e usa `economico` como padrão. O servidor resolve a
+> opção e o valor na tabela interna de frete; valores monetários enviados no
+> corpo são ignorados. `valorFrete` é gravado com o pedido na mesma transação
+> dos itens/estoque, e `valorTotal` é a soma dos subtotais persistidos mais o
+> frete, inclusive em pedidos antigos com frete zero.
 
 #### POST /pagamentos
 Processa o pagamento do pedido criado.
@@ -538,9 +563,14 @@ Processa o pagamento do pedido criado.
 {
   "transacaoId": "trx_999",
   "status": "APROVADO",
-  "dataPagamento": "2026-09-03T21:30:00Z"
+  "dataPagamento": "2026-09-03T21:30:00Z",
+  "valorFrete": 18.00,
+  "valorTotal": 398.00
 }
 ```
+
+> O débito é feito sobre o total calculado no servidor a partir do
+> `valorFrete` persistido e dos subtotais dos itens.
 
 ---
 
@@ -556,7 +586,8 @@ Lista o histórico de pedidos realizados pelo comprador autenticado.
     {
       "id": "ped_501",
       "status": "PAGO",
-      "valorTotal": 380.00,
+      "valorFrete": 18.00,
+      "valorTotal": 398.00,
       "criadoEm": "2026-09-03T21:30:00Z",
       "itens": [
         {

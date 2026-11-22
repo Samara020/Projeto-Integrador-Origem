@@ -65,9 +65,17 @@ export function DetalhePedido({ id }: { id: string }) {
             ))}
             {pedido.itens.length === 0 && <p className="text-apoio text-tinta-3">Os itens deste pedido não estão disponíveis.</p>}
           </div>
-          <div className="flex items-center justify-between border-t border-borda pt-5 text-corpo font-bold text-tinta">
-            <span>Total pago</span>
-            <span className="tabular-nums">{formatarMoeda(pedido.valorTotal)}</span>
+          <div className="flex flex-col gap-2 border-t border-borda pt-5">
+            {pedido.valorFrete !== undefined && pedido.valorFrete > 0 && (
+              <div className="flex items-center justify-between text-apoio text-tinta-2">
+                <span>Frete</span>
+                <span className="tabular-nums">{formatarMoeda(pedido.valorFrete)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-corpo font-bold text-tinta">
+              <span>Total pago</span>
+              <span className="tabular-nums">{formatarMoeda(pedido.valorTotal)}</span>
+            </div>
           </div>
           <p className="flex items-center gap-2 text-apoio text-selo"><PackageCheck className="size-5" aria-hidden="true" /> Sua compra é acompanhada pela Origem.</p>
         </section>

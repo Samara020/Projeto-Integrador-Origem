@@ -39,6 +39,8 @@ export const pagamentoService = {
       transacaoId: pagamento.id,
       status: pagamento.status,
       dataPagamento: pagamento.data,
+      valorFrete: Number(pedido.valorFrete ?? 0),
+      valorTotal: Number(pagamento.valor),
     };
   },
 };

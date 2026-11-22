@@ -28,6 +28,16 @@ export function formatarInteiro(valor: number): string {
   return inteiro.format(valor);
 }
 
+export function formatarPeso(valor?: number | string | null): string {
+  if (valor === undefined || valor === null || valor === "") return "";
+  const num = typeof valor === "number" ? valor : Number(String(valor).replace(",", "."));
+  if (Number.isNaN(num) || num <= 0) return "";
+  if (num < 1) {
+    return `${Math.round(num * 1000)} g`;
+  }
+  return `${nota.format(num)} kg`;
+}
+
 export function formatarData(iso?: string | null): string {
   if (!iso) return "";
   const data = new Date(iso);

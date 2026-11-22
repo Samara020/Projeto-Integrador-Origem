@@ -20,7 +20,7 @@ import { toaster } from "@/components/ui/toaster";
 import { useCarrinho } from "@/hooks/useCarrinho";
 import { registrarVisita } from "@/hooks/useHistorico";
 import { useProduto } from "@/hooks/useProdutos";
-import { formatarMoeda, formatarNota, plural } from "@/lib/formato";
+import { formatarMoeda, formatarNota, formatarPeso, plural } from "@/lib/formato";
 import type { Disponibilidade, ModalidadeProducao, ProdutoDetalhe } from "@/types";
 
 const MODALIDADES: Record<ModalidadeProducao, string> = {
@@ -107,8 +107,38 @@ function Compra({ produto }: { produto: ProdutoDetalhe }) {
         </div>
         <div className="flex gap-2">
           <dt className="text-tinta-3">Origem</dt>
-          <dd className="font-medium text-tinta">{produto.regiao.nome}</dd>
+          <dd className="font-medium text-tinta">{produto.informacoesOrigem || produto.regiao.nome}</dd>
         </div>
+        {produto.material && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Material</dt>
+            <dd className="font-medium text-tinta">{produto.material}</dd>
+          </div>
+        )}
+        {produto.dimensoes && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Dimensões</dt>
+            <dd className="font-medium text-tinta">{produto.dimensoes}</dd>
+          </div>
+        )}
+        {produto.peso !== undefined && produto.peso !== null && formatarPeso(produto.peso) !== "" && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Peso</dt>
+            <dd className="font-medium text-tinta">{formatarPeso(produto.peso)}</dd>
+          </div>
+        )}
+        {produto.sku && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">SKU</dt>
+            <dd className="font-medium text-tinta">{produto.sku}</dd>
+          </div>
+        )}
+        {produto.certificado && (
+          <div className="flex gap-2">
+            <dt className="text-tinta-3">Certificado</dt>
+            <dd className="font-medium text-tinta">{produto.certificado}</dd>
+          </div>
+        )}
         <div className="flex gap-2">
           <dt className="sr-only">Disponibilidade</dt>
           <dd className={`font-bold ${status.cor}`}>{status.texto}</dd>
@@ -182,8 +212,8 @@ export function DetalheProduto({ id }: { id: string }) {
 
       {erro?.status === 404 && (
         <EstadoVazio
-          titulo="Não encontramos essa peça"
-          descricao="Ela pode ter sido vendida ou retirada pelo artesão."
+          titulo="Peça indisponível"
+          descricao="Não encontramos essa peça ou ela não está mais disponível no catálogo."
           acao={<BotaoLink href="/catalogo">Voltar para o catálogo</BotaoLink>}
         />
       )}
@@ -191,7 +221,15 @@ export function DetalheProduto({ id }: { id: string }) {
         <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />
       )}
 
-      {produto && (
+      {produto && produto.statusValidacao && produto.statusValidacao !== "APROVADA" && (
+        <EstadoVazio
+          titulo="Peça indisponível"
+          descricao="Esta peça não está disponível para visualização ou compra no momento."
+          acao={<BotaoLink href="/catalogo">Voltar para o catálogo</BotaoLink>}
+        />
+      )}
+
+      {produto && (!produto.statusValidacao || produto.statusValidacao === "APROVADA") && (
         <>
           <article className="grid gap-8 md:grid-cols-2 lg:gap-12">
             <Galeria imagens={produto.imagens} nome={produto.nome} />
