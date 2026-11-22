@@ -135,6 +135,7 @@ export const produtoService = {
       categoria: filtros.categoria,
       tecnica: filtros.tecnica,
       regiao: filtros.regiao,
+      origem: filtros.origem,
       disponivel,
       destaque,
       precoMax,
@@ -443,23 +444,32 @@ export const produtoService = {
 
   async validar(
     id: string,
-    dados: { status: "APROVADA" | "REPROVADA"; justificativa: string },
+    dados: { status: "APROVADA" | "REPROVADA"; justificativa?: string },
     usuarioId?: string
   ) {
+    if (dados?.status !== "APROVADA" && dados?.status !== "REPROVADA") {
+      throw new ErroApp(400, "Status de validação inválido. Use APROVADA ou REPROVADA.");
+    }
+    const justificativaLimpa =
+      typeof dados.justificativa === "string" ? dados.justificativa.trim() : "";
+    if (dados.status === "REPROVADA" && justificativaLimpa.length === 0) {
+      throw new ErroApp(400, "Informe a justificativa para reprovar a peça.");
+    }
+
     const produto = await produtoRepository.buscarPorId(id);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
     const decisao = {
       status: dados.status,
       seloAtivo: dados.status === "APROVADA",
-      justificativa: dados.justificativa ?? null,
+      justificativa: justificativaLimpa || null,
       decididoEm: new Date(),
     };
 
     await produtoRepository.atualizarValidacao(toId(id), {
       statusValidacao: dados.status,
       seloAtivo: dados.status === "APROVADA",
-      justificativa: dados.justificativa ?? null,
+      justificativa: decisao.justificativa,
       decididoEm: decisao.decididoEm,
       decididoPorId: usuarioId ? toId(usuarioId) : undefined,
     });

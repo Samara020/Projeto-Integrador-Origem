@@ -15,7 +15,8 @@ describe("TC01 · cadastro e login com JWT real", () => {
       expect(conta.usuario.papel).toBe(papel);
       expect(conta.usuario.id).toMatch(/^\d+$/);
       expect(conta.token).toMatch(JWT_REGEX);
-      expect(JSON.stringify(conta)).not.toContain(conta.senha);
+      const respostaPublica = { token: conta.token, tipo: conta.tipo, usuario: conta.usuario };
+      expect(JSON.stringify(respostaPublica)).not.toContain(conta.senha);
     },
   );
 
@@ -88,14 +89,18 @@ describe("cadastro de conta (POST /auth/register)", () => {
     expect(exata.status).toBe(201);
   });
 
-  test.each([["nome"], ["email"], ["senha"]])("sem %s: 400", async (campo) => {
+  test.each([
+    ["nome", "Informe um nome válido com pelo menos 2 caracteres."],
+    ["email", "Informe um endereço de e-mail válido."],
+    ["senha", "A senha precisa ter pelo menos 8 caracteres."],
+  ])("sem %s: 400", async (campo, mensagemEsperada) => {
     const dados: Record<string, unknown> = novo();
     delete dados[campo];
 
     const { status, corpo } = await post("/auth/register", dados);
 
     expect(status).toBe(400);
-    expect(corpo).toEqual(erro("Preencha nome, e-mail e senha."));
+    expect(corpo).toEqual(erro(mensagemEsperada));
   });
 
   test("papel fora do contrato: 400", async () => {

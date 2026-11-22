@@ -12,6 +12,7 @@ jest.mock("../src/repositories", () => ({
     atualizarPausa: jest.fn(),
     atualizarEstoque: jest.fn(),
     atualizarEstoqueEPausa: jest.fn(),
+    atualizarValidacao: jest.fn(),
     inativarLogicamente: jest.fn(),
     excluirFisicamente: jest.fn(),
     contarItensPedido: jest.fn(),
@@ -386,5 +387,54 @@ describe("produtoService - persistência de campos F1 (mocks, sem banco de dados
     // nao sao defaults vazios/nulos inventados
     expect(resultado.itens[0].informacoesOrigem).not.toBe("");
     expect(resultado.itens[0].certificado).not.toBeNull();
+  });
+
+  test("listar repassa o filtro origem ao repositório (HU-06)", async () => {
+    (produtoRepository.listar as jest.Mock).mockResolvedValue([0, []]);
+
+    await produtoService.listar({ origem: "Tracunhaém, PE" });
+
+    expect(produtoRepository.listar).toHaveBeenCalledWith(
+      expect.objectContaining({ origem: "Tracunhaém, PE" })
+    );
+  });
+
+  test("validar rejeita reprovação sem justificativa sem persistir alteração (HU-03)", async () => {
+    await expect(
+      produtoService.validar("201", { status: "REPROVADA", justificativa: "   " }, "1")
+    ).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(produtoRepository.atualizarValidacao).not.toHaveBeenCalled();
+  });
+
+  test("validar rejeita status fora do contrato sem consultar ou gravar (HU-03)", async () => {
+    await expect(
+      produtoService.validar("201", { status: "INVALIDO" as "APROVADA", justificativa: "ok" }, "1")
+    ).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(produtoRepository.atualizarValidacao).not.toHaveBeenCalled();
+  });
+
+  test("validar aprova com selo ativo e reprova com justificativa mantendo selo inativo (HU-03)", async () => {
+    (produtoRepository.buscarPorId as jest.Mock).mockResolvedValue({ id: 201 });
+    (produtoRepository.atualizarValidacao as jest.Mock).mockResolvedValue({ id: 201 });
+
+    const aprovado = await produtoService.validar(
+      "201",
+      { status: "APROVADA", justificativa: "Origem verificada" },
+      "1"
+    );
+    expect(aprovado).toEqual({ id: 201, statusValidacao: "APROVADA", seloAtivo: true });
+
+    const reprovado = await produtoService.validar(
+      "201",
+      { status: "REPROVADA", justificativa: "Falta comprovação artesanal" },
+      "1"
+    );
+    expect(reprovado).toEqual({ id: 201, statusValidacao: "REPROVADA", seloAtivo: false });
   });
 });
