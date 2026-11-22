@@ -69,9 +69,10 @@ A recomendação parte de um baseline simples, considerando características com
 ## Stack
 
 ### Frontend
-- **Next.js e React:** construção da aplicação web.
+- **Next.js 16 e React 19:** construção da aplicação web com App Router e React Compiler.
 - **TypeScript:** tipagem estática e maior segurança no desenvolvimento.
-- **Chakra UI:** componentes e estilização da interface.
+- **Tailwind CSS 4 e Chakra UI 3:** layout/tokens visuais com Tailwind e componentes interativos com Chakra UI.
+- **lucide-react e Axios:** ícones padronizados e cliente HTTP centralizado.
 
 ### Backend principal
 - **Node.js e TypeScript:** implementação das APIs e regras de negócio.
