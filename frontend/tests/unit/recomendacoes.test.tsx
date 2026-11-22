@@ -19,6 +19,7 @@ jest.mock("next/image", () => ({
     const rest = { ...props };
     delete rest.fill;
     delete rest.priority;
+    delete rest.unoptimized;
     return React.createElement("img", rest);
   },
 }));

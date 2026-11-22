@@ -8,6 +8,7 @@ export default createJestConfig({
   displayName: "api",
   testEnvironment: "node",
   testMatch: ["<rootDir>/tests/api/**/*.test.ts"],
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   setupFilesAfterEnv: ["<rootDir>/tests/api/setup.ts"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
   testTimeout: 15000,

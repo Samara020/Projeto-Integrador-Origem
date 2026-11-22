@@ -29,6 +29,21 @@ ALTER TABLE produto
 
 ALTER TABLE produto ADD COLUMN IF NOT EXISTS decidido_por_id INTEGER REFERENCES usuario(id_usuario);
 
+-- Detalhes técnicos, origem estendida e SKU do produto (alinhados a schema.prisma).
+ALTER TABLE produto
+    ADD COLUMN IF NOT EXISTS sku TEXT,
+    ADD COLUMN IF NOT EXISTS material TEXT,
+    ADD COLUMN IF NOT EXISTS dimensoes TEXT,
+    ADD COLUMN IF NOT EXISTS peso NUMERIC(10,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS certificado TEXT,
+    ADD COLUMN IF NOT EXISTS informacoes_origem TEXT,
+    ADD COLUMN IF NOT EXISTS prazo_producao_dias INTEGER,
+    ADD COLUMN IF NOT EXISTS capacidade_producao INTEGER;
+
+UPDATE produto SET peso = 0 WHERE peso IS NULL;
+ALTER TABLE produto ALTER COLUMN peso SET DEFAULT 0;
+ALTER TABLE produto ALTER COLUMN peso SET NOT NULL;
+
 -- Moderação de avaliações durável.
 ALTER TABLE avaliacao
     ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PUBLICADO',

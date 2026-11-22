@@ -18,7 +18,8 @@ function obterBaseUrl(): string {
 }
 
 const BASE = obterBaseUrl();
-if (typeof window !== "undefined") {
+const EM_TESTE = process.env.NODE_ENV === "test";
+if (typeof window !== "undefined" && !EM_TESTE) {
   console.log("[Origem HTTP] Conectado ao backend:", BASE);
 }
 
@@ -174,7 +175,7 @@ export async function http<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> 
       erro.message ||
       "Algo deu errado do nosso lado. Tente de novo em instantes.";
 
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !EM_TESTE) {
       console.error(
         `[Origem HTTP Erro] ${opcoes.metodo ?? "GET"} ${url} (${status}):`,
         erro.response?.data ?? erro.message,

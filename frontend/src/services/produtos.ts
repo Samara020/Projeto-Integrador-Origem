@@ -18,6 +18,83 @@ type ProdutoApiResposta = Omit<ProdutoDetalhe, "categoria" | "imagens" | "imagem
   origem?: string;
 };
 
+type RespostaBrutaRecomendacoes =
+  | RespostaRecomendacoes
+  | { produtosRecomendados?: unknown[] }
+  | unknown[];
+
+function extrairListaRecomendados(res: RespostaBrutaRecomendacoes): unknown[] {
+  if (Array.isArray(res)) return res;
+  if (!res || typeof res !== "object") return [];
+  if ("recomendados" in res && Array.isArray(res.recomendados)) {
+    return res.recomendados;
+  }
+  if (
+    "produtosRecomendados" in res &&
+    Array.isArray(res.produtosRecomendados)
+  ) {
+    return res.produtosRecomendados;
+  }
+  return [];
+}
+
+function normalizarProdutoSugerido(item: unknown): ProdutoSugerido | null {
+  if (!item || typeof item !== "object") return null;
+  const p = item as Record<string, unknown>;
+  const id = String(p.id ?? "").trim();
+  const nome = String(p.nome ?? "").trim();
+  if (!id || !nome) return null;
+
+  const disponibilidade = ((p.disponibilidade as string) ?? "DISPONIVEL") as
+    | "DISPONIVEL"
+    | "RESERVADO"
+    | "VENDIDO";
+  if (disponibilidade !== "DISPONIVEL") return null;
+
+  const primeiraImagem =
+    Array.isArray(p.imagens) && p.imagens.length > 0
+      ? String((p.imagens[0] as { url?: string })?.url ?? "")
+      : undefined;
+
+  const artesaoBruto =
+    p.artesao && typeof p.artesao === "object"
+      ? (p.artesao as { id?: string | number; nome?: string })
+      : null;
+
+  const regiao =
+    typeof p.regiao === "string"
+      ? { id: p.regiao, nome: p.regiao }
+      : ((p.regiao as { id: string; nome: string } | undefined) ?? {
+          id: "PE",
+          nome: "Pernambuco",
+        });
+
+  return {
+    id,
+    nome,
+    preco: Number(p.preco ?? 0),
+    imagemPrincipal: String(
+      p.imagemPrincipal ?? primeiraImagem ?? "/produtos/vaso-ceramica.jpg",
+    ),
+    artesao: {
+      id: String(artesaoBruto?.id ?? "1000"),
+      nome: String(artesaoBruto?.nome ?? "Artesão"),
+    },
+    seloAtivo: Boolean(p.seloAtivo),
+    regiao,
+    disponibilidade,
+    modalidadeProducao:
+      (p.modalidadeProducao as
+        | "PRONTA_ENTREGA"
+        | "SOB_ENCOMENDA"
+        | "PECA_UNICA") ?? "PRONTA_ENTREGA",
+    motivo:
+      typeof p.motivo === "string" && p.motivo.trim() ? p.motivo : undefined,
+    score: typeof p.score === "number" ? p.score : undefined,
+    avaliacaoMedia: Number(p.avaliacaoMedia ?? 0),
+  };
+}
+
 export const produtosService = {
   listar(filtros: FiltrosProdutos, sinal?: AbortSignal) {
     return http<Paginado<ProdutoResumo>>("/produtos", {
@@ -98,84 +175,22 @@ export const produtosService = {
     const filtros: FiltrosRecomendacao =
       typeof entrada === "string" ? { produtoId: entrada } : entrada;
 
-    const res = await http<
-      | RespostaRecomendacoes
-      | { produtosRecomendados?: unknown[] }
-      | unknown[]
-    >("/produtos/recomendacoes", {
-      parametros: {
-        produtoId: filtros.produtoId,
-        categoria: filtros.categoria,
-        tecnica: filtros.tecnica,
-        regiao: filtros.regiao,
-        limite: filtros.limite,
+    const res = await http<RespostaBrutaRecomendacoes>(
+      "/produtos/recomendacoes",
+      {
+        parametros: {
+          produtoId: filtros.produtoId,
+          categoria: filtros.categoria,
+          tecnica: filtros.tecnica,
+          regiao: filtros.regiao,
+          limite: filtros.limite,
+        },
+        sinal,
       },
-      sinal,
-    });
+    );
 
-    const listaBruta: unknown[] = Array.isArray(res)
-      ? res
-      : res && typeof res === "object"
-        ? "recomendados" in res && Array.isArray((res as RespostaRecomendacoes).recomendados)
-          ? (res as RespostaRecomendacoes).recomendados
-          : "produtosRecomendados" in res &&
-              Array.isArray((res as { produtosRecomendados?: unknown[] }).produtosRecomendados)
-            ? ((res as { produtosRecomendados?: unknown[] }).produtosRecomendados ?? [])
-            : []
-        : [];
-
-    const recomendados = listaBruta
-      .map((item): ProdutoSugerido | null => {
-        if (!item || typeof item !== "object") return null;
-        const p = item as Record<string, unknown>;
-        const id = String(p.id ?? "").trim();
-        const nome = String(p.nome ?? "").trim();
-        if (!id || !nome) return null;
-
-        const disponibilidade =
-          ((p.disponibilidade as string) ?? "DISPONIVEL") as
-            | "DISPONIVEL"
-            | "RESERVADO"
-            | "VENDIDO";
-        if (disponibilidade !== "DISPONIVEL") return null;
-
-        return {
-          id,
-          nome,
-          preco: Number(p.preco ?? 0),
-          imagemPrincipal: String(
-            p.imagemPrincipal ??
-              (Array.isArray(p.imagens) && p.imagens.length > 0
-                ? String((p.imagens[0] as { url?: string })?.url ?? "")
-                : undefined) ??
-              "/produtos/vaso-ceramica.jpg",
-          ),
-          artesao:
-            p.artesao && typeof p.artesao === "object"
-              ? {
-                  id: String((p.artesao as { id?: string | number }).id ?? "1000"),
-                  nome: String((p.artesao as { nome?: string }).nome ?? "Artesão"),
-                }
-              : { id: "1000", nome: "Artesão" },
-          seloAtivo: Boolean(p.seloAtivo),
-          regiao:
-            typeof p.regiao === "string"
-              ? { id: p.regiao, nome: p.regiao }
-              : (p.regiao as { id: string; nome: string } | undefined) ?? {
-                  id: "PE",
-                  nome: "Pernambuco",
-                },
-          disponibilidade,
-          modalidadeProducao:
-            (p.modalidadeProducao as
-              | "PRONTA_ENTREGA"
-              | "SOB_ENCOMENDA"
-              | "PECA_UNICA") ?? "PRONTA_ENTREGA",
-          motivo: typeof p.motivo === "string" && p.motivo.trim() ? p.motivo : undefined,
-          score: typeof p.score === "number" ? p.score : undefined,
-          avaliacaoMedia: Number(p.avaliacaoMedia ?? 0),
-        };
-      })
+    const recomendados = extrairListaRecomendados(res)
+      .map(normalizarProdutoSugerido)
       .filter((item): item is ProdutoSugerido => item !== null);
 
     return { recomendados };
