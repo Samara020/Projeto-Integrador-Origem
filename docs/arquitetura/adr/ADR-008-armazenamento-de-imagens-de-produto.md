@@ -1,4 +1,4 @@
-# ADR-007 — Separar arquivos de imagem dos dados transacionais
+# ADR-008 — Separar arquivos de imagem dos dados transacionais
 
 - **Status:** Proposta
 - **Data:** 22/11/2026
