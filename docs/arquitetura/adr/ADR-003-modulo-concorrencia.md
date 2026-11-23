@@ -3,7 +3,6 @@
 - **Status:** Registrada (arquitetura observada)
 - **Data do registro:** 07/11/2026
 - **Responsável pelo registro:** Equipe de desenvolvimento do projeto Origem.
-- **Responsável individual pela decisão:** Não identificado nos arquivos consultados.
 
 ## Contexto
 

@@ -8,6 +8,7 @@ import { FormularioPagamento } from "@/components/checkout/FormularioPagamento";
 import { Container } from "@/components/layout/Container";
 import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { useCheckout } from "@/hooks/useCheckout";
 import { formatarMoeda } from "@/lib/formato";
@@ -27,8 +28,9 @@ export function FluxoCheckout() {
   const checkout = useCheckout();
   const [etapa, setEtapa] = useState<2 | 3>(2);
 
-  async function continuar(endereco: EnderecoEntrega) {
-    await checkout.criarPedido(endereco);
+  async function continuar(endereco: EnderecoEntrega, opcaoEnvioId: string) {
+    const criado = await checkout.criarPedido(endereco, opcaoEnvioId);
+    if (!criado) return;
     setEtapa(3);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -62,6 +64,14 @@ export function FluxoCheckout() {
                 {checkout.pedido.pedidoId}
               </dd>
             </div>
+            {checkout.pedido.valorFrete !== undefined && checkout.pedido.valorFrete > 0 && (
+              <div>
+                <dt className="text-tinta-3">Frete</dt>
+                <dd className="font-bold tabular-nums text-tinta">
+                  {formatarMoeda(checkout.pedido.valorFrete)}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-tinta-3">Total pago</dt>
               <dd className="font-bold tabular-nums text-tinta">
@@ -92,7 +102,11 @@ export function FluxoCheckout() {
 
       {checkout.carregando && <CheckoutCarregando />}
 
-      {!checkout.carregando && checkout.carrinho.itens.length === 0 && (
+      {!checkout.carregando && checkout.erro && (
+        <EstadoErro mensagem={checkout.erro.message} aoTentarDeNovo={checkout.recarregar} />
+      )}
+
+      {!checkout.carregando && !checkout.erro && checkout.carrinho.itens.length === 0 && (
         <EstadoVazio
           titulo="Não há peças para finalizar"
           descricao="Adicione uma peça ao carrinho antes de seguir para o checkout."
@@ -105,21 +119,29 @@ export function FluxoCheckout() {
         />
       )}
 
-      {!checkout.carregando && checkout.carrinho.itens.length > 0 && etapa === 2 && (
+      {!checkout.carregando && !checkout.erro && checkout.carrinho.itens.length > 0 && etapa === 2 && (
         <FormularioEntrega
           subtotal={checkout.carrinho.valorTotal}
-          opcaoEnvio={checkout.opcaoEnvio}
+          cotacao={checkout.cotacao}
+          cotandoFrete={checkout.cotandoFrete}
+          erroFrete={checkout.erroFrete}
+          aoCotarFrete={checkout.cotarFrete}
+          aoLimparFrete={checkout.limparFrete}
           aoContinuar={continuar}
         />
       )}
 
       {!checkout.carregando &&
+        !checkout.erro &&
         checkout.carrinho.itens.length > 0 &&
         etapa === 3 &&
         checkout.pedido && (
           <FormularioPagamento
             subtotal={checkout.carrinho.valorTotal}
-            frete={checkout.opcaoEnvio.valor}
+            frete={
+              checkout.pedido.valorFrete ??
+              Math.max(checkout.pedido.valorTotal - checkout.carrinho.valorTotal, 0)
+            }
             total={checkout.pedido.valorTotal}
             aoPagar={pagar}
           />

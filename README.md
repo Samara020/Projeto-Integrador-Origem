@@ -69,9 +69,10 @@ A recomendação parte de um baseline simples, considerando características com
 ## Stack
 
 ### Frontend
-- **Next.js e React:** construção da aplicação web.
+- **Next.js 16 e React 19:** construção da aplicação web com App Router e React Compiler.
 - **TypeScript:** tipagem estática e maior segurança no desenvolvimento.
-- **Chakra UI:** componentes e estilização da interface.
+- **Tailwind CSS 4 e Chakra UI 3:** layout/tokens visuais com Tailwind e componentes interativos com Chakra UI.
+- **lucide-react e Axios:** ícones padronizados e cliente HTTP centralizado.
 
 ### Backend principal
 - **Node.js e TypeScript:** implementação das APIs e regras de negócio.
@@ -105,7 +106,7 @@ O Origem prevê a integração dos seguintes componentes:
 
 A arquitetura planejada conecta os requisitos do sistema, o banco de dados, a aplicação web, a Inteligência Artificial e os mecanismos de concorrência e processamento assíncrono.
 
-O estado atual desta branch implementa o frontend com dados simulados no navegador e uma API C# para a compra concorrente do produto `prd_201`. O roteiro e os limites dessa demonstração estão em [`backend/README.md`](backend/README.md).
+O estado atual implementa o frontend integrado ao backend Express e PostgreSQL via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`), além da API C# demonstrativa para a compra concorrente. O roteiro e os limites dessa demonstração estão em [`backend/README.md`](backend/README.md).
 
 ## Fluxo principal
 
@@ -178,15 +179,13 @@ Confirmar pedido
 - Alerta de estoque baixo
 - Estado de carregamento
 
-## Futura integração com o backend
+## Integração com o backend
 
-A Fake API será utilizada inicialmente para permitir o desenvolvimento e validação do frontend. Na etapa de integração, os endpoints simulados serão substituídos pelos endpoints do backend real, mantendo os mesmos contratos de requisição e resposta sempre que possível.
+O frontend comunica-se diretamente com o backend Express (`backend/app/`) através do cliente HTTP centralizado em `frontend/src/lib/http.ts`, utilizando o fluxo:
 
-A integração seguirá o fluxo:
+**Frontend → API Express (`NEXT_PUBLIC_API_URL`, padrão `http://localhost:4000`) → Prisma ORM → PostgreSQL**
 
-**Frontend → API real → Backend → Banco de dados PostgreSQL**
-
-As chamadas atualmente direcionadas à Fake API serão ajustadas para a URL da API real, mantendo as telas e fluxos já desenvolvidos. A autenticação, persistência dos dados, estoque, pedidos e demais regras de negócio passarão a ser processados pelo backend.
+Autenticação JWT, persistência dos dados, estoque, pedidos, frete, avaliações, suporte, personalizações e painéis administrativos são processados e persistidos pelo backend no PostgreSQL.
 
 ## Integração entre disciplinas
 
@@ -354,7 +353,7 @@ O serviço está pronto quando aparecer `Service RecommendationService initializ
 | RF-09 Informar justificativa | Campo `reason` de cada item |
 | RF-10 Aplicar fallback | Critérios relaxados em etapas (categoria+técnica+região → … → só categoria) |
 | RF-11 Retornar lista vazia | `{"recommendations": []}` quando não há candidatos |
-| RF-12 Responder pela integração com o Origem | O endpoint é chamado pela rota `GET /api/produtos/recomendacoes` do frontend |
+| RF-12 Responder pela integração com o Origem | O endpoint é chamado pela rota `GET /produtos/recomendacoes` do backend quando `RECOMENDACAO_API_URL` está configurado |
 | RNF-02 Validar entradas | Respostas `400` e `404` |
 | RNF-03 Autenticação e autorização | Cabeçalho `X-API-Key`; respostas `401` e `403` |
 | RNF-07 Indisponibilidade | Se o serviço cair, o frontend usa as sugestões locais e a página continua funcionando |
@@ -469,13 +468,16 @@ Requisito: Docker com Compose v2.
 ```bash
 git clone https://github.com/Samara020/Projeto-Integrador-Origem.git
 cd Projeto-Integrador-Origem
+cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 docker compose up --build
 ```
 
 - Frontend: http://localhost:3000
+- Backend (API principal): http://localhost:4000 (health: `/health`)
 - Módulo de IA: http://localhost:3001 (health: `/readyz`)
+- PostgreSQL: `localhost:5433`
 
-O frontend só sobe depois que o módulo de IA responde ao healthcheck (`depends_on: service_healthy`).
+O backend aguarda o PostgreSQL ficar saudável (`depends_on: service_healthy`) e integra `GET /produtos/recomendacoes` ao módulo de IA (com fallback automático em caso de indisponibilidade). O frontend só sobe depois que o backend responde ao healthcheck.
 
 ### Testes
 

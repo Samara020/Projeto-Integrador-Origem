@@ -1,55 +1,23 @@
-﻿# ADR-002 — Fake API e backend principal
+﻿# ADR-002 — Remoção da Fake API e uso exclusivo do backend principal
 
-- **Status:** Registrada (arquitetura observada)
-- **Data do registro:** 07/11/2026
+- **Status:** Superada / Atualizada (integração backend Express + PostgreSQL concluída)
+- **Data do registro original:** 07/11/2026 · **Atualizada em:** 17/11/2026
 - **Responsável pelo registro:** Equipe de desenvolvimento do projeto Origem.
-- **Responsável individual pela decisão:** Não identificado nos arquivos consultados.
 
 ## Contexto
 
-O frontend possui rotas de Fake API e um cliente HTTP centralizado que permite definir a URL base por variável de ambiente.
+Na Avaliação 1, o frontend manteve rotas Next.js de Fake API (`frontend/src/app/api/`) e dados simulados (`frontend/src/mocks/`) enquanto o backend Express (`backend/app/`) estava em construção.
 
-O backend Express está organizado separadamente no diretório `backend/app/`.
+Na integração frontend/backend, constatou-se que a manutenção da Fake API e do fallback implícito para `/api` mascarava falhas de contrato nos testes de API, E2E e CI.
 
 ## Decisão
 
-Documentar a Fake API como mecanismo de simulação disponível no frontend e o backend Express como API principal independente.
-
-O destino das chamadas do cliente HTTP depende da configuração de `NEXT_PUBLIC_API_URL`.
-
-## Alternativas consideradas
-
-1. Utilizar somente a Fake API durante o desenvolvimento.
-2. Direcionar todas as chamadas diretamente ao backend Express.
-3. Manter a possibilidade de alternar o destino por configuração de ambiente.
-
-## Critérios de comparação
-
-| Critério | Somente Fake API | Somente Express | Configuração por ambiente |
-|---|---|---|---|
-| Facilidade de desenvolvimento | Alta | Depende do backend | Alta |
-| Integração com banco real | Não representa persistência real | Sim | Conforme configuração |
-| Flexibilidade de testes | Alta para simulação | Depende do ambiente | Alta |
-| Complexidade de configuração | Baixa | Média | Média |
-| Fidelidade ao estado atual do projeto | Parcial | Parcial | Representa os caminhos existentes |
-
-## Justificativa
-
-O cliente HTTP utiliza `NEXT_PUBLIC_API_URL` e adota `/api` como valor padrão.
-
-O repositório contém rotas Next.js de Fake API e uma API Express separada.
-
-A documentação deve preservar essa distinção para evitar afirmar que todas as funcionalidades do frontend já estão integradas ao backend real.
+1. Remover `frontend/src/app/api/`, `frontend/src/mocks/`, `frontend/src/lib/fake-api.ts` e `frontend/src/lib/modulo-ia.ts`.
+2. Manter `frontend/src/lib/http.ts` apontando exclusivamente para o backend Express (`NEXT_PUBLIC_API_URL`, padrão `http://localhost:4000`; `API_BASE_URL` / `BACKEND_URL` / `NEXT_PUBLIC_API_URL` no servidor).
+3. Migrar os testes de API, E2E (Cypress) e pipelines de CI (`.github/workflows/`) para executar contra o backend Express + PostgreSQL reais com JWT assinado e dados próprios.
 
 ## Consequências
 
-- A configuração do ambiente precisa ser considerada ao executar e testar o frontend.
-- A existência de uma rota simulada não comprova que a funcionalidade esteja integrada ao backend Express.
-- Os testes devem identificar qual implementação está sendo utilizada.
-
-## Evidências
-
-- `frontend/src/lib/http.ts`
-- `frontend/src/app/api/`
-- `docs/FakeAPI.md`
-- `backend/app/src/index.ts`
+- Não há mais simulação local de autenticação, produtos, avaliações, pedidos, pagamentos, suporte ou painéis administrativos no frontend.
+- Os testes de API (`npm run test:api`) e E2E (`npm run test:e2e`) validam o fluxo real `Frontend → Backend Express → Prisma → PostgreSQL`.
+- Permanecem no `localStorage` apenas dados estritamente locais do navegador (carrinho de visitante, histórico de visitas, lista de comparação e rascunho não publicado).

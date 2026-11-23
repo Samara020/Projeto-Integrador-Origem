@@ -26,4 +26,9 @@ export class AuthController {
     const resultado = await authService.recuperarSenha(req.body);
     return res.json(resultado);
   }
+
+  async redefinirSenha(req: Request, res: Response) {
+    const resultado = await authService.redefinirSenha(req.body);
+    return res.json(resultado);
+  }
 }

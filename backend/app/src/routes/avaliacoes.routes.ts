@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { autenticar, artesaoApenas, adminApenas } from "../middleware/auth";
+import { autenticar, compradorApenas, artesaoApenas, adminApenas } from "../middleware/auth";
 import { AvaliacoesController } from "../controllers/avaliacoes.controller";
+import { validarCorpo } from "../middleware/validacao";
 
 const router = Router();
 const controller = new AvaliacoesController();
@@ -13,7 +14,7 @@ const schemaNovaAvaliacao = z.object({
   comentario: z.string().optional(),
 });
 
-router.post("/", autenticar, (req, res, next) => {
+router.post("/", autenticar, compradorApenas, (req, res, next) => {
   schemaNovaAvaliacao.parse(req.body);
   return controller.criar(req, res).catch(next);
 });
@@ -26,6 +27,7 @@ router.put(
   "/admin/avaliacoes/:id/moderar",
   autenticar,
   adminApenas,
+  validarCorpo(z.object({ acao: z.enum(["REMOVER", "MANTER"]) })),
   (req, res, next) =>
     controller.moderar(req, res).catch(next)
 );
@@ -39,7 +41,7 @@ router.get(
   (req, res, next) => controller.listarPorProduto(req, res).catch(next)
 );
 
-router.get("/comprador/avaliacoes", autenticar, (req, res, next) =>
+router.get("/comprador/avaliacoes", autenticar, compradorApenas, (req, res, next) =>
   controller.listarPorComprador(req, res).catch(next)
 );
 

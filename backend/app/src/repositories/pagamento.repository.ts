@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
+import { ErroApp } from "../middleware/error";
 
 export const pagamentoRepository = {
   registrarPagamento(dados: {
@@ -12,6 +13,8 @@ export const pagamentoRepository = {
     const pedidoId = toId(dados.pedidoId);
     const novoStatus = dados.novoStatusPedido ?? "PAGO";
     return prisma.$transaction(async (tx) => {
+      const transicao = await tx.pedido.updateMany({ where: { id: pedidoId, status: "AGUARDANDO_PAGAMENTO" }, data: { status: novoStatus } });
+      if (transicao.count !== 1) throw new ErroApp(400, "Pedido ja se encontra pago ou finalizado.");
       const pagamento = await tx.pagamento.create({
         data: {
           pedidoId,

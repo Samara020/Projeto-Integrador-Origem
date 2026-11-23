@@ -15,12 +15,12 @@ export class PainelController {
   }
 
   async configuracoesEnvio(req: Request, res: Response) {
-    const resultado = await painelService.configuracoesEnvio();
+    const resultado = await painelService.configuracoesEnvio(req.usuario!.id);
     return res.json(resultado);
   }
 
   async alternarOpcaoEnvio(req: Request, res: Response) {
-    const resultado = await painelService.alternarOpcaoEnvio(req.body);
+    const resultado = await painelService.alternarOpcaoEnvio(req.usuario!.id, req.body);
     return res.json(resultado);
   }
 

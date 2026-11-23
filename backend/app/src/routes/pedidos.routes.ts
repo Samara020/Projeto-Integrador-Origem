@@ -9,6 +9,7 @@ export const rotasDiretasPedidos = Router();
 const controller = new PedidosController();
 
 const schemaCheckout = z.object({
+  opcaoEnvioId: z.enum(["economico", "expresso"]).optional(),
   enderecoEntrega: z.object(
     {
       cep: z

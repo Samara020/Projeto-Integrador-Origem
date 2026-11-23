@@ -13,12 +13,17 @@ import { useCategorias, useTecnicas } from "@/hooks/useCatalogo";
 import { useAcoesArtesao, useRascunhoPeca } from "@/hooks/usePainelArtesao";
 import { useSessao } from "@/hooks/useSessao";
 import { formatarMoeda } from "@/lib/formato";
+import {
+  bytesTotaisImagens,
+  lerImagemCompactada,
+  LIMITE_BYTES_TOTAL_IMAGENS,
+} from "@/lib/imagem";
+import { validarNovaPeca, type ErrosNovaPeca } from "@/lib/validacao";
 import type { NovoProduto } from "@/types";
 
 const MAXIMO_FOTOS = 5;
-const LIMITE_BYTES = 400 * 1024;
 
-type Erros = Partial<Record<keyof NovoProduto | "fotos", string>>;
+type Erros = ErrosNovaPeca;
 
 const FORMULARIO_VAZIO: NovoProduto = {
   nome: "",
@@ -38,7 +43,9 @@ const FORMULARIO_VAZIO: NovoProduto = {
 };
 
 function numero(texto: string) {
-  const limpo = texto.replace(/\./g, "").replace(",", ".").trim();
+  const limpo = texto.includes(",")
+    ? texto.replace(/\./g, "").replace(",", ".").trim()
+    : texto.trim();
   const valor = Number(limpo);
   return Number.isFinite(valor) ? valor : 0;
 }
@@ -81,24 +88,6 @@ function FormularioNovaPeca({
     setErros((atual) => ({ ...atual, [campo]: undefined }));
   }
 
-  function validar(peca: NovoProduto): Erros {
-    const problemas: Erros = {};
-    if (!peca.nome.trim()) problemas.nome = "Dê um nome à peça.";
-    if (!peca.categoria) problemas.categoria = "Escolha a categoria.";
-    if (peca.descricao.trim().length < 20)
-      problemas.descricao = "Conte a história da peça em pelo menos 20 caracteres.";
-    if (!peca.tecnica) problemas.tecnica = "Escolha a técnica.";
-    if (!peca.material.trim()) problemas.material = "Informe o material.";
-    if (!peca.dimensoes.trim()) problemas.dimensoes = "Informe as dimensões.";
-    if (peca.peso <= 0) problemas.peso = "Informe o peso em kg.";
-    if (peca.preco <= 0) problemas.preco = "Informe o preço.";
-    if (peca.modalidadeProducao !== "PECA_UNICA" && peca.estoque < 1)
-      problemas.estoque = "Tenha pelo menos uma peça pronta.";
-    if (!peca.informacoesOrigem.trim()) problemas.informacoesOrigem = "Conte de onde vem a peça.";
-    if (peca.imagens.length === 0) problemas.fotos = "Adicione ao menos uma foto.";
-    return problemas;
-  }
-
   function montar(): NovoProduto {
     return {
       ...form,
@@ -115,7 +104,7 @@ function FormularioNovaPeca({
   function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const peca = montar();
-    const problemas = validar(peca);
+    const problemas = validarNovaPeca(peca);
     setErros(problemas);
     if (Object.values(problemas).some(Boolean)) {
       setAvisoFotos(null);
@@ -152,30 +141,62 @@ function FormularioNovaPeca({
     setAvisoFotos(null);
     if (arquivos.length === 0) return;
 
-    const pesadas = arquivos.filter((arquivo) => arquivo.size > LIMITE_BYTES);
-    if (pesadas.length > 0) {
-      setErros((atual) => ({
-        ...atual,
-        fotos: "Foto acima de 400 KB não entra. Envie uma versão menor.",
-      }));
-      setAvisoFotos(pesadas.map((arquivo) => arquivo.name).join(", "));
+    const lidas: string[] = [];
+    const recusadas: string[] = [];
+    let erroLeitura: string | null = null;
+    for (const arquivo of arquivos) {
+      try {
+        lidas.push(await lerImagemCompactada(arquivo));
+      } catch (causa) {
+        recusadas.push(arquivo.name);
+        erroLeitura = causa instanceof Error ? causa.message : "Imagem inválida.";
+      }
+    }
+
+    if (recusadas.length > 0 && lidas.length === 0) {
+      setErros((atual) => ({ ...atual, fotos: erroLeitura ?? "Imagem acima do limite." }));
+      setAvisoFotos(recusadas.join(", "));
       evento.target.value = "";
       return;
     }
 
-    const lidas = await Promise.all(arquivos.map((arquivo) => lerComoDataUrl(arquivo)));
-    const restantes = MAXIMO_FOTOS - form.imagens.length;
+    const restantes = Math.max(MAXIMO_FOTOS - form.imagens.length, 0);
+    const candidatas = lidas.slice(0, restantes);
+    const selecionadas: string[] = [];
+    let totalAtual = bytesTotaisImagens(form.imagens);
+    let estourouTotal = false;
+
+    for (const imagem of candidatas) {
+      const proximoTotal = totalAtual + bytesTotaisImagens([imagem]);
+      if (proximoTotal > LIMITE_BYTES_TOTAL_IMAGENS) {
+        estourouTotal = true;
+        break;
+      }
+      totalAtual = proximoTotal;
+      selecionadas.push(imagem);
+    }
+
     if (lidas.length > restantes) {
       setErros((atual) => ({
         ...atual,
         fotos: `Você pode ter ${MAXIMO_FOTOS} fotos por peça.`,
       }));
+    } else if (estourouTotal) {
+      setErros((atual) => ({
+        ...atual,
+        fotos: "O conjunto de fotos ultrapassou o limite total de 4 MB. Envie imagens menores.",
+      }));
+    } else if (recusadas.length > 0) {
+      setErros((atual) => ({ ...atual, fotos: erroLeitura ?? "Alguma foto não pôde ser adicionada." }));
+      setAvisoFotos(recusadas.join(", "));
     }
 
-    setForm((atual) => ({
-      ...atual,
-      imagens: [...atual.imagens, ...lidas.slice(0, Math.max(restantes, 0))],
-    }));
+    if (selecionadas.length > 0) {
+      setForm((atual) => ({
+        ...atual,
+        imagens: [...atual.imagens, ...selecionadas],
+      }));
+    }
     evento.target.value = "";
   }
 
@@ -242,7 +263,7 @@ function FormularioNovaPeca({
               </p>
             ) : (
               <p className="mt-2 text-apoio text-tinta-3">
-                JPG ou PNG de até 400 KB, até {MAXIMO_FOTOS} fotos.
+                JPG, PNG ou WebP (até {MAXIMO_FOTOS} fotos, máximo de 4 MB no total).
               </p>
             )}
           </Cartao>
@@ -455,12 +476,4 @@ function FormularioNovaPeca({
       </form>
     </div>
   );
-}
-
-function lerComoDataUrl(arquivo: File) {
-  return new Promise<string>((resolver) => {
-    const leitor = new FileReader();
-    leitor.onload = () => resolver(String(leitor.result));
-    leitor.readAsDataURL(arquivo);
-  });
 }

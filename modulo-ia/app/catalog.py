@@ -17,22 +17,28 @@ def load_catalog():
         return json.load(file)
 
 
-def find_product(product_id):
-    catalog = load_catalog()
+def resolve_catalog(catalog=None):
+    if catalog is not None:
+        return catalog
+    return load_catalog()
 
-    for product in catalog:
+
+def find_product(product_id, catalog=None):
+    items = resolve_catalog(catalog)
+
+    for product in items:
         if product["product_id"] == product_id:
             return product
 
     return None
 
 
-def available_products(reference_product_id=None):
-    catalog = load_catalog()
+def available_products(reference_product_id=None, catalog=None):
+    items = resolve_catalog(catalog)
 
     return [
         product
-        for product in catalog
-        if product["available"]
+        for product in items
+        if product.get("available")
         and product["product_id"] != reference_product_id
     ]

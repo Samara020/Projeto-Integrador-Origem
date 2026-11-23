@@ -5,8 +5,17 @@ import bentoml
 from pydantic import BaseModel
 
 from app.catalog import find_product
-from app.config import API_KEY, DEFAULT_LIMIT, MAX_LIMIT
+from app.config import DEFAULT_LIMIT, MAX_LIMIT, get_api_key
 from app.fallback import select_candidates
+
+
+class CatalogItem(BaseModel):
+    product_id: str
+    name: str | None = None
+    category: str | None = None
+    technique: str | None = None
+    region: str | None = None
+    available: bool = True
 
 
 class RecommendationRequest(BaseModel):
@@ -15,6 +24,14 @@ class RecommendationRequest(BaseModel):
     technique: str | None = None
     region: str | None = None
     limit: int = DEFAULT_LIMIT
+    catalog: list[CatalogItem] | None = None
+
+
+def normalizar_texto(valor):
+    if valor is None:
+        return None
+    texto = valor.strip()
+    return texto if texto else None
 
 
 class ErrorDetail(BaseModel):
@@ -68,7 +85,7 @@ def validar_autenticacao(ctx):
             "Autenticação obrigatória.",
         )
 
-    if api_key != API_KEY:
+    if api_key != get_api_key():
         return error_response(
             ctx,
             403,
@@ -89,10 +106,10 @@ def validar_requisicao(ctx, request):
         )
 
     if (
-        request.product_id is None
-        and request.category is None
-        and request.technique is None
-        and request.region is None
+        normalizar_texto(request.product_id) is None
+        and normalizar_texto(request.category) is None
+        and normalizar_texto(request.technique) is None
+        and normalizar_texto(request.region) is None
     ):
         return error_response(
             ctx,
@@ -104,11 +121,12 @@ def validar_requisicao(ctx, request):
     return None
 
 
-def obter_produto_referencia(ctx, product_id):
+def obter_produto_referencia(ctx, product_id, catalog=None):
+    product_id = normalizar_texto(product_id)
     if product_id is None:
         return None, None
 
-    reference_product = find_product(product_id)
+    reference_product = find_product(product_id, catalog=catalog)
 
     if reference_product is None:
         return None, error_response(
@@ -123,20 +141,20 @@ def obter_produto_referencia(ctx, product_id):
 
 def montar_contexto(request, reference_product):
     context = {
-        "category": request.category,
-        "technique": request.technique,
-        "region": request.region,
+        "category": normalizar_texto(request.category),
+        "technique": normalizar_texto(request.technique),
+        "region": normalizar_texto(request.region),
     }
 
     if reference_product is not None:
         context["category"] = (
-            context["category"] or reference_product["category"]
+            context["category"] or normalizar_texto(reference_product.get("category"))
         )
         context["technique"] = (
-            context["technique"] or reference_product["technique"]
+            context["technique"] or normalizar_texto(reference_product.get("technique"))
         )
         context["region"] = (
-            context["region"] or reference_product["region"]
+            context["region"] or normalizar_texto(reference_product.get("region"))
         )
 
     return context
@@ -182,9 +200,17 @@ class RecommendationService:
         if erro is not None:
             return erro
 
+        catalog = (
+            [item.model_dump() for item in request.catalog]
+            if request.catalog is not None
+            else None
+        )
+        reference_id = normalizar_texto(request.product_id)
+
         reference_product, erro = obter_produto_referencia(
             ctx,
-            request.product_id,
+            reference_id,
+            catalog=catalog,
         )
         if erro is not None:
             return erro
@@ -193,8 +219,9 @@ class RecommendationService:
 
         recommendations = select_candidates(
             context=context,
-            reference_product_id=request.product_id,
+            reference_product_id=reference_id,
             limit=request.limit,
+            catalog=catalog,
         )
 
         registrar_desempenho(recommendations, start_time)

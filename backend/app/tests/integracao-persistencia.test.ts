@@ -67,13 +67,11 @@ describe("Regressões da integração real e persistência", () => {
   });
 
   test("token de recuperação é de uso único inclusive em duas requisições simultâneas", async () => {
-    const u = await criarUsuarioComprador();
-    const rec = await request(app).post("/auth/recuperar-senha").send({ email: u.email }).expect(200);
-    const token = rec.body.tokenRecuperacao;
-    expect(token).toBeDefined();
-    const respostas = await Promise.all([1, 2].map(() => request(app).post("/auth/redefinir-senha").send({ token, novaSenha: "novaSenha456" })));
-    expect(respostas.map(r => r.status).sort()).toEqual([200, 401]);
+    const u = await criarUsuarioComprador(); const { token } = await recuperacaoRepository.criar(u.id);
+    const respostas = await Promise.all([1, 2].map(() => request(app).post("/auth/redefinir-senha").send({ token, senha: "novaSenha456" })));
+    expect(respostas.map(r => r.status).sort()).toEqual([200, 400]);
     expect(await bcrypt.compare("novaSenha456", (await prisma.usuario.findUniqueOrThrow({ where: { id: u.id } })).senha)).toBe(true);
+    expect((await prisma.recuperacaoSenha.findFirstOrThrow()).usadoEm).not.toBeNull();
   });
 
   test("duas confirmações simultâneas do carrinho geram um pedido e cobram o frete do servidor", async () => {

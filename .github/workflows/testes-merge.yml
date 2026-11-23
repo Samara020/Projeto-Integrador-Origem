@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 20
     env:
       POSTGRES_PASSWORD: ci-temporary-password
+      # Valor descartável usado apenas para interpolar o Compose no build/smoke test.
+      JWT_SECRET: segredo-ci-build
     steps:
       - uses: actions/checkout@v7
       - name: Build (compose)
@@ -40,5 +42,13 @@ jobs:
         run: |
           docker compose up -d --wait
           curl -sf http://localhost:3001/readyz
-          curl -sf http://localhost:3000/api/categorias > /dev/null
+          curl -sf http://localhost:4000/health > /dev/null
+          curl -sf http://localhost:4000/categorias > /dev/null
+          curl -sf http://localhost:3000/ > /dev/null
           docker compose down
+
+      - name: Mostrar logs se falhar
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs postgres

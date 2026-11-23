@@ -1,9 +1,10 @@
-import * as bcrypt from "bcryptjs";
+Ôªøimport * as bcrypt from "bcryptjs";
 import { sign, verify, type JwtPayload } from "jsonwebtoken";
 import { enviarEmail } from "../lib/email";
 import { gerarToken } from "../lib/jwt";
-import { consumirTokenUsoUnico, invalidarSessoesUsuario, obterVersaoSessaoUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
+import { invalidarSessoesUsuario, obterVersaoSessaoUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
 import { ErroApp } from "../middleware/error";
+import { recuperacaoRepository } from "../repositories/recuperacao.repository";
 import { usuarioRepository } from "../repositories/usuario.repository";
 
 const RODADAS_HASH = 12;
@@ -27,32 +28,32 @@ export const authService = {
     codigoConvite?: string;
   }) {
     if (!dados || typeof dados !== "object") {
-      throw new ErroApp(400, "Dados inv·lidos.");
+      throw new ErroApp(400, "Dados inv√°lidos.");
     }
     if (typeof dados.nome !== "string" || dados.nome.trim().length < 2) {
-      throw new ErroApp(400, "Informe um nome v·lido com pelo menos 2 caracteres.");
+      throw new ErroApp(400, "Informe um nome v√°lido com pelo menos 2 caracteres.");
     }
     if (typeof dados.email !== "string" || !EMAIL_VALIDO.test(dados.email.trim())) {
-      throw new ErroApp(400, "Informe um endereÁo de e-mail v·lido.");
+      throw new ErroApp(400, "Informe um endere√ßo de e-mail v√°lido.");
     }
     if (typeof dados.senha !== "string" || dados.senha.length < 8) {
       throw new ErroApp(400, "A senha precisa ter pelo menos 8 caracteres.");
     }
     if (typeof dados.papel !== "string" || !PAPEIS_VALIDOS.includes(dados.papel)) {
-      throw new ErroApp(400, "Papel inv·lido.");
+      throw new ErroApp(400, "Papel inv√°lido.");
     }
 
     const emailNormalizado = dados.email.trim().toLowerCase();
     const existe = await usuarioRepository.buscarPorEmail(emailNormalizado);
 
     if (existe) {
-      throw new ErroApp(400, "J· existe uma conta com esse e-mail.");
+      throw new ErroApp(400, "J√° existe uma conta com esse e-mail.");
     }
 
     if (dados.papel === "ADMINISTRADOR") {
       const codigo = typeof dados.codigoConvite === "string" ? dados.codigoConvite.trim().toLowerCase() : "";
       if (!codigo || codigo !== "origem-admin-2026") {
-        throw new ErroApp(403, "CÛdigo de convite inv·lido.");
+        throw new ErroApp(403, "C√≥digo de convite inv√°lido.");
       }
     }
 
@@ -136,12 +137,12 @@ export const authService = {
 
   async recuperarSenha(dados: { email: string }) {
     if (!dados || typeof dados.email !== "string" || !EMAIL_VALIDO.test(dados.email.trim())) {
-      throw new ErroApp(400, "Informe um endereÁo de e-mail v·lido.");
+      throw new ErroApp(400, "Informe um endere√ßo de e-mail v√°lido.");
     }
     const emailNormalizado = dados.email.trim().toLowerCase();
     const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
     const servidorTesteIsolado =
-      (process.env.NODE_ENV === "test" || process.env.ORIGEM_TEST_SERVER === "1");
+      process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
 
     let tokenRecuperacao: string | undefined;
     if (usuario) {
@@ -160,21 +161,21 @@ export const authService = {
 
       await enviarEmail({
         para: usuario.email,
-        assunto: "Origem ó RedefiniÁ„o de senha",
+        assunto: "Origem ‚Äî Redefini√ß√£o de senha",
         texto: [
-          `Ol·, ${usuario.nome}.`,
+          `Ol√°, ${usuario.nome}.`,
           "",
-          "Recebemos uma solicitaÁ„o para redefinir a senha da sua conta na plataforma Origem.",
-          `Use o link abaixo (v·lido por 15 minutos):`,
+          "Recebemos uma solicita√ß√£o para redefinir a senha da sua conta na plataforma Origem.",
+          `Use o link abaixo (v√°lido por 15 minutos):`,
           linkRedefinicao,
           "",
-          `Ou informe o cÛdigo de recuperaÁ„o: ${tokenRecuperacao}`,
+          `Ou informe o c√≥digo de recupera√ß√£o: ${tokenRecuperacao}`,
         ].join("\n"),
       });
     }
 
     return {
-      mensagem: "Se o e-mail estiver cadastrado, enviamos as instruÁıes para redefiniÁ„o de senha.",
+      mensagem: "Se o e-mail estiver cadastrado, enviamos as instru√ß√µes para redefini√ß√£o de senha.",
       ...(servidorTesteIsolado && tokenRecuperacao
         ? { token: tokenRecuperacao, tokenRecuperacao }
         : {}),
@@ -183,26 +184,36 @@ export const authService = {
 
   async redefinirSenha(dados: { token: string; novaSenha: string }) {
     if (!dados || typeof dados.token !== "string" || !dados.token.trim()) {
-      throw new ErroApp(400, "Informe o token de redefiniÁ„o de senha.");
+      throw new ErroApp(400, "Informe o token de redefini√ß√£o de senha.");
     }
     if (typeof dados.novaSenha !== "string" || dados.novaSenha.length < 8) {
       throw new ErroApp(400, "A nova senha precisa ter pelo menos 8 caracteres.");
     }
 
     const token = dados.token.trim();
+
+    if (token.split(".").length !== 3) {
+      const senhaHash = await bcrypt.hash(dados.novaSenha, RODADAS_HASH);
+      const usuarioId = await recuperacaoRepository.consumir(token, senhaHash);
+      await invalidarSessoesUsuario(String(usuarioId));
+      return {
+        mensagem: "Senha redefinida com sucesso.",
+      };
+    }
+
     if (await tokenFoiRevogado(token)) {
-      throw new ErroApp(401, "Token de redefiniÁ„o j· utilizado ou expirado.");
+      throw new ErroApp(401, "Token de redefini√ß√£o j√° utilizado ou expirado.");
     }
 
     let decodido: JwtPayload;
     try {
       const verificado = verify(token, Buffer.from(obterSegredoJwt()));
       if (!verificado || typeof verificado !== "object") {
-        throw new ErroApp(401, "Token de redefiniÁ„o inv·lido.");
+        throw new ErroApp(401, "Token de redefini√ß√£o inv√°lido.");
       }
       decodido = verificado as JwtPayload;
     } catch {
-      throw new ErroApp(401, "Token de redefiniÁ„o inv·lido ou expirado.");
+      throw new ErroApp(401, "Token de redefini√ß√£o inv√°lido ou expirado.");
     }
 
     if (
@@ -210,17 +221,12 @@ export const authService = {
       typeof decodido.id !== "string" ||
       !decodido.id.trim()
     ) {
-      throw new ErroApp(401, "Token de redefiniÁ„o inv·lido.");
+      throw new ErroApp(401, "Token de redefini√ß√£o inv√°lido.");
     }
 
     const usuario = await usuarioRepository.buscarPorId(decodido.id);
     if (!usuario) {
-      throw new ErroApp(404, "Usu·rio n„o encontrado.");
-    }
-
-    const consumido = await consumirTokenUsoUnico(token, decodido.exp);
-    if (!consumido) {
-      throw new ErroApp(401, "Token de redefini..o j. utilizado ou expirado.");
+      throw new ErroApp(404, "Usu√°rio n√£o encontrado.");
     }
 
     const senhaHash = await bcrypt.hash(dados.novaSenha, RODADAS_HASH);

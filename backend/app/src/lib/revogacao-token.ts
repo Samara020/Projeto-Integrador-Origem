@@ -125,23 +125,3 @@ export async function sessaoUsuarioInvalidada(
   if (emitidoEm < limite) return true;
   return emitidoEm === limite && versaoAtual > 1;
 }
-
-
-export async function consumirTokenUsoUnico(token: string, expiraEmSegundos?: number): Promise<boolean> {
-  await garantirTabelas();
-  const agora = Math.floor(Date.now() / 1000);
-  const exp = expiraEmSegundos ?? agora + 15 * 60;
-  if (exp <= agora) return false;
-
-  const hash = hashToken(token);
-  await prisma.$executeRawUnsafe(
-    "DELETE FROM tokens_revogados WHERE expira_em <= $1",
-    agora
-  );
-  const inseridos = await prisma.$queryRawUnsafe<{ token_hash: string }[]>(
-    "INSERT INTO tokens_revogados (token_hash, expira_em) VALUES ($1, $2) ON CONFLICT (token_hash) DO NOTHING RETURNING token_hash",
-    hash,
-    exp
-  );
-  return Array.isArray(inseridos) && inseridos.length > 0;
-}

@@ -25,11 +25,13 @@ export function useFiltrosUrl() {
   const numero = (chave: string) =>
     parametros.get(chave) ? Number(parametros.get(chave)) : undefined;
 
+  const regiao = texto("regiao") || texto("origem") || undefined;
+
   const filtros: FiltrosProdutos = {
     termo: texto("termo") || undefined,
     categoria: texto("categoria") || undefined,
     tecnica: texto("tecnica") || undefined,
-    regiao: texto("regiao") || undefined,
+    regiao,
     precoMax: numero("precoMax"),
     avaliacaoMin: numero("avaliacaoMin"),
     disponivel: texto("disponivel") === "true" || undefined,
@@ -41,6 +43,7 @@ export function useFiltrosUrl() {
 
   function atualizar(mudancas: Record<string, string | null>) {
     const novos = new URLSearchParams(parametros.toString());
+    if ("regiao" in mudancas) novos.delete("origem");
     for (const [chave, valor] of Object.entries(mudancas)) {
       if (valor) novos.set(chave, valor);
       else novos.delete(chave);
@@ -56,10 +59,21 @@ export function useFiltrosUrl() {
   }
 
   function limpar() {
-    atualizar(Object.fromEntries(CHAVES_DE_FILTRO.map((chave) => [chave, null])));
+    atualizar({
+      ...Object.fromEntries(CHAVES_DE_FILTRO.map((chave) => [chave, null])),
+      origem: null,
+    });
   }
 
-  const ativos = CHAVES_DE_FILTRO.filter((chave) => parametros.get(chave)).length;
+  const ativos = CHAVES_DE_FILTRO.filter((chave) =>
+    chave === "regiao" ? Boolean(regiao) : Boolean(parametros.get(chave)),
+  ).length;
 
-  return { filtros, texto, atualizar, limpar, ativos };
+  return {
+    filtros,
+    texto: (chave: string) => (chave === "regiao" ? regiao ?? "" : texto(chave)),
+    atualizar,
+    limpar,
+    ativos,
+  };
 }

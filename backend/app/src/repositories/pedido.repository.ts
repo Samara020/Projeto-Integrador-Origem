@@ -3,7 +3,6 @@ import { Id, toId } from "../lib/ids";
 import { ErroApp } from "../middleware/error";
 
 const PREFIXO_RASTREIO = "Rastreio: ";
-const STATUS_FINAIS = ["ENTREGUE", "CANCELADO"];
 
 export const pedidoRepository = {
   criarCheckout(dados: {
@@ -13,34 +12,38 @@ export const pedidoRepository = {
     itens: { produtoId: Id; quantidade: number; precoUnitario: any; subtotal: any }[];
     valorFrete: number;
   }) {
-    const carrinhoIdNum = toId(dados.carrinhoId);
+    const carrinhoId = toId(dados.carrinhoId);
+    const usuarioId = toId(dados.usuarioId);
+
     return prisma.$transaction(async (tx: any) => {
-      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinhoIdNum} FOR UPDATE`;
+      // Trava a linha do carrinho para serializar checkouts simultâneos e
+      // garantir leitura consistente após alterações concorrentes de quantidade/preço.
+      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinhoId} FOR UPDATE`;
 
       const itensCarrinho = await tx.itemCarrinho.findMany({
-        where: { carrinhoId: carrinhoIdNum },
-        orderBy: { numeroItem: "asc" },
+        where: { carrinhoId },
         include: { produto: true },
+        orderBy: { numeroItem: "asc" },
       });
 
-      if (!itensCarrinho || itensCarrinho.length === 0) {
+      if (itensCarrinho.length === 0) {
         throw new ErroApp(400, "Carrinho vazio.");
       }
 
-      const itensCalculados = itensCarrinho.map((item: any) => {
-        const preco = Number(item.produto?.preco ?? item.precoUnitario ?? 0);
+      const itensAtualizados = itensCarrinho.map((item: any) => {
+        const precoAtual = item.produto?.preco ?? item.precoUnitario;
         return {
-          produtoId: toId(item.produtoId),
+          produtoId: item.produtoId,
           quantidade: item.quantidade,
-          precoUnitario: item.produto?.preco ?? item.precoUnitario,
-          subtotal: preco * item.quantidade,
+          precoUnitario: precoAtual,
+          subtotal: Number(precoAtual) * item.quantidade,
         };
       });
 
-      for (const item of itensCalculados) {
+      for (const item of itensAtualizados) {
         const baixa = await tx.estoque.updateMany({
           where: {
-            produtoId: item.produtoId,
+            produtoId: toId(item.produtoId),
             quantidadeDisponivel: { gte: item.quantidade },
           },
           data: { quantidadeDisponivel: { decrement: item.quantidade } },
@@ -54,18 +57,18 @@ export const pedidoRepository = {
 
       const pedido = await tx.pedido.create({
         data: {
-          usuarioId: toId(dados.usuarioId),
+          usuarioId,
           enderecoEntregaId: endereco.id,
           status: "AGUARDANDO_PAGAMENTO",
           data: new Date(),
           valorFrete: dados.valorFrete,
           itens: {
-            create: itensCalculados.map((item: any, idx: number) => ({
-              numeroItem: idx + 1,
-              produtoId: item.produtoId,
-              quantidade: item.quantidade,
-              precoUnitario: item.precoUnitario,
-              subtotal: item.subtotal,
+            create: itensAtualizados.map((i: any, indice: number) => ({
+              numeroItem: indice + 1,
+              produtoId: toId(i.produtoId),
+              quantidade: i.quantidade,
+              precoUnitario: i.precoUnitario,
+              subtotal: i.subtotal,
             })),
           },
           historico: {
@@ -77,7 +80,7 @@ export const pedidoRepository = {
         },
       });
 
-      await tx.itemCarrinho.deleteMany({ where: { carrinhoId: carrinhoIdNum } });
+      await tx.itemCarrinho.deleteMany({ where: { carrinhoId } });
       return pedido;
     });
   },
@@ -146,7 +149,6 @@ export const pedidoRepository = {
     const pedidoId = toId(id);
     return prisma.$transaction(async (tx: any) => {
       await tx.$queryRaw`SELECT id_pedidos FROM pedido WHERE id_pedidos = ${pedidoId} FOR UPDATE`;
-
       const pedidoAnterior = await tx.pedido.findUnique({
         where: { id: pedidoId },
         include: { itens: true },
@@ -154,8 +156,7 @@ export const pedidoRepository = {
       if (!pedidoAnterior) {
         throw new ErroApp(404, "Pedido nao encontrado.");
       }
-
-      if (STATUS_FINAIS.includes(pedidoAnterior.status)) {
+      if (pedidoAnterior.status === "ENTREGUE" || pedidoAnterior.status === "CANCELADO") {
         throw new ErroApp(409, `Pedido ja esta ${pedidoAnterior.status} e nao pode mais ser alterado.`);
       }
 

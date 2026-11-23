@@ -1,4 +1,4 @@
-### Isso não é o resultado definitivo do contrato de API
+﻿### Isso não é o resultado definitivo do contrato de API
 
 # Modelo de Contrato de API Completo - Sistema Origem
 
@@ -27,7 +27,7 @@ Este documento estabelece o contrato de API RESTful completo para o **Sistema Or
 ### 2.1. Módulo: Identidade, Segurança e Acesso (HU-01)
 
 #### POST /auth/register
-Cadastra um novo usuário no sistema.
+Cadastra um novo usuário no sistema. Valida tipos, `nome` não vazio com pelo menos 2 caracteres após `trim`, formato de `email`, `senha` com mínimo de 8 caracteres (armazenada exclusivamente com hash `bcrypt` custo 12) e `papel` válido.
 
 ```json
 {
@@ -51,7 +51,7 @@ Cadastra um novo usuário no sistema.
 *Proposta do frontend (lacuna):* para `"papel": "ADMINISTRADOR"`, o corpo leva também `"codigoConvite"`, o código que a equipe entrega a quem vai administrar. Sem código válido, a resposta é `403 Forbidden` com `{ "mensagem": "Código de convite inválido." }`. Comprador e artesão não enviam o campo.
 
 #### POST /auth/login
-Autentica o usuário e emite o token de sessão.
+Autentica o usuário e emite o token de sessão JWT.
 
 ```json
 {
@@ -72,6 +72,22 @@ Autentica o usuário e emite o token de sessão.
 }
 ```
 
+> Tokens emitidos pelo backend incluem `sv`, versão monotônica da sessão. O
+> middleware exige `sv` igual à versão atual. Tokens legados sem `sv` são
+> rejeitados quando emitidos antes da invalidação; se a versão atual for maior
+> que `1`, também são rejeitados os emitidos exatamente no segundo da
+> invalidação. Logout e expiração natural continuam válidos.
+
+#### POST /auth/logout
+Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
+
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Sessão encerrada com sucesso."
+}
+```
+
 #### POST /auth/recuperar-senha
 Solicita o envio de instrução/token para redefinição de senha.
 
@@ -83,9 +99,35 @@ Solicita o envio de instrução/token para redefinição de senha.
 *Response (200 OK):*
 ```json
 {
-  "mensagem": "E-mail de recuperação enviado com sucesso."
+  "mensagem": "Se o e-mail estiver cadastrado, enviamos as instruções para redefinição de senha."
 }
 ```
+
+> Em produção e development, o token de recuperação trafega apenas pelo e-mail,
+> no link com validade de 15 minutos, ou pela entrada manual do código. A
+> resposta não contém segredo e o backend não registra link nem código em log.
+> Somente no servidor descartável de teste (`NODE_ENV=test` e
+> `ORIGEM_TEST_SERVER=1`), quando o e-mail existe, a resposta inclui
+> `tokenRecuperacao` e o alias `token` com o mesmo valor para o reteste
+> automatizado. O frontend consome o `token` da URL (`?token=...`) ou o código
+> colado pelo usuário.
+
+#### POST /auth/redefinir-senha
+Define uma nova senha a partir do token de recuperação emitido para o usuário. A nova senha passa a ser armazenada com hash `bcrypt` custo 12.
+
+```json
+{
+  "token": "tok_recuperacao_123",
+  "novaSenha": "novaSenhaSegura123"
+}
+```
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Senha redefinida com sucesso."
+}
+```
+*Erros:* `400 Bad Request` quando o token ou a nova senha (mínimo 8 caracteres) forem inválidos; `401 Unauthorized` quando o token de recuperação estiver expirado ou já utilizado.
 
 ---
 
@@ -122,6 +164,16 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 > precisa de `sku`, `material`, `dimensoes`, `peso`, `certificado` e
 > `informacoesOrigem`, e a resposta devolve o `sku` gerado.
 
+> **Persistência obrigatória:** `sku`, `peso`, `dimensoes`, `certificado`,
+> `informacoesOrigem` são gravados em `create`/`update`/`list` e retornados
+> em `GET /produtos`, `GET /produtos/:id` e listagens. Campos `pendentes`
+> também devolvem esses dados sem substituí-los por `descricao`/`null`.
+
+> **Schema & Migration:** Coluna `peso` `DECIMAL(10,2)` `NOT NULL DEFAULT 0`,
+> backfill via migration `20261120160000_backfill_peso_not_null`. Migração
+> versionada no `prisma/migrations/` do banco descartável `origem_audit` (:55432).
+> As respostas serializam `peso` como `number`, nunca como string `Decimal`.
+
 ```json
 {
   "nome": "Luminária Mandacaru",
@@ -152,6 +204,8 @@ Cadastra uma nova peça artesanal (Exclusivo para papel `ARTESAO`).
 
 #### PUT /produtos/{id}
 Atualiza os dados de uma peça existente (Exclusivo para o artesão dono da peça).
+
+> **Validação de estoque:** O endpoint validade estoque disponível **antes** de qualquer escrita no banco. Se o payload indicar `estoque` negativo, a resposta é **400** e **nenhum dado é alterado** (preço e estoque permanecem inalterados - escrita atômica/rollback).
 
 ```json
 {
@@ -256,7 +310,7 @@ Lista todas as peças aguardando auditoria de origem (Exclusivo para `ADMINISTRA
 > - `enviadoEm` (lacuna, frontend): data de envio para análise, ISO 8601.
 > - `informacoesOrigem` (lacuna, frontend) e `certificado` (lacuna, frontend, `null` quando não enviado).
 > - `statusValidacao` (lacuna, frontend): `PENDENTE`, `APROVADA` ou `REPROVADA`.
-> - `justificativa` (lacuna, frontend) e `decididoEm` (lacuna, frontend): `null` enquanto pendente.
+> - `justificativa` (lacuna, frontend), `decididoPorId` (lacuna, frontend) e `decididoEm` (lacuna, frontend): `null` enquanto pendente; `decididoPorId` identifica o administrador responsável pela decisão.
 
 #### PUT /admin/produtos/{id}/validacao
 Analisa e altera o status de validação de origem e autenticidade da peça.
@@ -304,7 +358,10 @@ Retorna o catálogo de peças ativas com suporte a paginação e filtros combina
 ```
 
 #### GET /produtos/{id}
-Retorna informações detalhadas de uma peça específica e dados do artesão.
+Retorna informações detalhadas de uma peça específica e dados do artesão. A rota
+é pública apenas para peças aprovadas, não pausadas e não excluídas; peças
+pendentes, reprovadas, pausadas ou excluídas retornam `404`. A edição e a
+consulta do próprio catálogo do artesão usam rotas autenticadas separadas.
 
 *Response (200 OK):*
 ```json
@@ -312,6 +369,7 @@ Retorna informações detalhadas de uma peça específica e dados do artesão.
   "id": "prd_201",
   "nome": "Vaso de Cerâmica Marajoara",
   "preco": 380.00,
+  "statusValidacao": "APROVADA",
   "modalidadeProducao": "PECA_UNICA",
   "seloAtivo": true,
   "artesao": {
@@ -440,6 +498,30 @@ Remove um item do carrinho.
 }
 ```
 
+#### PUT /carrinho
+Atualiza quantidade de item no carrinho.
+
+*Body (schema rigoroso antes do controller):*
+```json
+{
+  "quantidade": 3
+}
+```
+
+**Regras (validadas via schema Zod antes do controller):**
+- Aceita somente objeto `{ quantidade: number }` com valor **inteiro >= 1**.
+- Payload inválido (objeto vazio, quantidade < 1, quantidade decimal/float) retorna **400**.
+- Se quantidade deixar estoque negativo, retorna **409** (estoque insuficiente).
+- A atualização valida estoque existente, pausa, `statusValidacao` e exclusão com atomicidade/rollback.
+- Sem estoque disponível: retorna **409**, **não** aceita produto indisponível.
+
+*Response (200 OK):*
+```json
+{
+  "mensagem": "Item atualizado no carrinho."
+}
+```
+
 #### POST /pedidos/checkout
 Efetiva a criação do pedido a partir do carrinho atual.
 
@@ -449,7 +531,8 @@ Efetiva a criação do pedido a partir do carrinho atual.
     "cep": "66000-000",
     "rua": "Rua Principal",
     "numero": "100"
-  }
+  },
+  "opcaoEnvioId": "economico"
 }
 ```
 *Response (201 Created):*
@@ -457,9 +540,16 @@ Efetiva a criação do pedido a partir do carrinho atual.
 {
   "pedidoId": "ped_501",
   "status": "AGUARDANDO_PAGAMENTO",
-  "valorTotal": 380.00
+  "valorFrete": 18.00,
+  "valorTotal": 398.00
 }
 ```
+
+> `opcaoEnvioId` é opcional e usa `economico` como padrão. O servidor resolve a
+> opção e o valor na tabela interna de frete; valores monetários enviados no
+> corpo são ignorados. `valorFrete` é gravado com o pedido na mesma transação
+> dos itens/estoque, e `valorTotal` é a soma dos subtotais persistidos mais o
+> frete, inclusive em pedidos antigos com frete zero.
 
 #### POST /pagamentos
 Processa o pagamento do pedido criado.
@@ -476,9 +566,14 @@ Processa o pagamento do pedido criado.
 {
   "transacaoId": "trx_999",
   "status": "APROVADO",
-  "dataPagamento": "2026-09-03T21:30:00Z"
+  "dataPagamento": "2026-09-03T21:30:00Z",
+  "valorFrete": 18.00,
+  "valorTotal": 398.00
 }
 ```
+
+> O débito é feito sobre o total calculado no servidor a partir do
+> `valorFrete` persistido e dos subtotais dos itens.
 
 ---
 
@@ -494,7 +589,8 @@ Lista o histórico de pedidos realizados pelo comprador autenticado.
     {
       "id": "ped_501",
       "status": "PAGO",
-      "valorTotal": 380.00,
+      "valorFrete": 18.00,
+      "valorTotal": 398.00,
       "criadoEm": "2026-09-03T21:30:00Z",
       "itens": [
         {
@@ -565,12 +661,23 @@ Atualiza o status de produção/envio do pedido.
   "codigoRastreioCorreios": "AB123456789BR"
 }
 ```
+
 *Response (200 OK):*
 ```json
 {
   "id": "ped_501",
   "statusProducao": "ENVIADO"
 }
+```
+
+> **Regra de pedido multiloja (única política coerente):** Pedidos com itens de
+> lojas diferentes (múltiples artesãos) **não podem ser cancelados/alterados**
+> globalmente. Se o pedido contém itens de mais de uma loja, qualquer tentativa
+> de mutação de status (`ENVIADO`, `CANCELADO`, `EM_PRODUCAO`, etc.) retorna
+> **409** com mensagem sobre separação em subpedidos. Essa regra substitui
+> guardas duplicadas e é aplicada no service layer antes de qualquer update no
+> banco, garantindo atomicidade/rollback. O rastreio só pode ser informado quando
+> o status global permanecer inalterado (pedido de loja única).
 ```
 
 ---
@@ -692,32 +799,45 @@ Lista os tickets de suporte abertos pelo usuário ou geridos pela equipe.
 ### 2.10. Módulo: Recomendações e Painéis de Gestão (HU-15, HU-16, HU-17)
 
 #### GET /produtos/recomendacoes
-Retorna recomendações personalizadas de produtos para o cliente.
+Retorna recomendações personalizadas de produtos disponíveis para o cliente.
 
-Parâmetro: `produtoId` (peça que o cliente está vendo).
+Parâmetros de consulta (todos opcionais):
+- `produtoId`: peça de referência que o cliente está vendo.
+- `categoria`: nome da categoria desejada.
+- `tecnica`: nome da técnica artesanal desejada.
+- `regiao`: nome da região desejada.
+- `limite`: quantidade máxima de recomendações (padrão `4`, intervalo `1..20`).
+
+Cabeçalho de resposta:
+- `X-Recomendacao-Fonte`: `ia` (quando respondido pelo `modulo-ia`) ou `baseline` (quando o módulo não está configurado, está indisponível, excede 2 s ou nenhum critério foi informado).
 
 *Response (200 OK):*
 ```json
 {
   "recomendados": [
     {
-      "id": "prd_202",
-      "nome": "Escultura em Madeira",
-      "preco": 450.00,
-      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal."
+      "id": "2013",
+      "nome": "Santo Antônio de Barro",
+      "preco": 260.00,
+      "imagemPrincipal": "/produtos/vaso-ceramica.jpg",
+      "artesao": { "id": "1006", "nome": "Ateliê Mãos da Mata" },
+      "seloAtivo": true,
+      "regiao": { "id": "Zona da Mata - PE", "nome": "Zona da Mata - PE" },
+      "modalidadeProducao": "PECA_UNICA",
+      "disponibilidade": "DISPONIVEL",
+      "motivo": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região.",
+      "score": 1.0
     }
   ]
 }
 ```
 
-> Integração com o módulo de IA (HU-17, `modulo-ia/`): cada item tem os campos
-> de `ProdutoResumo` e um `motivo` opcional com a justificativa da IA. A rota do
-> site chama `POST /recommendations` do módulo (chave em `X-API-Key`) e troca os
-> IDs devolvidos pelos cartões das peças. Se o módulo estiver fora do ar,
-> responder com erro ou passar de 2 s, a rota usa o baseline local e o item vem
-> sem `motivo`. Lista vazia esconde a seção "Você também pode gostar".
-> As sugestões da IA e do baseline local incluem somente peças com
-> `disponibilidade: "DISPONIVEL"`; peças reservadas ou vendidas ficam de fora.
+> Integração com o módulo de IA (HU-17, `modulo-ia/`):
+> - O **backend principal** (`GET /produtos/recomendacoes`) consulta o catálogo ativo no PostgreSQL, envia `POST /recommendations` ao `modulo-ia` (autenticado por `X-API-Key`, timeout de `2 s`) levando os critérios solicitados e o catálogo enxuto (`catalog: [{ product_id, name, category, technique, region, available }]`), e hidrata os IDs retornados com os produtos reais do catálogo, anexando `motivo` (`reason`) e `score`.
+> - A IA aplica pesos de categoria (`50%`), técnica (`30%`) e região (`20%`) com fallback progressivo de critérios.
+> - Somente peças válidas, aprovadas e com `disponibilidade: "DISPONIVEL"` (estoque > 0) entram na resposta; o produto de referência e itens reservados/vendidos/inativos são sempre excluídos.
+> - Se o `modulo-ia` estiver fora do ar, responder erro (`4xx`/`5xx`) ou ultrapassar `2 s`, o backend aplica automaticamente o baseline local com os mesmos pesos e devolve `200 OK` com `X-Recomendacao-Fonte: baseline` (itens sem `motivo`).
+> - Lista vazia (`recomendados: []`) é resposta válida (RF-11): na página do produto, a seção *"Você também pode gostar"* é ocultada; na página `/recomendacoes`, é exibido estado vazio com link para o catálogo.
 
 #### GET /artesao/painel/metricas
 Retorna métricas consolidadas de vendas, estoque e faturamento do artesão.

@@ -1,4 +1,4 @@
-import type { Papel } from "@/types";
+import type { NovoProduto, Papel } from "@/types";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -89,4 +89,24 @@ export function validarValidadeCartao(valor: string): string | undefined {
 
 export function validarCvv(valor: string): string | undefined {
   if (!/^\d{3,4}$/.test(valor.trim())) return "Digite o código de segurança.";
+}
+
+export type ErrosNovaPeca = Partial<Record<keyof NovoProduto | "fotos", string>>;
+
+export function validarNovaPeca(peca: NovoProduto): ErrosNovaPeca {
+  const problemas: ErrosNovaPeca = {};
+  if (!peca.nome.trim()) problemas.nome = "Dê um nome à peça.";
+  if (!peca.categoria) problemas.categoria = "Escolha a categoria.";
+  if (peca.descricao.trim().length < 20)
+    problemas.descricao = "Conte a história da peça em pelo menos 20 caracteres.";
+  if (!peca.tecnica) problemas.tecnica = "Escolha a técnica.";
+  if (!peca.material.trim()) problemas.material = "Informe o material.";
+  if (!peca.dimensoes.trim()) problemas.dimensoes = "Informe as dimensões.";
+  if (peca.peso <= 0) problemas.peso = "Informe o peso em kg.";
+  if (peca.preco <= 0) problemas.preco = "Informe o preço.";
+  if (peca.modalidadeProducao !== "PECA_UNICA" && peca.estoque < 1)
+    problemas.estoque = "Tenha pelo menos uma peça pronta.";
+  if (!peca.informacoesOrigem.trim()) problemas.informacoesOrigem = "Conte de onde vem a peça.";
+  if (peca.imagens.length === 0) problemas.fotos = "Adicione ao menos uma foto.";
+  return problemas;
 }

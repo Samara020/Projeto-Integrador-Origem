@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
+import { Foto } from "@/components/ui/Foto";
 
 export function Galeria({ imagens, nome }: { imagens: string[]; nome: string }) {
   const [atual, setAtual] = useState(0);
+  const selecionada = imagens[atual] ?? "";
 
   return (
     <div className="flex flex-col-reverse gap-3 md:flex-row">
@@ -23,7 +24,7 @@ export function Galeria({ imagens, nome }: { imagens: string[]; nome: string }) 
                     : "border-superficie-2 hover:border-borda-forte"
                 }`}
               >
-                <Image
+                <Foto
                   src={imagem}
                   alt=""
                   fill
@@ -37,9 +38,13 @@ export function Galeria({ imagens, nome }: { imagens: string[]; nome: string }) 
       )}
 
       <div className="relative aspect-4/3 w-full overflow-hidden rounded-raio border border-superficie-2 bg-superficie-2">
-        <Image
-          src={imagens[atual]}
-          alt={`${nome}, foto ${atual + 1} de ${imagens.length}`}
+        <Foto
+          src={selecionada}
+          alt={
+            imagens.length > 0
+              ? `${nome}, foto ${atual + 1} de ${imagens.length}`
+              : nome
+          }
           fill
           priority
           sizes="(min-width: 768px) 45vw, 100vw"

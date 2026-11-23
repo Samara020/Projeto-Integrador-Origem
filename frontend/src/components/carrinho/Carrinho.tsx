@@ -1,14 +1,16 @@
 "use client";
 
-import { ShoppingBag } from "lucide-react";
+import { LogIn, ShoppingBag } from "lucide-react";
 import { ItemCarrinho } from "@/components/carrinho/ItemCarrinho";
 import { ResumoPedido } from "@/components/carrinho/ResumoPedido";
 import { Container } from "@/components/layout/Container";
 import { Recomendados } from "@/components/produto/Recomendados";
 import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
-import { useCheckout } from "@/hooks/useCheckout";
+import { useCarrinho } from "@/hooks/useCarrinho";
+import { useSessao } from "@/hooks/useSessao";
 import { plural } from "@/lib/formato";
 
 function CarrinhoCarregando() {
@@ -38,18 +40,20 @@ function CarrinhoCarregando() {
 }
 
 export function Carrinho() {
+  const { usuario, pronta } = useSessao();
   const {
     carrinho,
     carregando,
-    opcaoEnvio,
+    erro,
+    recarregar,
     alterarQuantidade,
     remover,
-  } = useCheckout();
+  } = useCarrinho();
   const totalItens = carrinho.itens.reduce(
     (total, item) => total + item.quantidade,
     0,
   );
-  const total = carrinho.valorTotal + opcaoEnvio.valor;
+  const ehVisitante = pronta && (!usuario || usuario.papel !== "COMPRADOR");
 
   return (
     <Container className="flex flex-col gap-8 py-secao">
@@ -62,22 +66,55 @@ export function Carrinho() {
         </p>
       </header>
 
+      {ehVisitante && (
+        <div className="flex flex-col items-start justify-between gap-4 rounded-raio border border-borda bg-superficie p-4 text-corpo text-tinta-2 shadow-sm sm:flex-row sm:items-center">
+          <p>
+            Você está navegando como visitante. Para salvar suas peças e finalizar pedidos, entre com sua conta de comprador.
+          </p>
+          <BotaoLink href="/entrar" variante="contorno" className="shrink-0">
+            <LogIn className="size-4" aria-hidden="true" />
+            Entrar como comprador
+          </BotaoLink>
+        </div>
+      )}
+
       {carregando && <CarrinhoCarregando />}
 
-      {!carregando && carrinho.itens.length === 0 && (
+      {!carregando && erro && (
+        <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />
+      )}
+
+      {!carregando && !erro && carrinho.itens.length === 0 && (
         <EstadoVazio
           titulo="Seu carrinho está vazio"
-          descricao="Encontre uma peça feita à mão e volte quando quiser."
+          descricao={
+            ehVisitante
+              ? "Entre com sua conta de comprador para ver itens salvos ou explore o catálogo para escolher uma peça feita à mão."
+              : "Encontre uma peça feita à mão e volte quando quiser."
+          }
           acao={
-            <BotaoLink href="/catalogo">
-              <ShoppingBag className="size-4" aria-hidden="true" />
-              Explorar o catálogo
-            </BotaoLink>
+            ehVisitante ? (
+              <div className="flex flex-wrap gap-3">
+                <BotaoLink href="/entrar">
+                  <LogIn className="size-4" aria-hidden="true" />
+                  Entrar na conta
+                </BotaoLink>
+                <BotaoLink href="/catalogo" variante="contorno">
+                  <ShoppingBag className="size-4" aria-hidden="true" />
+                  Explorar o catálogo
+                </BotaoLink>
+              </div>
+            ) : (
+              <BotaoLink href="/catalogo">
+                <ShoppingBag className="size-4" aria-hidden="true" />
+                Explorar o catálogo
+              </BotaoLink>
+            )
           }
         />
       )}
 
-      {!carregando && carrinho.itens.length > 0 && (
+      {!carregando && !erro && carrinho.itens.length > 0 && (
         <>
           <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="flex flex-col gap-4">
@@ -95,8 +132,8 @@ export function Carrinho() {
 
             <ResumoPedido
               subtotal={carrinho.valorTotal}
-              frete={opcaoEnvio.valor}
-              total={total}
+              frete={null}
+              total={null}
               acao={
                 <BotaoLink href="/checkout" larguraTotal>
                   Finalizar compra

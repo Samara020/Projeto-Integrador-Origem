@@ -140,3 +140,54 @@ def test_filtros_sem_categoria_respeitam_limite_e_exclusao_da_referencia():
 )
 def test_nao_recomenda_pecas_sem_relacao_com_os_filtros(contexto):
     assert select_candidates(contexto) == []
+
+
+def test_seleciona_candidatos_a_partir_de_catalogo_dinamico():
+    catalogo_dinamico = [
+        {
+            "product_id": "2001",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2013",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2002",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Agreste - PE",
+            "available": True,
+        },
+        {
+            "product_id": "2008",
+            "category": "Arte e Decoração",
+            "technique": "Cerâmica",
+            "region": "Zona da Mata - PE",
+            "available": False,
+        },
+    ]
+
+    resultado = select_candidates(
+        context={
+            "category": "Arte e Decoração",
+            "technique": "cerâmica",
+            "region": "Zona da Mata - PE",
+        },
+        reference_product_id="2001",
+        limit=5,
+        catalog=catalogo_dinamico,
+    )
+
+    assert [item["product_id"] for item in resultado] == ["2013", "2002"]
+    assert resultado[0]["score"] == 1.0
+    assert resultado[1]["score"] == 0.8
+    assert "mesma categoria" in resultado[0]["reason"]
+    assert "mesma técnica artesanal" in resultado[0]["reason"]
+    assert "mesma região" in resultado[0]["reason"]

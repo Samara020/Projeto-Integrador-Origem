@@ -9,8 +9,8 @@ export function ResumoPedido({
   acao,
 }: {
   subtotal: number;
-  frete: number;
-  total: number;
+  frete: number | null;
+  total: number | null;
   acao: ReactNode;
 }) {
   return (
@@ -31,12 +31,14 @@ export function ResumoPedido({
           <dd className="font-semibold text-tinta">{formatarMoeda(subtotal)}</dd>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <dt className="text-tinta-2">Frete estimado</dt>
-          <dd className="font-semibold text-tinta">{formatarMoeda(frete)}</dd>
+          <dt className="text-tinta-2">Frete</dt>
+          <dd className="font-semibold text-tinta">
+            {frete === null ? "A calcular" : formatarMoeda(frete)}
+          </dd>
         </div>
         <div className="flex items-center justify-between gap-4 border-t border-borda pt-3 font-bold text-tinta">
           <dt>Total</dt>
-          <dd>{formatarMoeda(total)}</dd>
+          <dd>{total === null ? "A calcular" : formatarMoeda(total)}</dd>
         </div>
       </dl>
 

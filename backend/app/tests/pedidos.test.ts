@@ -448,7 +448,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
         .send({ statusProducao: "ENVIADO", codigoRastreio: "BR123456789" })
         .expect(409);
 
-      expect(resStatus.body.mensagem).toMatch(/(m.ltiplas|v.rias) lojas.*(n.o permite altera..o global|n.o podem ser alterados globalmente)|separe em subpedidos/i);
+      expect(resStatus.body.mensagem).toMatch(/lojas.*não podem ser alterados globalmente|separe em subpedidos/i);
     });
 
     test("checkout relê quantidade e preço após aguardar o lock do carrinho", async () => {
@@ -470,10 +470,10 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
         await aguardarLiberacao;
         await tx.itemCarrinho.update({
           where: { carrinhoId_numeroItem: { carrinhoId: carrinho.id, numeroItem: 1 } },
-        data: { quantidade: 2 },
+          data: { quantidade: 2 },
         });
         await tx.produto.update({ where: { id: produto.id }, data: { preco: 20 } });
-      }, { timeout: 15000 });
+      });
       await lockObtido;
 
       const checkoutPromise = request(app)

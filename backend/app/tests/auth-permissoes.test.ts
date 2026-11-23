@@ -4,6 +4,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import { criarApp } from "../src/index";
 import {
+  criarUsuario,
   criarUsuarioComprador,
   gerarToken,
   limparBanco,
@@ -128,7 +129,8 @@ describe("Autorização e permissões por perfil", () => {
     });
 
     test("deve permitir acesso ao administrador", async () => {
-      const token = gerarToken("1", "ADMINISTRADOR");
+      const administrador = await criarUsuario("ADMINISTRADOR", "Administrador Teste");
+      const token = gerarToken(administrador.id, "ADMINISTRADOR");
 
       await request(app)
         .get("/painel/admin/perfil")

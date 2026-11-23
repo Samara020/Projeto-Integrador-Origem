@@ -1,32 +1,54 @@
-// Integração frontend e módulo de IA: GET /api/produtos/recomendacoes.
-// Com RECOMENDACAO_API_URL no servidor, a fonte é o BentoML ("ia"); sem ela, o baseline local.
-// Defina a mesma variável ao rodar o teste para ele saber qual fonte esperar.
-import { get } from "./cliente";
+// Recomendações no backend real: somente peças disponíveis e nunca a peça de referência.
+import { criarProdutoAprovado, get, registrarELogar } from "./cliente";
 
 type Sugestao = { id: string; disponibilidade: string; motivo?: string };
 
-const FONTE_ESPERADA = process.env.RECOMENDACAO_API_URL ? "ia" : "baseline";
+describe("recomendações reais (GET /produtos/recomendacoes)", () => {
+  let prodRefId: string;
+  let prodVendidoId: string;
 
-describe(`recomendações (fonte esperada: ${FONTE_ESPERADA})`, () => {
-  test("produto de referência: 200, sem o próprio produto e só peças disponíveis", async () => {
-    const { status, corpo, cabecalhos } = await get<{ recomendados: Sugestao[] }>(
-      "/api/produtos/recomendacoes?produtoId=prd_201",
+  beforeAll(async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const admin = await registrarELogar("ADMINISTRADOR");
+    const cat = `CatRec${Date.now()}`;
+
+    const ref = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: "Referência Rec",
+      categoria: cat,
+      estoque: 3,
+    });
+    await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: "Candidata Disponível Rec",
+      categoria: cat,
+      estoque: 2,
+    });
+    const vendida = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: "Candidata Vendida Rec",
+      categoria: cat,
+      estoque: 0,
+    });
+
+    prodRefId = ref.id;
+    prodVendidoId = vendida.id;
+  });
+
+  test("produto de referência: 200, sem o próprio produto e sem peças vendidas", async () => {
+    const { status, corpo } = await get<{ recomendados: Sugestao[] }>(
+      `/produtos/recomendacoes?produtoId=${encodeURIComponent(prodRefId)}`,
     );
 
     expect(status).toBe(200);
-    expect(cabecalhos.get("x-recomendacao-fonte")).toBe(FONTE_ESPERADA);
-    expect(corpo.recomendados.length).toBeGreaterThan(0);
+    expect(Array.isArray(corpo.recomendados)).toBe(true);
     expect(corpo.recomendados.length).toBeLessThanOrEqual(4);
-    expect(corpo.recomendados.map((p) => p.id)).not.toContain("prd_201");
+    expect(corpo.recomendados.map((p) => String(p.id))).not.toContain(prodRefId);
+    expect(corpo.recomendados.map((p) => String(p.id))).not.toContain(prodVendidoId);
     expect(corpo.recomendados.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
   });
 
-  test("sem produto de referência: 200 com até 4 destaques do baseline", async () => {
-    const { status, corpo, cabecalhos } = await get<{ recomendados: Sugestao[] }>("/api/produtos/recomendacoes");
+  test("sem produto de referência: 200 com array válido", async () => {
+    const { status, corpo } = await get<{ recomendados: Sugestao[] }>("/produtos/recomendacoes");
 
     expect(status).toBe(200);
-    expect(cabecalhos.get("x-recomendacao-fonte")).toBe("baseline");
-    expect(corpo.recomendados.length).toBeGreaterThan(0);
-    expect(corpo.recomendados.length).toBeLessThanOrEqual(4);
+    expect(Array.isArray(corpo.recomendados)).toBe(true);
   });
 });

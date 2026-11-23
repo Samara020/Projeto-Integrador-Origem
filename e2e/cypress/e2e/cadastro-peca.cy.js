@@ -1,17 +1,19 @@
-// TC02 e TC12: cadastro de peça pelo artesão, com e sem os campos obrigatórios.
+// TC02 e TC12: cadastro de peça pelo artesão contra backend real + Postgres.
 
-const NOME = "Bordado de Teste E2E";
+before(() => {
+  // A API não semeia catálogo em um banco vazio; cria uma categoria real no banco descartável.
+  cy.criarProdutoAprovado({ nome: `Fixture Categoria ${Date.now()}`, categoria: "Cerâmica" });
+});
 
 function abrirCadastro() {
   cy.visitarComo("ARTESAO", "/painel/artesao/pecas/nova");
   cy.contains("h1", "Cadastrar nova peça").should("be.visible");
-  // As opções de categoria e técnica chegam da Fake API depois de ~400 ms.
   cy.get("#categoria option").should("have.length.greaterThan", 1);
   cy.get("#tecnica option").should("have.length.greaterThan", 1);
 }
 
 describe("TC12 · cadastro de produto sem campos obrigatórios", () => {
-  it("publicar vazio mostra o erro de cada campo obrigatório e não grava nada", () => {
+  it("publicar vazio mostra o erro de cada campo obrigatório", () => {
     abrirCadastro();
 
     cy.contains("button", "Publicar peça").click();
@@ -32,7 +34,6 @@ describe("TC12 · cadastro de produto sem campos obrigatórios", () => {
       cy.contains(mensagem).should("be.visible");
     }
     cy.location("pathname").should("eq", "/painel/artesao/pecas/nova");
-    cy.lerLocal("painel-artesao:pecas:novas").should("be.null");
   });
 
   it("descrição com 19 caracteres é recusada (valor-limite de 20)", () => {
@@ -46,13 +47,20 @@ describe("TC12 · cadastro de produto sem campos obrigatórios", () => {
 });
 
 describe("TC02 · cadastro de produto com dados obrigatórios", () => {
-  it("artesão publica a peça e ela aparece no topo do estoque", () => {
+  it("artesão publica a peça e ela persiste no estoque do painel", () => {
+    const nomeUnico = `Bordado E2E ${Date.now()}`;
     abrirCadastro();
 
-    cy.get("#nome").type(NOME);
-    cy.get("#categoria").select("Arte e Decoração");
+    cy.get("#nome").type(nomeUnico);
+    cy.get("#categoria option")
+      .eq(1)
+      .invoke("attr", "value")
+      .then((catVal) => cy.get("#categoria").select(catVal));
     cy.get("#descricao").type("Pano bordado à mão para o teste automatizado do Origem.");
-    cy.get("#tecnica").select("Bordado");
+    cy.get("#tecnica option")
+      .eq(1)
+      .invoke("attr", "value")
+      .then((tecVal) => cy.get("#tecnica").select(tecVal));
     cy.get("#material").type("Linho e linha de algodão");
     cy.get("#dimensoes").type("40 x 40 cm");
     cy.get("#peso").type("1");
@@ -67,17 +75,10 @@ describe("TC02 · cadastro de produto com dados obrigatórios", () => {
     cy.contains('[role="status"]', "Peça enviada para validação").should("be.visible");
     cy.location("pathname").should("eq", "/painel/artesao/estoque");
     cy.contains("h1", "Gestão de estoque").should("be.visible");
-    cy.get("tbody tr")
-      .first()
-      .within(() => {
-        // Colunas: Produto (th), SKU, Estoque, Status, Ações.
-        cy.get('th[scope="row"]').should("contain.text", NOME);
-        cy.get("td").eq(0).invoke("text").should("match", /^\s*ORG-NOV-400\s*$/);
-        cy.get("td").eq(1).invoke("text").should("match", /^\s*5\s*$/);
-        cy.get("td").eq(2).should("contain.text", "Ativo");
-      });
-    cy.lerLocal("painel-artesao:pecas:novas").then((pecas) => {
-      expect(pecas[0]).to.include({ nome: NOME, sku: "ORG-NOV-400", estoque: 5, situacao: "ATIVO" });
+    cy.contains("tbody tr", nomeUnico).within(() => {
+      cy.get("td").eq(0).invoke("text").should("match", /^\s*ORG-\d+\s*$/);
+      cy.get("td").eq(1).invoke("text").should("match", /^\s*5\s*$/);
+      cy.get("td").eq(2).should("contain.text", "Ativo");
     });
   });
 });

@@ -1,6 +1,5 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
-import { validacoes } from "../lib/memoria";
 
 type FiltrosProduto = {
   termo?: string;
@@ -8,6 +7,8 @@ type FiltrosProduto = {
   categoriaId?: Id;
   tecnica?: string;
   regiao?: string;
+  origem?: string;
+  avaliacaoMin?: number;
   disponivel?: boolean;
   destaque?: boolean;
   precoMax?: number;
@@ -17,23 +18,77 @@ type FiltrosProduto = {
   limite: number;
 };
 
+type DadosProdutoNovo = {
+  nome: string;
+  descricao?: string | null;
+  tecnica: string;
+  preco: number;
+  origem: string;
+  modalidadeProducao: string;
+  pecaUnica: boolean;
+  lojaId: Id;
+  categoriaId: Id;
+  imagens: string[];
+  estoque: number;
+  pontoReposicao?: number;
+  material?: string | null;
+  dimensoes?: string | null;
+  peso?: number | null;
+  certificado?: string | null;
+  informacoesOrigem?: string | null;
+  prazoProducaoDias?: number | null;
+  capacidadeProducao?: number | null;
+  sku?: string | null;
+};
+
+type DadosProdutoAtualizacao = Partial<Omit<Pick<
+  DadosProdutoNovo,
+  | "nome"
+  | "descricao"
+  | "tecnica"
+  | "preco"
+  | "origem"
+  | "modalidadeProducao"
+  | "material"
+  | "dimensoes"
+  | "certificado"
+  | "informacoesOrigem"
+  | "prazoProducaoDias"
+  | "capacidadeProducao"
+  | "sku"
+>, "peso" | "sku">> & {
+  pecaUnica?: boolean;
+  peso?: number;
+  sku?: string;
+};
+
+type DadosValidacaoProduto = {
+  statusValidacao: "APROVADA" | "REPROVADA";
+  seloAtivo: boolean;
+  justificativa: string | null;
+  decididoEm: Date;
+  decididoPorId?: number | null;
+};
+
 const inclusaoPadrao = {
   categoria: true,
   loja: { include: { usuario: { select: { id: true, nome: true } } } },
   estoque: true,
+  avaliacoes: { select: { nota: true, status: true } },
+};
+
+const mediaDe = (notas: { nota: number; status?: string }[]): number => {
+  const validas = notas.filter((n) => (n.status ?? "PUBLICADO") === "PUBLICADO");
+  if (!validas.length) return 0;
+  return Math.round((validas.reduce((s, n) => s + n.nota, 0) / validas.length) * 10) / 10;
 };
 
 export const produtoRepository = {
-  listar(filtros: FiltrosProduto) {
-    // O SQL nao guarda a validacao: so ficam fora do catalogo os produtos
-    // marcados em memoria como PENDENTE ou REPROVADA.
-    const naoAprovados = Array.from(validacoes.entries())
-      .filter(([, v]) => v.status !== "APROVADA")
-      .map(([id]) => id);
-
+  async listar(filtros: FiltrosProduto): Promise<[number, any[]]> {
     const onde: Record<string, unknown> = {
       excluido: false,
-      ...(naoAprovados.length > 0 ? { id: { notIn: naoAprovados } } : {}),
+      pausado: false,
+      statusValidacao: "APROVADA",
     };
 
     if (filtros.disponivel) {
@@ -46,14 +101,15 @@ export const produtoRepository = {
       // Busca de produtos não exibe produtos esgotados/vendidos
       onde.estoque = { quantidadeDisponivel: { gt: 0 } };
     }
-    if (filtros.disponivel) {
-      onde.estoque = { quantidadeDisponivel: { gt: 0 } };
-    }
     if (filtros.destaque) {
       onde.estoque = { quantidadeDisponivel: { gt: 0 } };
     }
     if (filtros.categoria) {
-      onde.categoria = { nome: filtros.categoria };
+      if (/^\d+$/.test(String(filtros.categoria))) {
+        onde.categoriaId = toId(filtros.categoria);
+      } else {
+        onde.categoria = { nome: { equals: filtros.categoria, mode: "insensitive" } };
+      }
     }
     if (filtros.categoriaId !== undefined) {
       onde.categoriaId = toId(filtros.categoriaId);
@@ -61,8 +117,9 @@ export const produtoRepository = {
     if (filtros.tecnica) {
       onde.tecnica = filtros.tecnica;
     }
-    if (filtros.regiao) {
-      onde.origem = filtros.regiao;
+    const regiao = filtros.regiao ?? filtros.origem;
+    if (regiao) {
+      onde.origem = { contains: regiao, mode: "insensitive" };
     }
     if (filtros.precoMax !== undefined) {
       onde.preco = { lte: filtros.precoMax };
@@ -71,26 +128,42 @@ export const produtoRepository = {
       onde.pecaUnica = true;
     }
 
-    let orderBy: Record<string, "asc" | "desc"> = { id: "desc" };
+    const produtos = await prisma.produto.findMany({
+      where: onde,
+      include: { ...inclusaoPadrao, imagens: { take: 1 } },
+    });
+
+    let filtrados = produtos.map((produto) => ({
+      produto,
+      media: mediaDe(produto.avaliacoes),
+    }));
+
+    if (filtros.avaliacaoMin !== undefined && Number.isFinite(filtros.avaliacaoMin)) {
+      const minimo = Math.min(Math.max(filtros.avaliacaoMin, 0), 5);
+      filtrados = filtrados.filter((item) => item.media >= minimo);
+    }
+
     if (filtros.ordenar === "menor-preco") {
-      orderBy = { preco: "asc" };
+      filtrados.sort((a, b) => Number(a.produto.preco) - Number(b.produto.preco));
     } else if (filtros.ordenar === "maior-preco") {
-      orderBy = { preco: "desc" };
+      filtrados.sort((a, b) => Number(b.produto.preco) - Number(a.produto.preco));
+    } else if (filtros.ordenar === "melhor-avaliacao") {
+      filtrados.sort((a, b) => b.media - a.media || b.produto.id - a.produto.id);
+    } else {
+      filtrados.sort((a, b) => b.produto.id - a.produto.id);
     }
 
     const p = Math.max(filtros.pagina, 1);
     const l = Math.min(Math.max(filtros.limite, 1), 50);
+    const inicio = (p - 1) * l;
 
-    return prisma.$transaction([
-      prisma.produto.count({ where: onde }),
-      prisma.produto.findMany({
-        where: onde,
-        skip: (p - 1) * l,
-        take: l,
-        orderBy,
-        include: { ...inclusaoPadrao, imagens: { take: 1 } },
-      }),
-    ]);
+    return [
+      filtrados.length,
+      filtrados.slice(inicio, inicio + l).map((item) => ({
+        ...item.produto,
+        avaliacaoMedia: item.media,
+      })),
+    ];
   },
 
   buscarPorId(id: Id) {
@@ -100,58 +173,81 @@ export const produtoRepository = {
     });
   },
 
-  criar(dados: {
-    nome: string;
-    descricao?: string | null;
-    tecnica: string;
-    preco: number;
-    origem: string;
-    modalidadeProducao: string;
-    pecaUnica: boolean;
-    lojaId: Id;
-    categoriaId: Id;
-    imagens: string[];
-    estoque: number;
-    pontoReposicao?: number;
-  }) {
-    return prisma.produto.create({
-      data: {
-        nome: dados.nome,
-        descricao: dados.descricao ?? null,
-        tecnica: dados.tecnica,
-        preco: dados.preco,
-        origem: dados.origem,
-        modalidadeProducao: dados.modalidadeProducao,
-        pecaUnica: dados.pecaUnica,
-        lojaId: toId(dados.lojaId),
-        categoriaId: toId(dados.categoriaId),
-        imagens: dados.imagens.length
-          ? { create: dados.imagens.map((url) => ({ url })) }
-          : undefined,
-        estoque: {
-          create: {
-            quantidadeDisponivel: dados.estoque,
-            pontoReposicao: dados.pontoReposicao ?? 0,
-          },
-        },
+  buscarPublicoPorId(id: Id) {
+    return prisma.produto.findFirst({
+      where: {
+        id: toId(id),
+        excluido: false,
+        pausado: false,
+        statusValidacao: "APROVADA",
       },
-      include: { imagens: true },
+      include: { ...inclusaoPadrao, imagens: true },
     });
   },
 
-  atualizar(
-    id: Id,
-    dados: {
-      nome?: string;
-      descricao?: string | null;
-      tecnica?: string;
-      preco?: number;
-      origem?: string;
-      modalidadeProducao?: string;
-      pecaUnica?: boolean;
-    }
-  ) {
-    return prisma.produto.update({ where: { id: toId(id) }, data: dados });
+  criar(dados: DadosProdutoNovo) {
+    return prisma.$transaction(async (tx) => {
+      const criado = await tx.produto.create({
+        data: {
+          nome: dados.nome,
+          descricao: dados.descricao ?? null,
+          tecnica: dados.tecnica,
+          preco: dados.preco,
+          origem: dados.origem,
+          modalidadeProducao: dados.modalidadeProducao,
+          pecaUnica: dados.pecaUnica,
+          statusValidacao: "PENDENTE",
+          seloAtivo: false,
+          enviadoEm: new Date(),
+          lojaId: toId(dados.lojaId),
+          categoriaId: toId(dados.categoriaId),
+          material: dados.material ?? null,
+          dimensoes: dados.dimensoes ?? null,
+          peso: dados.peso ?? 0,
+          certificado: dados.certificado ?? null,
+          informacoesOrigem: dados.informacoesOrigem ?? null,
+          prazoProducaoDias: dados.prazoProducaoDias ?? null,
+          capacidadeProducao: dados.capacidadeProducao ?? null,
+          sku: dados.sku?.trim() || null,
+          imagens: dados.imagens.length
+            ? { create: dados.imagens.map((url: string) => ({ url })) }
+            : undefined,
+          estoque: {
+            create: {
+              quantidadeDisponivel: dados.estoque,
+              pontoReposicao: dados.pontoReposicao ?? 0,
+            },
+          },
+        },
+        include: { imagens: true },
+      });
+      const sku = String(dados.sku?.trim() || `ORG-${String(criado.id).padStart(6, "0")}`);
+      if (criado.sku === sku) return criado;
+      return tx.produto.update({
+        where: { id: criado.id },
+        data: { sku },
+        include: { imagens: true },
+      });
+    });
+  },
+
+  atualizar(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
+    const produtoId = toId(id);
+    return prisma.$transaction(async (tx) => {
+      const atualizado = await tx.produto.update({ where: { id: produtoId }, data: dados });
+      if (quantidade !== undefined) {
+        await tx.estoque.upsert({
+          where: { produtoId },
+          update: { quantidadeDisponivel: quantidade },
+          create: { produtoId, quantidadeDisponivel: quantidade, pontoReposicao: 0 },
+        });
+      }
+      return atualizado;
+    });
+  },
+
+  atualizarComEstoque(id: Id, dados: DadosProdutoAtualizacao, quantidade?: number) {
+    return this.atualizar(id, dados, quantidade);
   },
 
   /** Inativar = zerar o estoque (o SQL nao tem coluna de situacao). */
@@ -188,6 +284,22 @@ export const produtoRepository = {
       where: onde,
       orderBy: { id: "asc" },
       include: { imagens: { take: 1 }, estoque: true },
+    });
+  },
+
+  atualizarValidacao(
+    id: Id,
+    dados: DadosValidacaoProduto
+  ) {
+    return prisma.produto.update({
+      where: { id: toId(id) },
+      data: {
+        statusValidacao: dados.statusValidacao,
+        seloAtivo: dados.seloAtivo,
+        justificativaValidacao: dados.justificativa,
+        decididoEm: dados.decididoEm,
+        ...(dados.decididoPorId !== undefined ? { decididoPorId: dados.decididoPorId } : {}),
+      },
     });
   },
 

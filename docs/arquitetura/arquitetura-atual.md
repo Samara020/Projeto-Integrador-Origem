@@ -10,8 +10,7 @@ A arquitetura identificada no repositório contém:
 - **Backend principal:** API desenvolvida com Node.js, Express e TypeScript.
 - **Banco de dados:** PostgreSQL.
 - **Persistência:** Prisma ORM, utilizado pelo backend para acessar o PostgreSQL.
-- **Fake API:** rotas da aplicação Next.js utilizadas para simular respostas da API.
-- **Módulo de IA:** serviço desenvolvido em Python, utilizado no fluxo de recomendações quando configurado.
+- **Módulo de IA:** serviço desenvolvido em Python (BentoML), utilizado pelo backend no fluxo de recomendações quando configurado.
 - **Módulo de concorrência:** demonstração independente desenvolvida com ASP.NET Core e .NET 10.
 
 ## 2. Frontend
@@ -22,13 +21,11 @@ A comunicação HTTP é centralizada em:
 
 `frontend/src/lib/http.ts`
 
-Esse módulo utiliza Axios e define a URL base por meio da variável:
+Esse módulo utiliza Axios e define a URL base por meio da variável `NEXT_PUBLIC_API_URL` (no navegador) ou `API_BASE_URL` / `BACKEND_URL` / `NEXT_PUBLIC_API_URL` (no servidor), apontando por padrão para `http://localhost:4000` (API Express).
 
-`NEXT_PUBLIC_API_URL`
+As rotas de Fake API e os arquivos de `mocks/` foram removidos do frontend; toda a comunicação de domínio é direcionada ao backend real.
 
-Quando essa variável não está configurada, o endereço padrão utilizado é `/api`, direcionando as chamadas para as rotas da Fake API do próprio Next.js.
-
-O cliente HTTP também recupera a sessão armazenada localmente e, quando existe token, adiciona o cabeçalho `Authorization` às requisições.
+O cliente HTTP também recupera a sessão armazenada localmente e, quando existe token JWT válido, adiciona o cabeçalho `Authorization` às requisições.
 
 ## 3. Backend principal
 
@@ -72,17 +69,11 @@ O arquivo `backend/app/src/lib/setup-db.ts` permite preparar o banco quando `AUT
 
 ## 5. Módulo de IA
 
-O repositório contém o diretório `modulo-ia/`, com implementação em Python.
+O repositório contém o diretório `modulo-ia/`, com implementação em Python (BentoML).
 
-O fluxo de recomendações do frontend está em:
+O fluxo de recomendações é atendido pelo backend Express em `GET /produtos/recomendacoes` (`backend/app/src/services/produto.service.ts`).
 
-`frontend/src/app/api/produtos/recomendacoes/route.ts`
-
-Quando `RECOMENDACAO_API_URL` está configurada, a rota pode consultar o módulo de IA. Caso o serviço não esteja configurado ou não retorne recomendações, é utilizado o mecanismo local de recomendação (`recomendarPara`).
-
-A rota também utiliza resumos de produtos provenientes dos mocks do frontend.
-
-Portanto, esse fluxo não deve ser descrito como uma integração direta entre o módulo de IA e o PostgreSQL.
+Quando `RECOMENDACAO_API_URL` está configurada no backend, o serviço consulta `POST /recommendations` no módulo de IA (com timeout de 2 s) e filtra apenas peças disponíveis e aprovadas no PostgreSQL; se não estiver disponível, utiliza o baseline real sobre o catálogo do PostgreSQL.
 
 ## 6. Módulo de concorrência
 
@@ -119,6 +110,4 @@ Esses elementos apoiam a configuração e execução dos componentes do projeto.
 
 ## 8. Considerações arquiteturais
 
-A arquitetura possui caminhos distintos de comunicação: o frontend pode utilizar a Fake API ou o backend principal, conforme a configuração de ambiente; as recomendações podem utilizar o módulo de IA ou o mecanismo local; e a demonstração de concorrência utiliza uma API independente.
-
-Essas diferenças precisam ser consideradas ao executar, testar ou evoluir o sistema.
+O frontend comunica-se exclusivamente com o backend Express (`NEXT_PUBLIC_API_URL`, padrão `http://localhost:4000`), que persiste os dados no PostgreSQL via Prisma ORM e consulta opcionalmente o módulo de IA (`RECOMENDACAO_API_URL`). A demonstração de concorrência em C# permanece como serviço separado para o fluxo demonstrativo.

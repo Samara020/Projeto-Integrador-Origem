@@ -1,12 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { SeletorQuantidade } from "@/components/produto/SeletorQuantidade";
 import { Botao } from "@/components/ui/Botao";
+import { Foto } from "@/components/ui/Foto";
 import { toaster } from "@/components/ui/toaster";
 import { formatarMoeda } from "@/lib/formato";
+import { ApiError } from "@/lib/http";
 import type { ItemCarrinho as ItemCarrinhoTipo } from "@/types";
 
 export function ItemCarrinho({
@@ -24,11 +25,14 @@ export function ItemCarrinho({
     setAcao("quantidade");
     try {
       await aoAlterarQuantidade(quantidade);
-    } catch {
+    } catch (causa) {
       toaster.create({
         type: "error",
         title: "Não foi possível alterar a quantidade",
-        description: "Tente novamente em instantes.",
+        description:
+          causa instanceof ApiError
+            ? causa.message
+            : "Tente novamente em instantes.",
       });
     } finally {
       setAcao(null);
@@ -39,11 +43,14 @@ export function ItemCarrinho({
     setAcao("remover");
     try {
       await aoRemover();
-    } catch {
+    } catch (causa) {
       toaster.create({
         type: "error",
         title: "Não foi possível remover a peça",
-        description: "Tente novamente em instantes.",
+        description:
+          causa instanceof ApiError
+            ? causa.message
+            : "Tente novamente em instantes.",
       });
     } finally {
       setAcao(null);
@@ -56,7 +63,7 @@ export function ItemCarrinho({
         href={`/produto/${item.produtoId}`}
         className="relative aspect-4/3 w-full overflow-hidden rounded-raio bg-superficie-2 sm:h-23 sm:w-28"
       >
-        <Image
+        <Foto
           src={item.imagemPrincipal}
           alt={item.nome}
           fill

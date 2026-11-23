@@ -1,5 +1,6 @@
 import { ErroApp } from "../middleware/error";
-import { avaliacoesRemovidas } from "../lib/memoria";
+import prisma from "../lib/prisma";
+import { toId } from "../lib/ids";
 import { avaliacaoRepository, produtoRepository } from "../repositories";
 
 export const avaliacaoService = {
@@ -13,11 +14,20 @@ export const avaliacaoService = {
     const produto = await produtoRepository.buscarPorId(dados.produtoId);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
-    const avaliacao = await avaliacaoRepository.criar(dados);
+    const pedido = await prisma.pedido.findFirst({ where: {
+      id: dados.pedidoId ? toId(dados.pedidoId) : -1, usuarioId: toId(dados.usuarioId),
+      status: { in: ["PAGO", "EM_PRODUCAO", "PRONTO", "ENVIADO", "ENTREGUE"] },
+      itens: { some: { produtoId: produto.id } },
+    } });
+    if (!pedido) throw new ErroApp(403, "Avalie somente peças de uma compra confirmada sua.");
+    const suspeita = /https?:\/\/|whatsapp|zap|\bpix\b|telefone/i.test(dados.comentario ?? "");
+    const avaliacao = await avaliacaoRepository.criar({ ...dados,
+      status: suspeita ? "EM_MODERACAO" : "PUBLICADO", motivo: suspeita ? "LINK_OU_CONTATO" : null,
+    });
 
     return {
       id: avaliacao.id,
-      status: "PUBLICADO",
+      status: avaliacao.status,
     };
   },
 
@@ -80,15 +90,15 @@ export const avaliacaoService = {
       total: itens.length,
       itens: itens.map((a: any) => ({
         id: a.id,
-        produto: { id: a.produto.id, nome: a.produto.nome, imagemPrincipal: "" },
+        produto: { id: a.produto.id, nome: a.produto.nome, imagemPrincipal: a.produto.imagens[0]?.url ?? "" },
         autor: a.usuario.nome,
         nota: a.nota,
         comentario: a.comentario ?? "",
         criadoEm: a.dataAvaliacao,
-        motivo: "LINK_OU_CONTATO",
-        sinalizadaEm: a.dataAvaliacao,
-        status: avaliacoesRemovidas.has(a.id) ? "REMOVIDO" : "PUBLICADO",
-        moderadaEm: null,
+        motivo: a.motivo,
+        sinalizadaEm: a.sinalizadaEm,
+        status: a.status,
+        moderadaEm: a.moderadaEm,
       })),
     };
   },
@@ -98,7 +108,7 @@ export const avaliacaoService = {
     if (!avaliacao) throw new ErroApp(404, "Avaliacao nao encontrada.");
 
     const status = acao === "REMOVER" ? "REMOVIDO" : "PUBLICADO";
-    avaliacaoRepository.moderar(id, status);
+    await avaliacaoRepository.moderar(id, status);
 
     return { id: avaliacao.id, status };
   },

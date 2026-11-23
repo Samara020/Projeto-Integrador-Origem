@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { Foto } from "@/components/ui/Foto";
 import { formatarMoeda } from "@/lib/formato";
 import type { ProdutoResumo } from "@/types";
 
@@ -8,7 +8,7 @@ export function ProdutoRecomendado({ produto, motivo, tom = "terracota" }: { pro
   return (
     <article className="group overflow-hidden rounded-raio border border-borda bg-superficie">
       <div className="relative h-26 w-full bg-superficie-2 sm:h-32">
-        <Image src={produto.imagemPrincipal} alt="" fill sizes="(min-width: 1440px) 1344px, 100vw" className="object-cover" />
+        <Foto src={produto.imagemPrincipal} alt="" fill sizes="(min-width: 1440px) 1344px, 100vw" className="object-cover" />
       </div>
       <div className="flex flex-col gap-1 p-4">
         <p className={`text-legenda font-bold uppercase tracking-wide ${tom === "selo" ? "text-selo" : "text-terracota"}`}>{motivo}</p>
