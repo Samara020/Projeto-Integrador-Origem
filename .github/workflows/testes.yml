@@ -38,13 +38,16 @@ jobs:
       JWT_EXPIRES_IN: 7d
       PORT: "4000"
       CORS_ORIGIN: http://localhost:3000
+      FRONTEND_BASE_URL: http://localhost:3000
       AUTO_SETUP_DB: "true"
       ADMIN_INVITE_CODE: origem-admin-2026
       NEXT_PUBLIC_API_URL: http://localhost:4000
       API_BASE_URL: http://localhost:4000
       BACKEND_URL: http://localhost:4000
-      CYPRESS_baseUrl: http://localhost:3000
-      CYPRESS_API_URL: http://localhost:4000
+      CYPRESS_BASE_URL: http://localhost:3200
+      CYPRESS_baseUrl: http://localhost:3200
+      CYPRESS_API_URL: http://localhost:4200
+      TEST_DATABASE_NAME: origem_e2e_ci
       # O backend e os testes de API falam com o módulo de IA de verdade (integração).
       # A chave é a de demonstração do mockup, já pública no README; não é segredo.
       IA_BASE_URL: http://localhost:3001
@@ -116,7 +119,7 @@ jobs:
           mkdir -p relatorios
           (cd modulo-ia && PYTHONPATH="$PWD" nohup bentoml serve app.service:RecommendationService --port 3001 > ../relatorios/modulo-ia.log 2>&1 &)
           (cd backend/app && PORT=4000 nohup npm start > ../../relatorios/backend.log 2>&1 &)
-          (cd frontend && PORT=3000 nohup npm start > ../relatorios/frontend.log 2>&1 &)
+          (cd frontend && nohup ./node_modules/.bin/next start -p 3000 > ../relatorios/frontend.log 2>&1 & echo $! > ../relatorios/frontend-3000.pid)
           timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3001/readyz; do sleep 1; done'
           timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4000/health; do sleep 1; done'
           timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3000/; do sleep 1; done'
@@ -125,8 +128,48 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:api
 
+      - name: Preparar runtime descartável do E2E (:3200/:4200)
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p relatorios
+          if [ -f relatorios/frontend-3000.pid ]; then
+            kill "$(cat relatorios/frontend-3000.pid)" 2>/dev/null || true
+            rm -f relatorios/frontend-3000.pid
+          fi
+          timeout 30 bash -c 'until ! curl -sf -o /dev/null http://localhost:3000/; do sleep 1; done' || true
+
+          PGPASSWORD=ci-temporary-password psql \
+            "postgresql://origem_user@127.0.0.1:5432/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS origem_e2e_ci;" \
+            -c "CREATE DATABASE origem_e2e_ci;"
+
+          for sql in \
+            01_create_tables.sql \
+            02_integrity_rules.sql \
+            04_create_indexes.sql \
+            07_suporte_exclusao_logica_produto.sql \
+            08_integracao_persistencia.sql \
+            05_seed_dados_reais.sql; do
+            PGPASSWORD=ci-temporary-password psql \
+              "postgresql://origem_user@127.0.0.1:5432/origem_e2e_ci" \
+              -v ON_ERROR_STOP=1 -f "database/sql/$sql"
+          done
+
+          (cd frontend && NEXT_PUBLIC_API_URL=http://localhost:4200 npm run build > ../relatorios/frontend-e2e-build.log 2>&1)
+          (cd frontend && API_BASE_URL=http://localhost:4200 BACKEND_URL=http://localhost:4200 nohup ./node_modules/.bin/next start -p 3200 > ../relatorios/frontend-e2e.log 2>&1 & echo $! > ../relatorios/frontend-3200.pid)
+          (cd backend/app && NODE_ENV=test ORIGEM_TEST_SERVER=1 PORT=4200 DATABASE_URL="postgresql://origem_user:ci-temporary-password@127.0.0.1:5432/origem_e2e_ci?schema=public" CORS_ORIGIN=http://localhost:3200 nohup npm start > ../../relatorios/backend-e2e.log 2>&1 & echo $! > ../../relatorios/backend-4200.pid)
+
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4200/health; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3200/; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4200/__test/identity; do sleep 1; done'
+
       - name: Testes End-to-End (E2E)
         if: ${{ !cancelled() }}
+        env:
+          CYPRESS_BASE_URL: http://localhost:3200
+          CYPRESS_API_URL: http://localhost:4200
+          TEST_DATABASE_NAME: origem_e2e_ci
         run: npm run test:e2e
 
       - name: Guardar relatórios, logs, prints e vídeos

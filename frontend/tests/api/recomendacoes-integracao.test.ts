@@ -1,11 +1,13 @@
-// Teste automatizado de integração ponta a ponta (Frontend :3000 + Backend :4000 + PostgreSQL + Módulo de IA :3001).
+// Teste automatizado de integração ponta a ponta (Frontend :3000 via FRONTEND_BASE_URL + Backend :4000 + PostgreSQL + Módulo de IA :3001).
 // Execução contra os containers do docker compose:
-//   $env:BACKEND_URL="http://localhost:4000"; $env:RECOMENDACAO_API_URL="http://localhost:3001"
+//   $env:BACKEND_URL="http://localhost:4000"; $env:FRONTEND_BASE_URL="http://localhost:3000"; $env:RECOMENDACAO_API_URL="http://localhost:3001"
 //   npm --prefix frontend run test:api -- tests/api/recomendacoes-integracao.test.ts
-import { BASE_URL } from "./cliente";
 
 const BACKEND_URL = (process.env.BACKEND_URL ?? "").replace(/\/$/, "");
-const IA_URL = (process.env.IA_BASE_URL ?? "http://localhost:3001").replace(
+const FRONTEND_BASE_URL = (
+  process.env.FRONTEND_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
+const IA_RECOMMENDATION_URL = (process.env.IA_BASE_URL ?? "http://localhost:3001").replace(
   /\/$/,
   "",
 );
@@ -30,15 +32,15 @@ type RespostaApiRecomendacoes = {
 const descreverIntegracao = BACKEND_URL ? describe : describe.skip;
 
 descreverIntegracao(
-  "integração real · Frontend (:3000) + Backend (:4000) + PostgreSQL + Módulo de IA (:3001)",
+  "integração real · Frontend (:3000 via FRONTEND_BASE_URL) + Backend (:4000) + PostgreSQL + Módulo de IA (:3001)",
   () => {
     test("serviços integrados respondem saudáveis (backend, módulo de IA e páginas do frontend)", async () => {
       const [healthBackend, readyIA, paginaProduto, paginaRecomendacoes] =
         await Promise.all([
           fetch(`${BACKEND_URL}/health`),
-          fetch(`${IA_URL}/readyz`),
-          fetch(`${BASE_URL}/produto/2001`),
-          fetch(`${BASE_URL}/recomendacoes`),
+          fetch(`${IA_RECOMMENDATION_URL}/readyz`),
+          fetch(`${FRONTEND_BASE_URL}/produto/2001`),
+          fetch(`${FRONTEND_BASE_URL}/recomendacoes`),
         ]);
 
       expect(healthBackend.status).toBe(200);
@@ -53,7 +55,7 @@ descreverIntegracao(
         {
           headers: {
             Accept: "application/json",
-            Origin: BASE_URL,
+            Origin: FRONTEND_BASE_URL,
           },
         },
       );
