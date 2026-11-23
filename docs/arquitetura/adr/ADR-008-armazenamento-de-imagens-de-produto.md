@@ -2,7 +2,7 @@
 
 - **Status:** Proposta
 - **Data:** 22/11/2026
-- **Responsável pelo registro:** Nicolas de Castro Albuquerque Natário
+- **Responsável pelo registro:** Nicolas de Castro Albuquerque Natário (ncan@cesar.school)
 - **Projeto:** Origem · marketplace da economia criativa e do artesanato de Pernambuco
 
 ## Contexto
@@ -79,4 +79,4 @@ Os testes devem usar ambiente descartável e imagens sintéticas sem dados pesso
 
 ---
 
-_Registro individual elaborado a partir do estudo dirigido de Arquitetura de Software · ADS020 · 2026.2; proposta independente das decisões de autenticação/autorização, arquitetura em camadas, integração com o backend, concorrência e persistência do banco._
+_Registro individual elaborado a partir do estudo dirigido de Arquitetura de Software · ADS020 · 2026.2; proposta independente dos ADRs de persistência geral, Fake API, concorrência, sessão e monólito em camadas._

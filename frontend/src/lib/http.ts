@@ -5,22 +5,37 @@ import { limparDestinoVolta } from "@/lib/destino";
 import { sessaoStore } from "@/store/sessao";
 import type { Sessao } from "@/types";
 
-function obterBaseUrl(): string {
+export function obterBaseUrl(): string {
   if (typeof window === "undefined") {
-    return (
+    // SSR / Edge / Node runtime na Vercel: o binding Vercel injeta a URL do serviço em API_BASE_URL
+    const ssrBase =
       process.env.API_BASE_URL ??
       process.env.BACKEND_URL ??
       process.env.NEXT_PUBLIC_API_URL ??
-      "http://localhost:4000"
-    );
+      "http://localhost:4000";
+    return ssrBase.replace(/\/$/, "");
   }
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+  // Em ambiente de teste unitário (Jest/JSDOM), preserva NEXT_PUBLIC_API_URL ou cai para localhost:4000
+  if (process.env.NODE_ENV === "test") {
+    return (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+  }
+
+  // No browser em deploy (Vercel preview, produção ou domínio customizado), usa a rota relativa
+  // same-origin /api. O rewrite da Vercel encaminha /api/(.*) ao serviço backend Express.
+  const hostLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (!hostLocal) {
+    return "/api";
+  }
+
+  // Em dev local ou ambiente de teste E2E local, usa NEXT_PUBLIC_API_URL se fornecido,
+  // ou localhost:4000 por padrão.
+  return (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 }
 
-const BASE = obterBaseUrl();
 const EM_TESTE = process.env.NODE_ENV === "test";
 if (typeof window !== "undefined" && !EM_TESTE) {
-  console.log("[Origem HTTP] Conectado ao backend:", BASE);
+  console.log("[Origem HTTP] Conectado ao backend:", obterBaseUrl());
 }
 
 export class ApiError extends Error {
@@ -80,8 +95,17 @@ function normalizarCaminhoBackend(caminho: string): string {
   return caminho;
 }
 
-function montarUrl(caminho: string, parametros?: Parametros, base = BASE): string {
-  const caminhoFinal = normalizarCaminhoBackend(caminho);
+export function montarUrl(caminho: string, parametros?: Parametros, base = obterBaseUrl()): string {
+  let caminhoFinal = normalizarCaminhoBackend(caminho);
+  if (!caminhoFinal.startsWith("/")) {
+    caminhoFinal = `/${caminhoFinal}`;
+  }
+
+  // Se base for "/api" e o caminho já começar com "/api/", evita duplicar "/api/api/"
+  if (base === "/api" && caminhoFinal.startsWith("/api/")) {
+    caminhoFinal = caminhoFinal.slice(4);
+  }
+
   const busca = new URLSearchParams();
   for (const [chave, valor] of Object.entries(parametros ?? {})) {
     if (valor !== undefined && valor !== "" && valor !== false) {
