@@ -14,5 +14,9 @@
 3. **Ajustes de suítes de integração (`backend/app/tests/pedidos.test.ts` e `backend/app/tests/integracao-persistencia.test.ts`):**
    - Expressão regular de bloqueio global para pedidos com itens de múltiplas/várias lojas e timeout de `15000ms` na transação de lock do carrinho.
    - Teste de uso único simultâneo validando o fluxo via `/auth/recuperar-senha` e `/auth/redefinir-senha` com retorno `[200, 401]`.
+  
+
+<img width="1361" height="719" alt="image" src="https://github.com/user-attachments/assets/40158d41-f5a4-4822-a001-6e0462c3cb9e" />
+
 
 <img width="1361" height="719" alt="image" src="https://github.com/user-attachments/assets/0a27dd06-e9ff-4ee4-83ea-978dd6233dc8" />
