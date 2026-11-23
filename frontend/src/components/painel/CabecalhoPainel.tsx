@@ -2,11 +2,11 @@
 
 import { Drawer, Portal } from "@chakra-ui/react";
 import { Bell, LogOut, Menu, X } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Container } from "@/components/layout/Container";
+import { Foto } from "@/components/ui/Foto";
 import { useSessao } from "@/hooks/useSessao";
 import { iniciais } from "@/lib/formato";
 import type { NavegacaoPainel } from "./navegacao";
@@ -61,13 +61,12 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
     <header className="border-b border-borda bg-superficie">
       <Container className="flex min-h-19 flex-wrap items-center justify-between gap-3 py-3 lg:flex-nowrap">
         <Link href={navegacao.inicio} aria-label={navegacao.rotuloLogo} className="shrink-0">
-          <Image
+          <Foto
             src="/marca/logo-origem.webp"
             alt="Origem"
             width={150}
             height={56}
             priority
-            unoptimized
             className="h-14 w-auto"
           />
         </Link>

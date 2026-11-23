@@ -12,13 +12,13 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { AREA_POR_PAPEL } from "@/components/layout/areaPorPapel";
 import { iconeCategoria } from "@/components/layout/iconeCategoria";
 import { Esqueleto } from "@/components/ui/Esqueleto";
+import { Foto } from "@/components/ui/Foto";
 import { useCategorias } from "@/hooks/useCatalogo";
 import { useComparacao } from "@/hooks/useComparacao";
 import { useSessao } from "@/hooks/useSessao";
@@ -92,12 +92,11 @@ export function MenuPrincipal() {
             <Drawer.Header>
               <div className="flex w-full items-center justify-between gap-3">
                 <Link href="/" onClick={fechar} aria-label="Origem, página inicial">
-                  <Image
+                  <Foto
                     src="/marca/logo-origem.webp"
                     alt="Origem, cultura que conecta"
                     width={150}
                     height={62}
-                    unoptimized
                     className="h-12 w-auto"
                   />
                 </Link>

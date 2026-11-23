@@ -1,12 +1,12 @@
 "use client";
 
 import { CircleHelp, ShoppingCart } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { BuscaForm } from "@/components/layout/BuscaForm";
 import { FaixaFiltros } from "@/components/layout/FaixaFiltros";
 import { MenuPerfil } from "@/components/layout/MenuPerfil";
 import { MenuPrincipal } from "@/components/layout/MenuPrincipal";
+import { Foto } from "@/components/ui/Foto";
 import { useCarrinho } from "@/hooks/useCarrinho";
 import { plural } from "@/lib/formato";
 
@@ -22,13 +22,12 @@ export default function Header() {
         <MenuPrincipal />
 
         <Link href="/" className="shrink-0" aria-label="Origem, página inicial">
-          <Image
+          <Foto
             src="/marca/logo-origem.webp"
             alt="Origem, cultura que conecta"
             width={150}
             height={62}
             priority
-            unoptimized
             className="h-14 w-auto"
           />
         </Link>
