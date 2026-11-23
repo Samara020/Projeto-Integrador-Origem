@@ -233,6 +233,7 @@ export function FormularioPagamento({
               alt="QR Code para pagamento via Pix"
               width={88}
               height={88}
+              unoptimized
               className="size-22 shrink-0"
             />
             <p className="max-w-md text-apoio text-tinta-2">

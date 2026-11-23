@@ -1,8 +1,8 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import Image from "next/image";
 import { BotaoLink } from "@/components/ui/Botao";
+import { Foto } from "@/components/ui/Foto";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { Estrelas } from "@/components/ui/Estrelas";
 import { useIndicadores } from "@/hooks/useCatalogo";
@@ -64,7 +64,7 @@ export function Hero() {
       </div>
 
       <div className="relative order-1 aspect-3/2 w-full md:order-2 md:aspect-auto md:min-h-100">
-        <Image
+        <Foto
           src="/produtos/vaso-ceramica.jpg"
           alt="Vaso de cerâmica pintado à mão, com flores secas, sobre a mesa de um ateliê"
           fill

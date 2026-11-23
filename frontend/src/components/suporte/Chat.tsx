@@ -207,7 +207,7 @@ export function Chat({ ticketId }: { ticketId: string | null }) {
             {comEspecialista ? (
               <span className="inline-flex size-10 items-center justify-center rounded-full border border-borda bg-superficie-2 text-apoio font-bold text-terracota" aria-hidden="true">{ATENDENTE[0]}</span>
             ) : (
-              <Image src="/suporte/jurema.png" alt="" width={42} height={42} className="size-10 rounded-full" />
+              <Image src="/suporte/jurema.png" alt="" width={42} height={42} unoptimized className="size-10 rounded-full" />
             )}
             <div className="flex flex-col">
               <p className="text-apoio font-bold text-tinta">{comEspecialista ? `${ATENDENTE} · Especialista Origem` : ASSISTENTE}</p>

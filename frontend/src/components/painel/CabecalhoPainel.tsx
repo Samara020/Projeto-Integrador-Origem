@@ -67,6 +67,7 @@ export function CabecalhoPainel({ navegacao }: { navegacao: NavegacaoPainel }) {
             width={150}
             height={56}
             priority
+            unoptimized
             className="h-14 w-auto"
           />
         </Link>

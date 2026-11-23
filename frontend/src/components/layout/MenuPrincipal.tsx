@@ -97,6 +97,7 @@ export function MenuPrincipal() {
                     alt="Origem, cultura que conecta"
                     width={150}
                     height={62}
+                    unoptimized
                     className="h-12 w-auto"
                   />
                 </Link>

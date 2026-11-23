@@ -1,4 +1,5 @@
 import Image, { type ImageProps } from "next/image";
+import { resolverImagemProduto } from "@/lib/imagem-storage";
 
 // Foto resiliente: aceita data URL, blob, URLs externas (sem exigir whitelist por host)
 // e trata string vazia com fundo neutro sem quebrar o next/image.
@@ -17,11 +18,13 @@ export function Foto({ src, alt, className, ...resto }: Omit<ImageProps, "unopti
       />
     );
   }
+  const enderecoResolvido = resolverImagemProduto(endereco);
   const semOtimizador =
-    endereco.startsWith("data:") ||
-    endereco.startsWith("blob:") ||
-    endereco.startsWith("http://") ||
-    endereco.startsWith("https://");
+    enderecoResolvido.startsWith("data:") ||
+    enderecoResolvido.startsWith("blob:") ||
+    enderecoResolvido.startsWith("http://") ||
+    enderecoResolvido.startsWith("https://") ||
+    enderecoResolvido.startsWith("/");
 
-  return <Image src={endereco} alt={alt} unoptimized={semOtimizador} className={className} {...resto} />;
+  return <Image src={enderecoResolvido} alt={alt} unoptimized={semOtimizador} className={className} {...resto} />;
 }
