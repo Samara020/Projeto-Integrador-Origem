@@ -3,7 +3,10 @@
   "services": {
     "backend": {
       "root": "backend/app",
-      "framework": "express"
+      "entrypoint": "src/index.ts",
+      "framework": "express",
+      "installCommand": "npm ci --include=dev",
+      "buildCommand": "npm run prisma:generate && npm run build"
     },
     "frontend": {
       "root": "frontend",

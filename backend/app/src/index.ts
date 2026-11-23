@@ -32,14 +32,17 @@ export function criarApp(): Application {
   montarRotas(rotasApi);
   app.use("/api", rotasApi);
 
-  app.get("/health", async (_req, res) => {
+  const checarSaude = async (_req: express.Request, res: express.Response) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
       res.json({ status: "ok" });
     } catch {
       res.status(503).json({ status: "indisponivel" });
     }
-  });
+  };
+
+  app.get("/health", checarSaude);
+  rotasApi.get("/health", checarSaude);
 
   montarRotas(app);
 
