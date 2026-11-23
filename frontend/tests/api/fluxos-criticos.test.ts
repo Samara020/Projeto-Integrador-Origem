@@ -363,4 +363,153 @@ describe("fluxos críticos integrados (backend real + Postgres)", () => {
     expect(detalhe.corpo.capacidadeProducao).toBe(5);
     expect(detalhe.corpo.disponibilidade).toBe("DISPONIVEL");
   });
+
+  test("HU-10/HU-11 (RN33) · pagamento recusado cancela pedido, libera reserva de peça única e permite nova compra", async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const admin = await registrarELogar("ADMINISTRADOR");
+    const comprador1 = await registrarELogar("COMPRADOR");
+    const comprador2 = await registrarELogar("COMPRADOR");
+
+    const pecaUnica = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: `Peça Única Recusa ${Date.now()}`,
+      modalidadeProducao: "PECA_UNICA",
+      estoque: 1,
+      preco: 195,
+    });
+
+    await post("/carrinho/itens", { produtoId: pecaUnica.id, quantidade: 1 }, { token: comprador1.token });
+    const checkout1 = await post<{ pedidoId: string }>(
+      "/pedidos/checkout",
+      { enderecoEntrega: ENDERECO_VALIDO, opcaoEnvioId: "economico" },
+      { token: comprador1.token },
+    );
+    expect(checkout1.status).toBe(201);
+
+    const reservada = await get<{ estoque: number; disponibilidade: string }>(
+      `/produtos/${encodeURIComponent(pecaUnica.id)}`,
+    );
+    expect(reservada.corpo.estoque).toBe(0);
+    expect(reservada.corpo.disponibilidade).toBe("VENDIDO");
+
+    const pagamentoRecusado = await post<{
+      status: string;
+      statusPedido: string;
+      reservaLiberada: boolean;
+      mensagem: string;
+    }>(
+      "/pagamentos",
+      {
+        pedidoId: String(checkout1.corpo.pedidoId),
+        metodoPagamento: "CARTAO_CREDITO",
+        tokenCartao: "tok_recusado_saldo",
+        motivoFalha: "Cartão recusado pelo emissor.",
+      },
+      { token: comprador1.token },
+    );
+
+    expect(pagamentoRecusado.status).toBe(402);
+    expect(pagamentoRecusado.corpo.status).toBe("RECUSADO");
+    expect(pagamentoRecusado.corpo.statusPedido).toBe("CANCELADO");
+    expect(pagamentoRecusado.corpo.reservaLiberada).toBe(true);
+
+    const liberada = await get<{ estoque: number; disponibilidade: string }>(
+      `/produtos/${encodeURIComponent(pecaUnica.id)}`,
+    );
+    expect(liberada.corpo.estoque).toBe(1);
+    expect(liberada.corpo.disponibilidade).toBe("DISPONIVEL");
+
+    // Outro comprador consegue finalizar a peça liberada
+    await post("/carrinho/itens", { produtoId: pecaUnica.id, quantidade: 1 }, { token: comprador2.token });
+    const checkout2 = await post<{ pedidoId: string }>(
+      "/pedidos/checkout",
+      { enderecoEntrega: ENDERECO_VALIDO, opcaoEnvioId: "economico" },
+      { token: comprador2.token },
+    );
+    expect(checkout2.status).toBe(201);
+  }, 25000);
+
+  test("HU-10 (RN38) · eventos repetidos e concorrentes de pagamento com mesma Idempotency-Key retornam a mesma transação", async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const admin = await registrarELogar("ADMINISTRADOR");
+    const comprador = await registrarELogar("COMPRADOR");
+
+    const produto = await criarProdutoAprovado(artesao.token, admin.token, {
+      nome: `Peça Idempotência ${Date.now()}`,
+      estoque: 5,
+      preco: 140,
+    });
+
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+    const checkout = await post<{ pedidoId: string }>(
+      "/pedidos/checkout",
+      { enderecoEntrega: ENDERECO_VALIDO, opcaoEnvioId: "economico" },
+      { token: comprador.token },
+    );
+    expect(checkout.status).toBe(201);
+
+    const chave = `idem-api-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const payload = {
+      pedidoId: String(checkout.corpo.pedidoId),
+      metodoPagamento: "PIX",
+      tokenCartao: null,
+    };
+
+    const [p1, p2] = await Promise.all([
+      post<{ transacaoId: string; status: string; idempotente: boolean }>(
+        "/pagamentos",
+        payload,
+        { token: comprador.token, headers: { "Idempotency-Key": chave } },
+      ),
+      post<{ transacaoId: string; status: string; idempotente: boolean }>(
+        "/pagamentos",
+        payload,
+        { token: comprador.token, headers: { "Idempotency-Key": chave } },
+      ),
+    ]);
+
+    expect(p1.status).toBe(200);
+    expect(p2.status).toBe(200);
+    expect(p1.corpo.transacaoId).toBe(p2.corpo.transacaoId);
+    expect([p1.corpo.idempotente, p2.corpo.idempotente].sort()).toEqual([false, true]);
+
+    // Reutilizar a mesma chave em outro pedido resulta em 409
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+    const checkout2 = await post<{ pedidoId: string }>(
+      "/pedidos/checkout",
+      { enderecoEntrega: ENDERECO_VALIDO, opcaoEnvioId: "economico" },
+      { token: comprador.token },
+    );
+    expect(checkout2.status).toBe(201);
+
+    const conflito = await post(
+      "/pagamentos",
+      {
+        pedidoId: String(checkout2.corpo.pedidoId),
+        metodoPagamento: "PIX",
+        tokenCartao: null,
+      },
+      { token: comprador.token, headers: { "Idempotency-Key": chave } },
+    );
+    expect(conflito.status).toBe(409);
+  }, 25000);
+
+  test("HU-01 (TC11) · 5 tentativas inválidas de login ativam bloqueio temporário com 429 e Retry-After", async () => {
+    const conta = await registrarELogar("COMPRADOR");
+
+    for (let i = 0; i < 5; i += 1) {
+      const falha = await post<{ mensagem: string }>("/auth/login", {
+        email: conta.email,
+        senha: `SenhaErrada${i}!`,
+      });
+      expect(falha.status).toBe(401);
+    }
+
+    const bloqueado = await post<{ mensagem: string }>("/auth/login", {
+      email: conta.email,
+      senha: conta.senha,
+    });
+    expect(bloqueado.status).toBe(429);
+    expect(bloqueado.corpo.mensagem).toMatch(/temporariamente bloqueada/i);
+    expect(Number(bloqueado.cabecalhos.get("retry-after"))).toBeGreaterThan(0);
+  }, 20000);
 });

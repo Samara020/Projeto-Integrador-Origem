@@ -2,6 +2,7 @@ import prisma from "../src/lib/prisma";
 import jwt from "jsonwebtoken";
 
 export async function limparBanco() {
+  await prisma.tentativaLogin.deleteMany();
   await prisma.ticketMensagem.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.personalizacao.deleteMany();

@@ -77,7 +77,13 @@ Autentica o usuário e emite o token de sessão JWT.
 > middleware exige `sv` igual à versão atual. Tokens legados sem `sv` são
 > rejeitados quando emitidos antes da invalidação; se a versão atual for maior
 > que `1`, também são rejeitados os emitidos exatamente no segundo da
-> invalidação. Logout e expiração natural continuam válidos.
+> invalidação.
+>
+> **Proteção contra força bruta (HU-01 / TC11):** tentativas inválidas
+> consecutivas são persistidas na tabela `tentativa_login`. Após `5` falhas
+> seguidas para o mesmo e-mail, novas tentativas retornam `429 Too Many Requests`
+> com cabeçalho `Retry-After` (bloqueio temporário de `15` minutos). Um login
+> bem-sucedido antes do limite ou após a expiração do bloqueio zera o contador. Logout e expiração natural continuam válidos.
 
 #### POST /auth/logout
 Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
@@ -577,6 +583,19 @@ Processa o pagamento do pedido criado.
 
 > O débito é feito sobre o total calculado no servidor a partir do
 > `valorFrete` persistido e dos subtotais dos itens.
+>
+> **Idempotência (RN38):** aceita opcionalmente o cabeçalho `Idempotency-Key`
+> (ou os campos opcionais `idempotencyKey` / `eventoId` no corpo). Replays
+> sequenciais ou concorrentes com a mesma chave para o mesmo pedido retornam a
+> transação original (`idempotente: true`) sem duplicar registros em `pagamento`
+> nem `historico_pedido`. Reutilizar a mesma chave em outro pedido retorna `409 Conflict`.
+>
+> **Recusa, falha ou expiração (RN33):** em caso de recusa (`tokenCartao`
+> iniciado por `tok_recusado` / `tok_falha`, `simularFalha: true` ou
+> `resultado: "RECUSADO"`) ou expiração (`resultado: "EXPIRADO"` / `tok_expirado`),
+> o endpoint responde `402 Payment Required` com `status` (`RECUSADO` ou `EXPIRADO`),
+> `statusPedido: "CANCELADO"`, `reservaLiberada: true` e `mensagem`, registrando o
+> pagamento recusado/expirado e restaurando atomicamente o estoque reservado dos itens.
 
 ---
 

@@ -1,9 +1,10 @@
 # Relatório de Execução de Testes Automatizados
 
-**Data:** 22/11/2026  
-**Branch:** `main`  
+**Data:** 22/11/2026 (atualizado em 23/11/2026 — Rodada 3)  
+**Branch:** `refactor/compatibilidade-arquitetura-stack` (baseada na `main`)  
 **Commit base (Rodada 1):** `b33614c` (`b33614c240827d45938f22f87ec6c702d6560cf7`)  
 **Rodada 2:** pós-correção dos defeitos `F-01` a `F-04`, validação de curadoria (`HU-03`) e inclusão de testes automatizados para fluxos críticos (`fluxos-criticos.test.ts` e `produto-service.unit.test.ts`).  
+**Rodada 3 (23/11/2026):** implementação e cobertura automatizada de pagamento recusado/expirado com liberação atômica de estoque (`RN33`), idempotência explícita por `Idempotency-Key` (`RN38`), limite de tentativas de login com bloqueio temporário `429` (`TC11` / `HU-01` 01.5), correção da regressão em `seguranca-regressao.test.ts:135`, e execução integral da suíte completa do backend contra `origem_test` (`13/13`), frontend unitário (`15/15`) e API integrada (`9/9`).  
 **Objetivo:** registrar de forma reproduzível as execuções das suítes automatizadas do projeto Origem, documentando comandos, ambiente, resultados aprovados/reprovados, evidências de erro, correções aplicadas e rastreabilidade com as histórias de usuário (HUs) do backlog.
 
 ---
@@ -45,6 +46,19 @@
 | 4 | Frontend — Integração de API contra backend real (`maxWorkers: 1`) | `npm --prefix frontend run test:api` | **Aprovado** | 61 (8 suítes) | 0 | 6 (1 suíte) | 57,04 s |
 | 5 | Backend — Suíte completa com banco de testes (Jest) | `npm --prefix backend/app test` | **Bloqueado (ambiente)** | 0 | 12 suítes não iniciadas | 0 | 6,74 s |
 | 6 | Verificações estáticas (ESLint + `tsc`) | `npm --prefix frontend run lint` e `npm --prefix backend/app run build` | **Aprovado** | 2 checks | 0 | 0 | — |
+
+### 2.3. Rodada 3 (23/11/2026) — RN33, RN38, TC11 e desbloqueio integral do banco de testes
+
+| # | Camada / Suíte | Comando Executado | Resultado | Aprovados | Reprovados | Pulados | Tempo |
+|---|---|---|---|---:|---:|---:|---:|
+| 1 | Backend — Suíte completa com PostgreSQL descartável `origem_test` (Jest) | `DATABASE_URL_TEST=.../origem_test npm --prefix backend/app test` | **Aprovado** | 190 (13 suítes) | 0 | 0 | 36,67 s |
+| 2 | Backend — Unitários puros (Jest) | `npm --prefix backend/app run test:unit` | **Aprovado** | 89 (5 suítes) | 0 | 0 | 26,12 s |
+| 3 | Frontend — Unitários (Jest) | `npm --prefix frontend run test:unit` | **Aprovado** | 205 (15 suítes) | 0 | 0 | 29,68 s |
+| 4 | Frontend — Integração de API contra backend real (`maxWorkers: 1`) | `npm --prefix frontend run test:api` | **Aprovado** | 64 (8 suítes) | 0 | 6 (1 suíte) | 68,91 s |
+| 5 | Frontend — Recomendações ponta a ponta (`BACKEND_URL` + `FRONTEND_BASE_URL` + `IA_BASE_URL`) | `npm --prefix frontend run test:api -- tests/api/recomendacoes-integracao.test.ts` | **Aprovado** | 6 (1 suíte) | 0 | 0 | 1,39 s |
+| 6 | Verificações estáticas e build (`tsc`, ESLint, `next build`) | `npm --prefix backend/app run build`, `npm --prefix frontend run lint`, `npm --prefix frontend run build` | **Aprovado** | 3 checks (25/25 páginas) | 0 | 0 | — |
+
+> **Observação sobre Cypress (`e2e/`):** os resultados de `42/42` registrados anteriormente em `docs/revisao-criterios-de-aceite/` pertencem à execução anterior em ambiente dedicado (Fake API/homologação isolada); nesta estação `e2e/node_modules` não está instalado, portanto o Cypress não foi reexecutado na Rodada 3. Para a interface web integrada com backend real, ver o fluxo E2E em navegador real documentado em [`2026-11-23-validacao-ponta-a-ponta.md`](./2026-11-23-validacao-ponta-a-ponta.md).
 
 ---
 
@@ -191,16 +205,20 @@ Suítes não executadas por ausência de `DATABASE_URL_TEST`: `artesaos.test.ts`
 | F-03 | `auth.test.ts` esperava mensagem genérica antiga no cadastro | Desatualização de teste | HU-01 | **Corrigido e validado** | Mensagens alinhadas por campo em `auth.test.ts`; aprovado na Rodada 2 |
 | F-04 | `npm run test:api` sofria timeout em `beforeAll` em paralelo | Configuração de teste | HU-04, HU-05, HU-06, HU-17 | **Corrigido e validado** | `maxWorkers: 1` em `jest.api.config.mjs`; 61/61 sem timeout |
 | F-05 | Reprovação na curadoria aceitava justificativa vazia | Defeito funcional | HU-03 | **Corrigido e validado** | `produtoService.validar()` retorna `400`; coberto em unitário e `fluxos-criticos.test.ts` |
-| B-01 | `backend/app` `npm test` bloqueado sem `DATABASE_URL_TEST` | Pré-requisito de ambiente | HU-01 a HU-16 | **Pendente (ambiente)** | Provisionar banco descartável (`origem_test`) com scripts `01`, `02`, `04` e executar `npm --prefix backend/app test` |
-| B-02 | `recomendacoes-integracao.test.ts` pulado sem `BACKEND_URL` | Pré-requisito de ambiente | HU-17 | **Pendente (ambiente)** | Subir serviço `frontend` no Compose e executar com `BACKEND_URL=http://localhost:4000` |
+| B-01 | `backend/app` `npm test` bloqueado sem `DATABASE_URL_TEST` | Pré-requisito de ambiente | HU-01 a HU-16 | **Resolvido na Rodada 3** | Executado contra banco descartável `origem_test`: **13/13 suítes · 190/190 aprovados** (incluindo `seguranca-regressao.test.ts`, RN33, RN38 e TC11) |
+| B-02 | `recomendacoes-integracao.test.ts` pulado sem `BACKEND_URL` | Pré-requisito de ambiente | HU-17 | **Resolvido na Rodada 3** | Executado com `BACKEND_URL`, `FRONTEND_BASE_URL` e `IA_BASE_URL`: **6/6 aprovados** |
 
 ---
 
-## 6. Lacunas de Cobertura Automatizada Remanescentes
+## 6. Lacunas Cobertas na Rodada 3 e Remanescentes
 
-Mesmo após a ampliação da Rodada 2 (que cobriu concorrência entre compradores em peça única, revalidação de estoque no carrinho, anti-enumeração, curadoria com justificativa obrigatória, moderação com recálculo de média, cancelamento restaurando estoque e peças `SOB_ENCOMENDA`), permanecem como próximos incrementos recomendados:
+### Resolvidas na Rodada 3 (23/11/2026)
+1. **Pagamento recusado/expirado e liberação de reserva (HU-10 / HU-11 / RN33):** implementado em `pagamento.service.ts` e `pagamento.repository.ts` (`402 Payment Required`, cancelamento do pedido, persistência de `RECUSADO`/`EXPIRADO` + `motivo` e reposição atômica de estoque para liberar peças únicas). Coberto em `pagamento-auth.unit.test.ts`, `pedidos.test.ts` e `fluxos-criticos.test.ts`.
+2. **Idempotência explícita de eventos de pagamento (HU-10 / RN38):** adicionada coluna `chave_idempotencia` com índice único parcial em `database/sql/08_integracao_persistencia.sql` (`ADR-001`), cabeçalho `Idempotency-Key` / campo `idempotencyKey` e lock `FOR UPDATE` em `pagamentoRepository.registrarPagamento()`. Replays sequenciais/concorrentes retornam a mesma transação sem duplicar registros; reuso em outro pedido retorna `409`. Coberto em `pagamento-auth.unit.test.ts`, `pedidos.test.ts` e `fluxos-criticos.test.ts`.
+3. **Limite de tentativas de login e bloqueio temporário (HU-01 01.5 / TC11):** adicionada tabela `tentativa_login` (`08_integracao_persistencia.sql`) e `tentativaLoginRepository`; após 5 falhas consecutivas, novas tentativas retornam `429 Too Many Requests` com `Retry-After` por 15 minutos, zerando o contador após login válido ou expiração da janela. Coberto em `pagamento-auth.unit.test.ts`, `auth.test.ts` e `fluxos-criticos.test.ts`.
+4. **Regressão em `seguranca-regressao.test.ts:135`:** ajustado `auth.service.ts` para expor `tokenRecuperacao` somente em ambiente de teste (`NODE_ENV=test` com `ORIGEM_TEST_SERVER=1` ou `JEST_WORKER_ID`), mantendo anti-enumeração estrita em `development` e `production`.
 
-1. **Pagamento recusado/falho e liberação de reserva (HU-10 / HU-11):** o serviço atual (`pagamentoService.processar`) registra apenas aprovação simulada; falta suportar e testar o caminho de recusa/estorno sem bloquear a peça.
-2. **Proteção contra força bruta e expiração de token de 15 min (HU-01):** implementar e testar limite de tentativas de login e expiração de token de recuperação de senha.
-3. **Testes automatizados do serviço C# de concorrência (`backend/backend/Origem.Concorrencia`):** adicionar projeto de testes automatizados (`xUnit`) para validar reservas e timeouts no serviço de concorrência.
-4. **Cobertura E2E de painéis pós-venda em Cypress (`e2e/cypress/e2e/`):** incluir cenários na interface web para gestão de pedidos do artesão (HU-14), curadoria/moderação no painel admin (HU-16), avaliação pós-compra (HU-19) e suporte (HU-22/HU-23).
+### Remanescentes
+1. **Reexecução da suíte Cypress (`e2e/`):** os 42 cenários Cypress ainda correspondem à execução anterior em ambiente isolado (`e2e/node_modules` não instalado neste host).
+2. **Testes automatizados do serviço C# demonstrativo (`backend/backend/Origem.Concorrencia`):** fora do fluxo principal (`ADR-003`) e sem SDK `.NET` neste host.
+3. **Cobertura E2E de painéis pós-venda em Cypress (`e2e/cypress/e2e/`):** incluir cenários na interface web para gestão de pedidos do artesão (HU-14), curadoria/moderação no painel admin (HU-16), avaliação pós-compra (HU-19) e suporte (HU-22/HU-23).

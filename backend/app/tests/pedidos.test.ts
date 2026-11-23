@@ -273,6 +273,187 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
 
       expect(resposta.body.mensagem).toMatch(/ja se encontra pago/i);
     });
+
+    test("RN33 · pagamento recusado cancela pedido, persiste motivo e libera reserva de peça única", async () => {
+      const comprador = await criarUsuarioComprador();
+      const segundoComprador = await criarUsuarioComprador();
+      const artesao = await criarUsuarioArtesao();
+      const loja = await criarLoja(artesao.id);
+      const categoria = await criarCategoria();
+      const produto = await prisma.produto.create({
+        data: {
+          nome: "Escultura Única Barro",
+          descricao: "Peça exclusiva",
+          tecnica: "Cerâmica",
+          origem: "Caruaru",
+          preco: 250,
+          modalidadeProducao: "PECA_UNICA",
+          pecaUnica: true,
+          categoriaId: categoria.id,
+          lojaId: loja.id,
+          estoque: { create: { quantidadeDisponivel: 1, pontoReposicao: 0 } },
+        },
+      });
+      await criarCarrinhoComItem(comprador.id, produto.id, 1);
+
+      const checkout = await request(app)
+        .post("/pedidos/checkout")
+        .set("Authorization", `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`)
+        .send({ enderecoEntrega: { cep: "55002-000", rua: "Rua do Barro", numero: "10", cidade: "Caruaru" } })
+        .expect(201);
+
+      // Reserva ativa baixou o estoque da peça única para 0
+      const estoqueReservado = await prisma.estoque.findUniqueOrThrow({ where: { produtoId: produto.id } });
+      expect(estoqueReservado.quantidadeDisponivel).toBe(0);
+
+      const recusa = await request(app)
+        .post("/pagamentos")
+        .set("Authorization", `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`)
+        .send({
+          pedidoId: String(checkout.body.pedidoId),
+          metodoPagamento: "CARTAO_CREDITO",
+          tokenCartao: "tok_recusado_saldo",
+          motivoFalha: "Saldo insuficiente no cartão.",
+        })
+        .expect(402);
+
+      expect(recusa.body.status).toBe("RECUSADO");
+      expect(recusa.body.statusPedido).toBe("CANCELADO");
+      expect(recusa.body.reservaLiberada).toBe(true);
+      expect(recusa.body.mensagem).toMatch(/Saldo insuficiente/i);
+
+      const pedidoNoBanco = await prisma.pedido.findUniqueOrThrow({
+        where: { id: Number(checkout.body.pedidoId) },
+        include: { pagamentos: true, historico: true },
+      });
+      expect(pedidoNoBanco.status).toBe("CANCELADO");
+      expect(pedidoNoBanco.pagamentos).toHaveLength(1);
+      expect(pedidoNoBanco.pagamentos[0].status).toBe("RECUSADO");
+      expect(pedidoNoBanco.pagamentos[0].motivo).toBe("Saldo insuficiente no cartão.");
+      expect(pedidoNoBanco.historico.some((h) => h.status === "CANCELADO" && h.observacao?.includes("Reserva liberada"))).toBe(true);
+
+      // Estoque da peça única foi restaurado para 1
+      const estoqueLiberado = await prisma.estoque.findUniqueOrThrow({ where: { produtoId: produto.id } });
+      expect(estoqueLiberado.quantidadeDisponivel).toBe(1);
+
+      // Segundo comprador consegue reservar e concluir compra da peça liberada
+      await criarCarrinhoComItem(segundoComprador.id, produto.id, 1);
+      const novoCheckout = await request(app)
+        .post("/pedidos/checkout")
+        .set("Authorization", `Bearer ${gerarToken(segundoComprador.id, "COMPRADOR")}`)
+        .send({ enderecoEntrega: { cep: "50000-000", rua: "Rua Nova", numero: "20", cidade: "Recife" } })
+        .expect(201);
+      expect(novoCheckout.body.pedidoId).toBeDefined();
+    });
+
+    test("RN33 · pagamento expirado libera reserva de estoque uma única vez", async () => {
+      const { comprador, produto, endereco } = await cenario();
+      const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2, 100);
+      await prisma.estoque.update({
+        where: { produtoId: produto.id },
+        data: { quantidadeDisponivel: 3 },
+      });
+
+      const res = await request(app)
+        .post("/pagamentos")
+        .set("Authorization", `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`)
+        .send({
+          pedidoId: String(pedido.id),
+          metodoPagamento: "PIX",
+          tokenCartao: null,
+          resultado: "EXPIRADO",
+        })
+        .expect(402);
+
+      expect(res.body.status).toBe("EXPIRADO");
+      expect(res.body.reservaLiberada).toBe(true);
+
+      const estoque = await prisma.estoque.findUniqueOrThrow({ where: { produtoId: produto.id } });
+      expect(estoque.quantidadeDisponivel).toBe(5);
+    });
+
+    test("RN38 · eventos repetidos e simultâneos com a mesma Idempotency-Key não duplicam pagamento nem histórico", async () => {
+      const { comprador, produto, endereco } = await cenario();
+      const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 1, 100);
+      const token = `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`;
+      const chave = `evt-pix-${Date.now()}`;
+
+      // Duas chamadas simultâneas com a mesma chave de idempotência
+      const [r1, r2] = await Promise.all([
+        request(app)
+          .post("/pagamentos")
+          .set("Authorization", token)
+          .set("Idempotency-Key", chave)
+          .send({ pedidoId: String(pedido.id), metodoPagamento: "PIX", tokenCartao: null }),
+        request(app)
+          .post("/pagamentos")
+          .set("Authorization", token)
+          .set("Idempotency-Key", chave)
+          .send({ pedidoId: String(pedido.id), metodoPagamento: "PIX", tokenCartao: null }),
+      ]);
+
+      expect(r1.status).toBe(200);
+      expect(r2.status).toBe(200);
+      expect(r1.body.transacaoId).toBe(r2.body.transacaoId);
+      expect([r1.body.idempotente, r2.body.idempotente].sort()).toEqual([false, true]);
+
+      // Replay sequencial posterior mantém a mesma transação sem duplicar registros
+      const r3 = await request(app)
+        .post("/pagamentos")
+        .set("Authorization", token)
+        .set("Idempotency-Key", chave)
+        .send({ pedidoId: String(pedido.id), metodoPagamento: "PIX", tokenCartao: null })
+        .expect(200);
+
+      expect(r3.body.transacaoId).toBe(r1.body.transacaoId);
+      expect(r3.body.idempotente).toBe(true);
+
+      expect(await prisma.pagamento.count({ where: { pedidoId: pedido.id } })).toBe(1);
+      expect(await prisma.historicoPedido.count({ where: { pedidoId: pedido.id, status: "PAGO" } })).toBe(1);
+
+      // Reuso da mesma chave em outro pedido retorna conflito 409
+      const outroPedido = await criarPedido(comprador.id, endereco.id, produto.id, 1, 100);
+      await request(app)
+        .post("/pagamentos")
+        .set("Authorization", token)
+        .set("Idempotency-Key", chave)
+        .send({ pedidoId: String(outroPedido.id), metodoPagamento: "PIX", tokenCartao: null })
+        .expect(409);
+    });
+
+    test("RN33/RN38 · recusa concorrente com mesma Idempotency-Key repõe estoque uma única vez", async () => {
+      const { comprador, produto, endereco } = await cenario();
+      const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2, 100);
+      await prisma.estoque.update({
+        where: { produtoId: produto.id },
+        data: { quantidadeDisponivel: 1 },
+      });
+
+      const token = `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`;
+      const chave = `evt-recusa-${Date.now()}`;
+
+      const [r1, r2] = await Promise.all([
+        request(app)
+          .post("/pagamentos")
+          .set("Authorization", token)
+          .set("Idempotency-Key", chave)
+          .send({ pedidoId: String(pedido.id), metodoPagamento: "CARTAO_CREDITO", tokenCartao: "tok_recusado_1" }),
+        request(app)
+          .post("/pagamentos")
+          .set("Authorization", token)
+          .set("Idempotency-Key", chave)
+          .send({ pedidoId: String(pedido.id), metodoPagamento: "CARTAO_CREDITO", tokenCartao: "tok_recusado_1" }),
+      ]);
+
+      expect(r1.status).toBe(402);
+      expect(r2.status).toBe(402);
+      expect(r1.body.transacaoId).toBe(r2.body.transacaoId);
+
+      // Estoque subiu de 1 para 3 (uma única reposição de 2 unidades)
+      const estoque = await prisma.estoque.findUniqueOrThrow({ where: { produtoId: produto.id } });
+      expect(estoque.quantidadeDisponivel).toBe(3);
+      expect(await prisma.pagamento.count({ where: { pedidoId: pedido.id } })).toBe(1);
+    });
   });
 
   describe("Atualização de Status de Pedido pelo Artesão", () => {

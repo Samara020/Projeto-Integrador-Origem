@@ -107,9 +107,9 @@ Executada em navegador real contra os 4 containers integrados (`origin` verifica
 
 | Verificação | Resultado Final |
 |---|---|
-| Backend — Suíte completa (integração com PostgreSQL + unitários) | **12/12 suítes · 175/175 aprovados** (`tsc` verde) |
-| Frontend — Unitários + Lint | **14/14 suítes · 203/203 aprovados** (`eslint` verde) |
-| Frontend — API integrada (Rodada 2 anterior + `recomendacoes-integracao.test.ts` hoje) | **9/9 suítes · 67/67 aprovados** |
+| Backend — Suíte completa (integração com PostgreSQL `origem_test` + unitários) | **13/13 suítes · 190/190 aprovados** (`tsc` verde; inclui RN33, RN38, TC11 e `seguranca-regressao.test.ts`) |
+| Frontend — Unitários + Lint + Build | **15/15 suítes · 205/205 aprovados** (`eslint` e `next build` 25/25 páginas verdes) |
+| Frontend — API integrada (`test:api` + `recomendacoes-integracao.test.ts`) | **9/9 suítes · 70/70 aprovados** (10 cenários em `fluxos-criticos.test.ts`) |
 | Módulo de IA — Pytest (container) | **4/4 arquivos · 27/27 aprovados** |
 | Navegador real ponta a ponta (`http://localhost:3000`) | **7/7 etapas aprovadas** (0 erros HTTP 4xx/5xx de API) |
-| Ambiente Docker local ao final da validação | Volume resetado e `backend` reconstruído com as correções (`3` categorias e `14` peças reais limpas) |
+| Cypress (`e2e/`) | **Não reexecutado nesta rodada** (`42/42` pertencem à rodada anterior em ambiente isolado; `e2e/node_modules` ausente neste host) |

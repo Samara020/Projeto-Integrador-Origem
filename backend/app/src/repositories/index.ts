@@ -11,3 +11,4 @@ export { ticketRepository } from "./ticket.repository";
 export { adminRepository } from "./admin.repository";
 export { recuperacaoRepository } from "./recuperacao.repository";
 export { personalizacaoRepository } from "./personalizacao.repository";
+export { tentativaLoginRepository } from "./tentativa-login.repository";

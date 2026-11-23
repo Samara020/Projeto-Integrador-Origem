@@ -4,10 +4,12 @@ import { ZodError } from "zod";
 
 export class ErroApp extends Error {
   status: number;
-  constructor(status: number, mensagem: string) {
+  retryAfterSegundos?: number;
+  constructor(status: number, mensagem: string, retryAfterSegundos?: number) {
     super(mensagem);
     this.name = "ErroApp";
     this.status = status;
+    this.retryAfterSegundos = retryAfterSegundos;
   }
 }
 
@@ -28,6 +30,9 @@ export const tratarErro = (
   _next: NextFunction
 ): Response => {
   if (erro instanceof ErroApp) {
+    if (erro.retryAfterSegundos !== undefined) {
+      res.setHeader("Retry-After", String(Math.max(1, Math.ceil(erro.retryAfterSegundos))));
+    }
     return res.status(erro.status).json({ mensagem: erro.message } satisfies CorpoErro);
   }
 
