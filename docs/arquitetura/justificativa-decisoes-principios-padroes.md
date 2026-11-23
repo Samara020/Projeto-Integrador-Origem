@@ -88,3 +88,7 @@ Evidência concreta no fluxo do carrinho: `hooks/useCarrinho.ts` expõe o carrin
 - **Acoplamento a implementações concretas e duplicação:** serviços importam repositórios concretos diretamente e há validações repetidas entre rotas e serviços.
 - **Rotas Fake API no frontend:** rotas em `frontend/src/app/api/` baseadas em `mocks/` não devem ser tratadas como endpoints com persistência garantida no backend.
 - **Catálogo JSON e divergência de fluxo na IA:** `modulo-ia/app/catalog.py` lê arquivos JSON sem persistência compartilhada com o PostgreSQL, e a rota `frontend/src/app/api/produtos/recomendacoes/route.ts` (via `frontend/src/lib/modulo-ia.ts`) difere do fluxo padrão em que `hooks/useProdutos.ts` → `services/produtos.ts` → `lib/http.ts` chama `/produtos/recomendacoes` no backend (porta 4000) → `ProdutosController.recomendados()` → `produtoService.recomendados()`, que não invoca o serviço Python de IA.
+
+## 6. Diagrama Arquitetural e Fluxos Principais
+
+<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/fd8f86e3-97e4-4220-b03b-a78d20d1db10" />
