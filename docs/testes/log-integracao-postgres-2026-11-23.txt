@@ -1,0 +1,107 @@
+﻿
+> @origem/backend@1.0.0 test
+> jest --runInBand
+
+node.exe : PASS tests/pedidos.test.ts (146.64 s)
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS t 
+   ests/pedidos.test.ts (146.64 s):String) [], Rem  
+  oteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS tests/produto-service.unit.test.ts
+PASS tests/produtos.test.ts (49.57 s)
+  ÔùÅ Console
+
+    console.warn
+      [modulo-ia] indispon├¡vel ou tempo esgotado; 
+aplicando baseline local: [TypeError: fetch failed] 
+{
+        [cause]: AggregateError: 
+            at internalConnectMultiple 
+(node:net:1430:18)
+            at afterConnectMultiple 
+(node:net:2099:7) {
+          code: 'ECONNREFUSED',
+          [errors]: [ [Error], [Error] ]
+        }
+      }
+
+    [0m [90m  99 |[39m     )[33m;[39m
+     [90m 100 |[39m   } [36mcatch[39m (erro) {
+    [31m[1m>[22m[39m[90m 101 |[39m     
+console[33m.[39mwarn(
+     [90m     |[39m             
+[31m[1m^[22m[39m
+     [90m 102 |[39m       [32m"[modulo-ia] 
+indispon├¡vel ou tempo esgotado; aplicando baseline 
+local:"[39m[33m,[39m
+     [90m 103 |[39m       erro 
+[36minstanceof[39m [33mError[39m [33m?[39m 
+erro[33m.[39mmessage [33m:[39m erro
+     [90m 104 |[39m     )[33m;[39m[0m
+
+      at solicitarRecomendacoesIA 
+(src/lib/modulo-ia.ts:101:13)
+      at Object.recomendar 
+(src/services/recomendacao.service.ts:252:27)
+      at ProdutosController.recomendados 
+(src/controllers/produtos.controller.ts:27:23)
+
+PASS tests/aed-buscas.test.ts
+PASS tests/auth.test.ts (64.077 s)
+PASS tests/recomendacoes.unit.test.ts
+PASS tests/aed-estruturas.test.ts
+PASS tests/pagamento-auth.unit.test.ts
+PASS tests/bloqueios-contrato.test.ts (20.047 s)
+PASS tests/integracao-persistencia.test.ts (34.801 
+s)
+FAIL tests/seguranca-regressao.test.ts (21.512 s)
+  ÔùÅ Regress├úo de Seguran├ºa e Integridade 
+(Auditoria 1 a 5) ÔÇ║ Item 5 - Revoga├º├úo 
+persistente no logout e redefini├º├úo de senha ÔÇ║ 
+revoga├º├úo persiste entre inst├óncias e 
+redefini├º├úo invalida sess├Áes anteriores
+
+    expect(received).toBeUndefined()
+
+    Received: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
+eyJpZCI6IjEwMyIsImVtYWlsIjoibWFyaWFuYUB0ZXN0ZS5jb20i
+LCJwcm9wb3NpdG8iOiJSRURFRklOSUNBT19TRU5IQSIsImlhdCI6
+MTc5NTQ3Njg0NiwiZXhwIjoxNzk1NDc3NzQ2fQ.aO6I00V4EoXJV
+ylTVhSkvRtLq10v3grIeUVQLZNRdA4"
+
+    [0m [90m 135 |[39m         
+[33m.[39mexpect([35m200[39m)[33m;[39m
+     [90m 136 |[39m
+    [31m[1m>[22m[39m[90m 137 |[39m       expec
+t(rec[33m.[39mbody[33m.[39mtokenRecuperacao)[33
+m.[39mtoBeUndefined()[33m;[39m
+     [90m     |[39m                               
+          [31m[1m^[22m[39m
+     [90m 138 |[39m       expect(rec[33m.[39mbod
+y[33m.[39mtoken)[33m.[39mtoBeUndefined()[33m;[
+39m
+     [90m 139 |[39m       expect(envio)[33m.[39m
+toHaveBeenCalledTimes([35m1[39m)[33m;[39m
+     [90m 140 |[39m       [36mconst[39m 
+mensagem [33m=[39m envio[33m.[39mmock[33m.[39m
+calls[[35m0[39m][[35m0[39m][33m;[39m[0m
+
+      at Object.<anonymous> 
+(tests/seguranca-regressao.test.ts:137:41)
+
+PASS tests/produtos-posse.test.ts (33.056 s)
+PASS tests/auth-permissoes.test.ts (19.161 s)
+PASS tests/admin-def04.test.ts (12.138 s)
+PASS tests/artesaos.test.ts (9.363 s)
+
+Test Suites: 1 failed, 14 passed, 15 total
+Tests:       1 failed, 195 passed, 196 total
+Snapshots:   0 total
+Time:        434.745 s
+Ran all test suites.
