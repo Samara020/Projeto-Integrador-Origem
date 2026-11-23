@@ -1,5 +1,7 @@
-// A Vercel já injeta as variáveis de ambiente; dotenv é necessário só localmente.
-if (process.env.VERCEL !== "1") {
+const executarComoContainerVercel = process.env.ORIGEM_VERCEL_CONTAINER === "1";
+
+// A Vercel injeta as variáveis; dotenv é usado apenas no desenvolvimento local.
+if (process.env.VERCEL !== "1" && !executarComoContainerVercel) {
   require("dotenv/config");
 }
 import express, { Application } from "express";
@@ -60,7 +62,10 @@ const app = criarApp();
 const servidorDescartavelDeTeste =
   process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
 
-if (process.env.VERCEL !== "1" && (process.env.NODE_ENV !== "test" || servidorDescartavelDeTeste)) {
+if (
+  (process.env.VERCEL !== "1" || executarComoContainerVercel) &&
+  (process.env.NODE_ENV !== "test" || servidorDescartavelDeTeste)
+) {
   const bancoPronto = servidorDescartavelDeTeste ? Promise.resolve() : prepararBanco();
   bancoPronto
     .then(() => {

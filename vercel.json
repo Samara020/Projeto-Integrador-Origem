@@ -3,10 +3,8 @@
   "services": {
     "backend": {
       "root": "backend/app",
-      "entrypoint": "src/index.ts",
-      "framework": "express",
-      "installCommand": "npm ci --include=dev",
-      "buildCommand": "npm run prisma:generate && npm run build"
+      "runtime": "container",
+      "entrypoint": "Dockerfile.vercel"
     },
     "frontend": {
       "root": "frontend",

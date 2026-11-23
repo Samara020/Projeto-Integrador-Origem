@@ -31,10 +31,6 @@ export function montarRotas(app: IRouter): void {
     }
   });
 
-  app.get("/health", (req: Request, res: Response) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
   app.get("/comprador/personalizacoes", autenticar, compradorApenas,
     (req, res, next) => personalizacaoService.minhas(req.usuario!.id).then(p => res.json(p)).catch(next));
   app.use("/auth", authRoutes);
