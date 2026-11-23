@@ -55,6 +55,7 @@ export const recuperacaoRepository = {
       });
       if (consumo.count !== 1) throw new ErroApp(400, "Token de recuperação inválido ou expirado.");
       await tx.usuario.update({ where: { id: registro.usuarioId }, data: { senha } });
+      return registro.usuarioId;
     });
   },
 };

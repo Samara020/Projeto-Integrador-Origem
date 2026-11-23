@@ -12,8 +12,35 @@ export const pedidoRepository = {
     itens: { produtoId: Id; quantidade: number; precoUnitario: any; subtotal: any }[];
     valorFrete: number;
   }) {
+    const carrinhoId = toId(dados.carrinhoId);
+    const usuarioId = toId(dados.usuarioId);
+
     return prisma.$transaction(async (tx: any) => {
-      for (const item of dados.itens) {
+      // Trava a linha do carrinho para serializar checkouts simultâneos e
+      // garantir leitura consistente após alterações concorrentes de quantidade/preço.
+      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinhoId} FOR UPDATE`;
+
+      const itensCarrinho = await tx.itemCarrinho.findMany({
+        where: { carrinhoId },
+        include: { produto: true },
+        orderBy: { numeroItem: "asc" },
+      });
+
+      if (itensCarrinho.length === 0) {
+        throw new ErroApp(400, "Carrinho vazio.");
+      }
+
+      const itensAtualizados = itensCarrinho.map((item: any) => {
+        const precoAtual = item.produto?.preco ?? item.precoUnitario;
+        return {
+          produtoId: item.produtoId,
+          quantidade: item.quantidade,
+          precoUnitario: precoAtual,
+          subtotal: Number(precoAtual) * item.quantidade,
+        };
+      });
+
+      for (const item of itensAtualizados) {
         const baixa = await tx.estoque.updateMany({
           where: {
             produtoId: toId(item.produtoId),
@@ -30,13 +57,13 @@ export const pedidoRepository = {
 
       const pedido = await tx.pedido.create({
         data: {
-          usuarioId: toId(dados.usuarioId),
+          usuarioId,
           enderecoEntregaId: endereco.id,
           status: "AGUARDANDO_PAGAMENTO",
           data: new Date(),
           valorFrete: dados.valorFrete,
           itens: {
-            create: dados.itens.map((i, indice) => ({
+            create: itensAtualizados.map((i: any, indice: number) => ({
               numeroItem: indice + 1,
               produtoId: toId(i.produtoId),
               quantidade: i.quantidade,
@@ -53,7 +80,7 @@ export const pedidoRepository = {
         },
       });
 
-      await tx.itemCarrinho.deleteMany({ where: { carrinhoId: toId(dados.carrinhoId) } });
+      await tx.itemCarrinho.deleteMany({ where: { carrinhoId } });
       return pedido;
     });
   },
@@ -121,12 +148,16 @@ export const pedidoRepository = {
   async atualizarStatus(id: Id, dados: { status: string; codigoRastreio?: string | null; lojaId?: Id }) {
     const pedidoId = toId(id);
     return prisma.$transaction(async (tx: any) => {
+      await tx.$queryRaw`SELECT id_pedidos FROM pedido WHERE id_pedidos = ${pedidoId} FOR UPDATE`;
       const pedidoAnterior = await tx.pedido.findUnique({
         where: { id: pedidoId },
         include: { itens: true },
       });
       if (!pedidoAnterior) {
         throw new ErroApp(404, "Pedido nao encontrado.");
+      }
+      if (pedidoAnterior.status === "ENTREGUE" || pedidoAnterior.status === "CANCELADO") {
+        throw new ErroApp(409, `Pedido ja esta ${pedidoAnterior.status} e nao pode mais ser alterado.`);
       }
 
       const pedido = await tx.pedido.update({
