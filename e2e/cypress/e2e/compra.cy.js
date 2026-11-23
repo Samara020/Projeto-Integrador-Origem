@@ -100,7 +100,7 @@ describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistênci
 
   it("comprador logado cota frete, compra com Pix e acompanha o pedido pago no histórico", () => {
     const apiUrl = getApiUrl();
-    cy.intercept("POST", `${apiUrl}/painel/envios/cotacao`).as("cotacao");
+    cy.intercept("POST", `${apiUrl}/envios/cotacao`).as("cotacao");
     cy.visitarComo("COMPRADOR", `/produto/${produto.id}`);
     adicionarComoComprador();
 
@@ -223,7 +223,7 @@ describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistênci
     const senha = "SenhaSegura123";
 
     cy.intercept("PUT", `${apiUrl}/carrinho/itens/*`).as("atualizarQuantidade");
-    cy.intercept("POST", `${apiUrl}/painel/envios/cotacao`).as("cotacaoFrete");
+    cy.intercept("POST", `${apiUrl}/envios/cotacao`).as("cotacaoFrete");
 
     // 1. Cadastro de novo comprador
     cy.visit("/cadastro");
