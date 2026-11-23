@@ -230,6 +230,7 @@ export type PedidoCriado = {
 
 export type PedidoResumo = {
   id: string;
+  numeroSequencial?: number;
   status: StatusPedido;
   valorFrete?: number;
   valorTotal: number;

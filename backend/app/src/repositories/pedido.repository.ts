@@ -120,7 +120,7 @@ export const pedidoRepository = {
   listarPorUsuario(usuarioId: Id) {
     return prisma.pedido.findMany({
       where: { usuarioId: toId(usuarioId) },
-      orderBy: { data: "desc" },
+      orderBy: [{ data: "desc" }, { id: "desc" }],
       include: {
         itens: {
           orderBy: { numeroItem: "asc" },
@@ -128,6 +128,18 @@ export const pedidoRepository = {
             produto: { select: { nome: true, imagens: { take: 1 } } },
           },
         },
+      },
+    });
+  },
+
+  contarAtePedidoPorUsuario(usuarioId: Id, pedido: { data: Date; id: Id }) {
+    return prisma.pedido.count({
+      where: {
+        usuarioId: toId(usuarioId),
+        OR: [
+          { data: { lt: pedido.data } },
+          { data: pedido.data, id: { lte: toId(pedido.id) } },
+        ],
       },
     });
   },

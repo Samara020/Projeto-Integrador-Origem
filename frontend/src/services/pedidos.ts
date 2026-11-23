@@ -1,3 +1,4 @@
+import { numeroSequencialValido } from "@/lib/formato";
 import { ApiError, http } from "@/lib/http";
 import { carrinhoService } from "@/services/carrinho";
 import type {
@@ -82,8 +83,13 @@ export const pedidosService = {
       pedidos: lista.map((p) => {
         const frete = p.valorFrete ?? p.valor_frete;
         const total = p.valorTotal ?? p.valor_total;
+        const numeroBruto = p.numeroSequencial ?? p.numero_sequencial;
+        const numeroSequencial = numeroSequencialValido(
+          typeof numeroBruto === "number" ? numeroBruto : Number(numeroBruto),
+        );
         return {
           id: String(p.id ?? p.pedidoId ?? ""),
+          ...(numeroSequencial !== undefined ? { numeroSequencial } : {}),
           status: p.status as StatusPedido,
           valorFrete:
             frete !== undefined && frete !== null ? Number(frete) : undefined,
