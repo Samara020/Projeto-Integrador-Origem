@@ -37,3 +37,7 @@
 - **`HU-18` (*Should Have*):** decisão de escopo mantida explícita; a presença de campos de envio não equivale à conclusão integral do critério sem validação formal de escopo e fluxo.
 - **`HU-24` e `HU-25` (*Could Have*):** classificadas como melhorias adiáveis no backlog; `HU-25` possui implementação parcial divergente (limite 3 vs. 5) e não deve ser promovida a item obrigatório sem decisão expressa da equipe/disciplina.
 - **Testes manuais externos e ambiente Cypress:** a execução manual de 18/11/2026 ocorreu em ambiente externo da disciplina (não reproduzível localmente como evidência automatizada da versão atual) e a ausência de execução do Cypress neste ambiente reflete limitação de ambiente local, não ausência da dependência em `e2e/package.json`.
+
+## 4. Registro Visual, Correções Aplicadas e Rastreabilidade
+
+<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/c4b701ae-c58d-4f6b-8cc9-0a66536164c3" />
