@@ -194,18 +194,12 @@ export const pedidoService = {
     if (lojasDistintas.size > 1) {
       throw new ErroApp(
         409,
-        "Pedido com itens de múltiplas lojas não permite alteração global por uma única loja."
+        "Pedidos com itens de múltiplas lojas não podem ser alterados globalmente. Separe em subpedidos antes."
       );
     }
 
     if (STATUS_FINAIS.includes(pedido.status)) {
       throw new ErroApp(409, `Pedido ja esta ${pedido.status} e nao pode mais ser alterado.`);
-    }
-
-    const itens = (pedido as any).itens ?? [];
-    const lojasDoPedido = new Set(itens.map((item: any) => Number(item.produto?.lojaId)));
-    if (lojasDoPedido.size > 1) {
-      throw new ErroApp(409, "Pedidos com itens de várias lojas não podem ser alterados globalmente. Separe em subpedidos antes.");
     }
 
     if (dados.statusProducao === "ENVIADO" && !dados.codigoRastreio) {

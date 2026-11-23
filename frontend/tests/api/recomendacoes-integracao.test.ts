@@ -5,7 +5,10 @@
 
 const BACKEND_URL = (process.env.BACKEND_URL ?? "").replace(/\/$/, "");
 const FRONTEND_BASE_URL = (
-  process.env.FRONTEND_BASE_URL ?? "http://localhost:3000"
+  process.env.FRONTEND_BASE_URL ??
+  process.env.FRONTEND_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "http://localhost:3000"
 ).replace(/\/$/, "");
 const IA_RECOMMENDATION_URL = (process.env.IA_BASE_URL ?? "http://localhost:3001").replace(
   /\/$/,

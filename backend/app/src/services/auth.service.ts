@@ -4,6 +4,7 @@ import { enviarEmail } from "../lib/email";
 import { gerarToken } from "../lib/jwt";
 import { invalidarSessoesUsuario, obterVersaoSessaoUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
 import { ErroApp } from "../middleware/error";
+import { recuperacaoRepository } from "../repositories/recuperacao.repository";
 import { usuarioRepository } from "../repositories/usuario.repository";
 
 const RODADAS_HASH = 12;
@@ -190,6 +191,16 @@ export const authService = {
     }
 
     const token = dados.token.trim();
+
+    if (token.split(".").length !== 3) {
+      const senhaHash = await bcrypt.hash(dados.novaSenha, RODADAS_HASH);
+      const usuarioId = await recuperacaoRepository.consumir(token, senhaHash);
+      await invalidarSessoesUsuario(String(usuarioId));
+      return {
+        mensagem: "Senha redefinida com sucesso.",
+      };
+    }
+
     if (await tokenFoiRevogado(token)) {
       throw new ErroApp(401, "Token de redefinição já utilizado ou expirado.");
     }

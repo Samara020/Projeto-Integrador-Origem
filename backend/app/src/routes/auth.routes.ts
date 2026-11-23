@@ -76,7 +76,8 @@ roteador.post("/recuperar-senha", async (req, res, next) => {
 
 roteador.post("/redefinir-senha", async (req, res, next) => {
   try {
-    const { token, novaSenha } = req.body ?? {};
+    const token = req.body?.token;
+    const novaSenha = req.body?.novaSenha ?? req.body?.senha;
     if (typeof token !== "string" || !token.trim()) {
       throw new ErroApp(400, "Informe o token de redefinição de senha.");
     }
