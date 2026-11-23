@@ -1,4 +1,4 @@
-import { Application, Request, Response } from "express";
+import { IRouter, Request, Response } from "express";
 import authRoutes from "./auth.routes";
 import produtosRoutes from "./produtos.routes";
 import artesaoRoutes, { rotasDiretasArtesao } from "./artesaos.routes";
@@ -14,7 +14,7 @@ import { autenticar, compradorApenas } from "../middleware/auth";
 import { personalizacaoService } from "../services/personalizacao.service";
 import prisma from "../lib/prisma";
 
-export function montarRotas(app: Application): void {
+export function montarRotas(app: IRouter): void {
   app.get("/__test/identity", async (_req: Request, res: Response) => {
     if (process.env.NODE_ENV !== "test") {
       return res.status(404).json({ error: "Not found" });

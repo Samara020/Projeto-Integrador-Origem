@@ -23,6 +23,12 @@ export function criarApp(): Application {
   app.use(express.json({ limit: "10mb" }));
   app.use(idsComoTexto);
 
+  // No deploy Vercel, o rewrite público encaminha /api/* para este serviço.
+  // Mantemos as rotas sem prefixo para Docker e desenvolvimento local.
+  const rotasApi = express.Router();
+  montarRotas(rotasApi);
+  app.use("/api", rotasApi);
+
   app.get("/health", async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
@@ -48,7 +54,7 @@ const app = criarApp();
 const servidorDescartavelDeTeste =
   process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
 
-if (process.env.NODE_ENV !== "test" || servidorDescartavelDeTeste) {
+if (process.env.VERCEL !== "1" && (process.env.NODE_ENV !== "test" || servidorDescartavelDeTeste)) {
   const bancoPronto = servidorDescartavelDeTeste ? Promise.resolve() : prepararBanco();
   bancoPronto
     .then(() => {
