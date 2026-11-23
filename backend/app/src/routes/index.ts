@@ -1,11 +1,11 @@
 import { IRouter, Request, Response } from "express";
 import authRoutes from "./auth.routes";
-import produtosRoutes from "./produtos.routes";
+import produtosRoutes, { rotasDiretasProdutos } from "./produtos.routes";
 import artesaoRoutes, { rotasDiretasArtesao } from "./artesaos.routes";
 import carrinhoRoutes from "./carrinho.routes";
 import pedidosRoutes, { rotasDiretasPedidos } from "./pedidos.routes";
 import pagamentosRoutes from "./pagamentos.routes";
-import avaliacoesRoutes from "./avaliacoes.routes";
+import avaliacoesRoutes, { rotasDiretasAvaliacoes } from "./avaliacoes.routes";
 import suporteRoutes from "./suporte.routes";
 import painelRoutes from "./painel.routes";
 import demoRoutes from "./demo.routes";
@@ -47,6 +47,10 @@ export function montarRotas(app: IRouter): void {
   app.use("/avaliacoes", avaliacoesRoutes);
   app.use("/suporte", suporteRoutes);
   app.use("/painel", painelRoutes);
+  // Rotas canônicas do ContratoDeAPI.md montadas diretamente na raiz (sem reescrita no frontend).
+  app.use("/", rotasDiretasProdutos);
+  app.use("/", rotasDiretasAvaliacoes);
+  app.use("/", painelRoutes);
   app.use("/", rotasDiretasPedidos);
   app.use("/", catalogoRoutes);
   app.use("/demo", demoRoutes);

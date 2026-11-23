@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import { ProdutosController } from "../src/controllers/produtos.controller";
 import { produtoRepository } from "../src/repositories";
 import { produtoService } from "../src/services/produto.service";
-import { validacoes } from "../src/lib/memoria";
 
 jest.mock("../src/repositories", () => ({
   produtoRepository: {
@@ -107,7 +106,6 @@ describe("Integração de recomendações (Backend <-> Módulo de IA)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    validacoes.clear();
     (produtoRepository.catalogoParaRecomendacao as jest.Mock).mockResolvedValue(
       CATALOGO_BANCO
     );

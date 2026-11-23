@@ -91,4 +91,19 @@ router.post("/:id/personalizacoes", autenticar, compradorApenas,
   validarCorpo(z.object({ cor: z.string().max(100).optional(), tamanho: z.string().max(100).optional(), inscricao: z.string().max(200).optional(), detalhes: z.string().max(5000).optional(), mensagem: z.string().max(5000) })),
   (req, res, next) => personalizacaoService.criar(req.usuario!.id, req.params.id, req.body).then(p => res.status(201).json(p)).catch(next));
 
+export const rotasDiretasProdutos = Router();
+
+rotasDiretasProdutos.get("/artesao/pecas", autenticar, artesaoApenas, (req, res, next) =>
+  controller.listarPeloArtesao(req, res).catch(next)
+);
+rotasDiretasProdutos.put("/artesao/pecas/:id/estoque", autenticar, artesaoApenas, (req, res, next) =>
+  controller.atualizarEstoque(req, res).catch(next)
+);
+rotasDiretasProdutos.get("/admin/produtos/pendentes", autenticar, adminApenas, (req, res, next) =>
+  controller.listarPendentes(req, res).catch(next)
+);
+rotasDiretasProdutos.put("/admin/produtos/:id/validacao", autenticar, adminApenas, (req, res, next) =>
+  controller.validar(req, res).catch(next)
+);
+
 export default router;

@@ -1,5 +1,4 @@
 import { ErroApp } from "../middleware/error";
-import prisma from "../lib/prisma";
 import { toId } from "../lib/ids";
 import { ticketRepository } from "../repositories";
 
@@ -23,19 +22,12 @@ export const suporteService = {
   },
   async responder(id: string, usuarioId: string, texto: string) {
     await this.buscarPorId(id, usuarioId);
-    const ticket = await prisma.ticket.update({
-      where: { id: toId(id) },
-      data: { atualizadoEm: new Date(), mensagens: { create: { autor: "COMPRADOR", texto } } },
-      include: { mensagens: { orderBy: { id: "asc" } } },
-    });
+    const ticket = await ticketRepository.responder(id, texto);
     return apresentar(ticket);
   },
   async alterarStatus(id: string, usuarioId: string, status: string) {
     await this.buscarPorId(id, usuarioId);
-    const ticket = await prisma.ticket.update({
-      where: { id: toId(id) }, data: { status, atualizadoEm: new Date() },
-      include: { mensagens: { orderBy: { id: "asc" } } },
-    });
+    const ticket = await ticketRepository.alterarStatus(id, status);
     return apresentar(ticket);
   },
 };

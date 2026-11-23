@@ -88,18 +88,18 @@ npm run prisma:migrate:dev    # cria e aplica novas migrações em desenvolvimen
 Para popular dados de desenvolvimento:
 - Carga de dados reais: execute `database/sql/05_seed_dados_reais.sql` (ou ative `AUTO_SETUP_DB=true`).
 
-### Limitações do esquema SQL
+### Persistência e convenções do esquema SQL
 
-O SQL não tem tabelas ou colunas para o que segue. Esses dados ficam **em memória** (perdem-se ao reiniciar a API) ou são derivados:
+As extensões de persistência da Avaliação 2 são aplicadas pelos scripts SQL idempotentes em `database/sql/` (`07_suporte_exclusao_logica_produto.sql`, `08_integracao_persistencia.sql` e `09_versao_sessao_usuario.sql`), conforme o `ADR-001`:
 
 | Recurso | Tratamento |
 |---|---|
-| Tickets de suporte | em memória (`ticket.repository.ts`) |
-| Validação de produto / selo | em memória (`lib/memoria.ts`); produto sem registro conta como `APROVADA`, produto novo nasce `PENDENTE` |
-| Moderação de avaliações | em memória (`lib/memoria.ts`) |
+| Tickets de suporte e mensagens | persistidos no PostgreSQL (`ticket`, `ticket_mensagem`) |
+| Validação de produto / selo | persistidos no PostgreSQL (`produto.status_validacao`, `selo_ativo`, `justificativa_validacao`, `enviado_em`, `decidido_em`, `decidido_por_id`) |
+| Moderação de avaliações | persistida no PostgreSQL (`avaliacao.status`, `motivo`, `sinalizada_em`, `moderada_em`) |
+| Personalizações e recuperação de senha | persistidas no PostgreSQL (`personalizacao`, `recuperacao_senha`) |
+| `sku`, `material`, `dimensoes`, `peso`, `certificado`, `informacoes_origem`, `prazo_producao_dias`, `capacidade_producao` | persistidos em `produto` (`08_integracao_persistencia.sql`) |
 | Código de rastreio | gravado em `historico_pedido.observacao` (`Rastreio: <código>`) |
-| Perfil do admin | primeiro usuário `ADMINISTRADOR` |
-| `sku`, `material`, `dimensoes`, `peso`, `certificado`... | não persistidos |
 | Endereço de entrega | exige bairro, cidade e CPF; sem eles no checkout, usa valores neutros |
 
 IDs são `INTEGER` no banco e saem como **string** na API (`middleware/ids-texto.ts`), conforme o contrato.

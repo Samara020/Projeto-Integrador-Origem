@@ -1,5 +1,4 @@
 import { ErroApp } from "../middleware/error";
-import prisma from "../lib/prisma";
 import { carrinhoRepository } from "../repositories";
 
 export const carrinhoService = {
@@ -43,55 +42,7 @@ export const carrinhoService = {
       }
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE fk_usuario_id_usuario = ${usuarioIdNumerico} FOR UPDATE`;
-      const carrinho = await tx.carrinho.findUnique({ where: { usuarioId: usuarioIdNumerico } });
-      if (!carrinho) throw new ErroApp(404, "Carrinho nao encontrado.");
-
-      await tx.$queryRaw`SELECT id_estoque FROM estoque WHERE fk_produto_id_produto = ${produtoIdNumerico} FOR UPDATE`;
-      const produto = await tx.produto.findFirst({
-        where: { id: produtoIdNumerico, excluido: false },
-        include: { estoque: true },
-      });
-      if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-      if (produto.pausado || produto.statusValidacao !== "APROVADA") {
-        throw new ErroApp(409, "Produto indisponível.");
-      }
-
-      const existente = await tx.itemCarrinho.findFirst({
-        where: { carrinhoId: carrinho.id, produtoId: produto.id },
-      });
-      const total = (existente?.quantidade ?? 0) + dados.quantidade;
-      const estoque = produto.estoque?.quantidadeDisponivel;
-      if (estoque === undefined || total > estoque || (produto.pecaUnica && total > 1)) {
-        throw new ErroApp(409, "Quantidade acima do estoque disponível.");
-      }
-
-      if (carrinho.status !== "ATIVO") {
-        await tx.carrinho.update({ where: { id: carrinho.id }, data: { status: "ATIVO" } });
-      }
-      if (existente) {
-        await tx.itemCarrinho.update({
-          where: { carrinhoId_numeroItem: { carrinhoId: carrinho.id, numeroItem: existente.numeroItem } },
-          data: { quantidade: total },
-        });
-      } else {
-        const ultimo = await tx.itemCarrinho.aggregate({
-          where: { carrinhoId: carrinho.id },
-          _max: { numeroItem: true },
-        });
-        await tx.itemCarrinho.create({
-          data: {
-            carrinhoId: carrinho.id,
-            numeroItem: (ultimo._max.numeroItem ?? 0) + 1,
-            produtoId: produto.id,
-            quantidade: dados.quantidade,
-            precoUnitario: produto.preco,
-          },
-        });
-      }
-    });
-
+    await carrinhoRepository.adicionarItemComTrava(usuarioIdNumerico, produtoIdNumerico, dados.quantidade);
     return { mensagem: "Item adicionado ao carrinho com sucesso." };
   },
 
@@ -104,15 +55,7 @@ export const carrinhoService = {
     const carrinho = await carrinhoRepository.buscarPorUsuarioId(usuarioIdNumerico);
     if (!carrinho) throw new ErroApp(404, "Carrinho nao encontrado.");
 
-    await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinho.id} AND fk_usuario_id_usuario = ${usuarioIdNumerico} FOR UPDATE`;
-      const cartAtual = await tx.carrinho.findFirst({
-        where: { id: carrinho.id, usuarioId: usuarioIdNumerico },
-      });
-      if (!cartAtual) throw new ErroApp(404, "Carrinho nao encontrado.");
-      await tx.itemCarrinho.deleteMany({ where: { carrinhoId: cartAtual.id, produtoId: produtoIdNumerico } });
-    });
-
+    await carrinhoRepository.removerItemComTrava(carrinho.id, usuarioIdNumerico, produtoIdNumerico);
     return { mensagem: "Item removido do carrinho." };
   },
 
@@ -126,60 +69,6 @@ export const carrinhoService = {
       throw new ErroApp(404, "Carrinho ou produto nao encontrado.");
     }
 
-    return prisma.$transaction(async (tx) => {
-      const carrinho = await tx.carrinho.findUnique({
-        where: { usuarioId: usuarioIdNumerico },
-        select: { id: true },
-      });
-      if (!carrinho) throw new ErroApp(404, "Carrinho nao encontrado.");
-
-      // Checkout usa o mesmo lock. Assim, alteração da quantidade e compra não
-      // podem validar a mesma linha de carrinho em paralelo.
-      await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinho.id} FOR UPDATE`;
-
-      await tx.$queryRaw`SELECT id_estoque FROM estoque WHERE fk_produto_id_produto = ${produtoIdNumerico} FOR UPDATE`;
-
-      const produto = await tx.produto.findFirst({
-        where: { id: produtoIdNumerico, excluido: false },
-        include: { estoque: true },
-      });
-      if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-      if (produto.pausado || produto.statusValidacao !== "APROVADA") {
-        throw new ErroApp(409, "Produto indisponível.");
-      }
-
-      const estoque = produto.estoque?.quantidadeDisponivel;
-      if (estoque === undefined || quantidade > estoque || (produto.pecaUnica && quantidade > 1)) {
-        throw new ErroApp(409, "Quantidade acima do estoque disponível.");
-      }
-
-      const itemExistente = await tx.itemCarrinho.findFirst({
-        where: { carrinhoId: carrinho.id, produtoId: produto.id },
-      });
-      if (!itemExistente) throw new ErroApp(404, "Item nao encontrado no carrinho.");
-
-      await tx.itemCarrinho.update({
-        where: { carrinhoId_numeroItem: { carrinhoId: carrinho.id, numeroItem: itemExistente.numeroItem } },
-        data: { quantidade },
-      });
-
-      const carrinhoAtualizado = await tx.carrinho.findUnique({
-        where: { id: carrinho.id },
-        include: {
-          itens: {
-            orderBy: { numeroItem: "asc" },
-            include: {
-              produto: {
-                include: {
-                  imagens: { take: 1 },
-                  loja: { include: { usuario: { select: { nome: true } } } },
-                },
-              },
-            },
-          },
-        },
-      });
-      return { mensagem: "Quantidade atualizada com sucesso.", carrinho: carrinhoAtualizado };
-    });
+    return carrinhoRepository.atualizarQuantidadeComTrava(usuarioIdNumerico, produtoIdNumerico, quantidade);
   },
 };

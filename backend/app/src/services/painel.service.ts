@@ -1,8 +1,12 @@
 import { z } from "zod";
 import { ErroApp } from "../middleware/error";
-import prisma from "../lib/prisma";
-import { toId } from "../lib/ids";
-import { lojaRepository } from "../repositories";
+import {
+  adminRepository,
+  categoriaRepository,
+  lojaRepository,
+  produtoRepository,
+  usuarioRepository,
+} from "../repositories";
 import { conferirSenha, protegerSenha } from "../lib/senha";
 import { configuracaoPadrao, opcaoPorId } from "../lib/frete";
 
@@ -22,18 +26,10 @@ export const painelService = {
 
   async metricasArtesao(usuarioId: string) {
     const loja = await lojaRepository.buscarPorUsuarioId(usuarioId);
-    const produtos = loja ? await prisma.produto.findMany({
-      where: { lojaId: loja.id, excluido: false }, include: { estoque: true },
-    }) : [];
-    const pedidos = loja ? await prisma.pedido.findMany({
-      where: { itens: { some: { produto: { lojaId: loja.id } } } },
-      orderBy: { data: "desc" },
-      include: { usuario: { select: { nome: true } }, itens: { where: { produto: { lojaId: loja.id } }, include: { produto: true } } },
-    }) : [];
-    const notas = loja ? await prisma.avaliacao.findMany({
-      where: { produto: { lojaId: loja.id }, status: "PUBLICADO" }, orderBy: { dataAvaliacao: "desc" },
-      include: { usuario: { select: { nome: true } }, produto: { select: { nome: true } } },
-    }) : [];
+    const { produtos, pedidos, notas } = loja
+      ? await adminRepository.listarMetricasArtesao(loja.id)
+      : { produtos: [], pedidos: [], notas: [] };
+
     const agora = new Date();
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
     const inicioAnterior = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
@@ -75,7 +71,7 @@ export const painelService = {
     if (!loja) throw new ErroApp(404, "Cadastre o perfil da loja antes de configurar o envio.");
     const atual = (loja.configuracaoEnvio ?? configuracaoPadrao()) as ReturnType<typeof configuracaoPadrao>;
     const configuracao = { ...atual, opcoes: atual.opcoes.map(o => o.id === validado.opcaoId ? { ...o, ativa: validado.ativa } : o) };
-    await prisma.loja.update({ where: { id: loja.id }, data: { configuracaoEnvio: configuracao } });
+    await lojaRepository.atualizarConfiguracaoEnvio(loja.id, configuracao);
     return { id: validado.opcaoId, ativa: validado.ativa };
   },
 
@@ -89,15 +85,16 @@ export const painelService = {
 
 export const adminService = {
   async metricasAdmin() {
-    const [usuarios, artesaoCount, produtos, pagamentos, tickets, validacoesPendentes, denunciasPendentes] = await Promise.all([
-      prisma.usuario.findMany({ select: { id: true, nome: true, usuarioTipo: true }, orderBy: { id: "desc" } }),
-      prisma.usuario.count({ where: { usuarioTipo: "ARTESAO" } }),
-      prisma.produto.count({ where: { excluido: false } }),
-      prisma.pagamento.aggregate({ where: { status: "APROVADO" }, _sum: { valor: true }, _count: true }),
-      prisma.ticket.findMany({ where: { status: { not: "RESOLVIDO" } }, select: { prioridade: true } }),
-      prisma.produto.count({ where: { excluido: false, statusValidacao: "PENDENTE" } }),
-      prisma.avaliacao.count({ where: { status: "EM_MODERACAO" } }),
-    ]);
+    const {
+      usuarios,
+      artesaoCount,
+      produtos,
+      pagamentos,
+      tickets,
+      validacoesPendentes,
+      denunciasPendentes,
+    } = await adminRepository.listarMetricasAdmin();
+
     return {
       totalUsuarios: usuarios.length, totalArtesaos: artesaoCount, totalProdutos: produtos,
       totalVendas: pagamentos._count, volumeTransacionadoGlobal: Number(pagamentos._sum.valor ?? 0),
@@ -108,7 +105,7 @@ export const adminService = {
   },
 
   async buscarPerfilAdmin(usuarioId: string) {
-    const perfil = await prisma.usuario.findUnique({ where: { id: toId(usuarioId) } });
+    const perfil = await usuarioRepository.buscarPorId(usuarioId);
     if (!perfil || perfil.usuarioTipo !== "ADMINISTRADOR") throw new ErroApp(404, "Administrador não encontrado.");
     return { nome: perfil.nome, email: perfil.email, funcao: perfil.funcao ?? "", telefone: perfil.telefone ?? "" };
   },
@@ -118,7 +115,7 @@ export const adminService = {
       nome: z.string().trim().min(1, "Informe o nome de quem administra.").max(150),
       funcao: z.string().max(100).optional(), telefone: z.string().max(20).optional(),
     }).parse(entrada);
-    await prisma.usuario.update({ where: { id: toId(usuarioId) }, data: dados });
+    await usuarioRepository.atualizarPerfil(usuarioId, dados);
     return { nome: dados.nome, atualizadoEm: new Date().toISOString() };
   },
 
@@ -128,21 +125,21 @@ export const adminService = {
       novaSenha: z.string().min(8, "Use pelo menos 8 caracteres."),
       confirmacao: z.string().min(1, "Confirme a nova senha."),
     }).refine(d => d.novaSenha === d.confirmacao, "As senhas não coincidem.").parse(entrada);
-    const usuario = await prisma.usuario.findUnique({ where: { id: toId(usuarioId) } });
+    const usuario = await usuarioRepository.buscarPorId(usuarioId);
     if (!usuario || !(await conferirSenha(dados.senhaAtual, usuario.senha))) throw new ErroApp(401, "Senha atual incorreta.");
-    await prisma.usuario.update({ where: { id: usuario.id }, data: { senha: await protegerSenha(dados.novaSenha) } });
+    await usuarioRepository.atualizarSenha(usuario.id, await protegerSenha(dados.novaSenha));
     return { mensagem: "Senha alterada. Use a nova senha no próximo acesso." };
   },
 };
 
 export const catalogoService = {
-  async categorias() { return (await import("../repositories/categoria.repository")).categoriaRepository.listar(); },
+  async categorias() { return categoriaRepository.listar(); },
   async tecnicas() {
-    const produtos = await prisma.produto.findMany({ where: { excluido: false, pausado: false }, select: { tecnica: true }, distinct: ["tecnica"], orderBy: { tecnica: "asc" } });
+    const produtos = await produtoRepository.listarTecnicasDistintas();
     return produtos.map(p => ({ id: p.tecnica, nome: p.tecnica }));
   },
   async regioes() {
-    const produtos = await prisma.produto.findMany({ where: { excluido: false, pausado: false }, select: { origem: true }, distinct: ["origem"], orderBy: { origem: "asc" } });
+    const produtos = await produtoRepository.listarRegioesDistintas();
     return produtos.map(p => ({ id: p.origem, nome: p.origem }));
   },
 };

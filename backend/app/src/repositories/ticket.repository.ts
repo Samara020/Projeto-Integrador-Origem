@@ -15,4 +15,18 @@ export const ticketRepository = {
   buscarPorId(id: Id) {
     return prisma.ticket.findUnique({ where: { id: toId(id) }, include: { mensagens: { orderBy: { id: "asc" } } } });
   },
+  responder(id: Id, texto: string) {
+    return prisma.ticket.update({
+      where: { id: toId(id) },
+      data: { atualizadoEm: new Date(), mensagens: { create: { autor: "COMPRADOR", texto } } },
+      include: { mensagens: { orderBy: { id: "asc" } } },
+    });
+  },
+  alterarStatus(id: Id, status: string) {
+    return prisma.ticket.update({
+      where: { id: toId(id) },
+      data: { status, atualizadoEm: new Date() },
+      include: { mensagens: { orderBy: { id: "asc" } } },
+    });
+  },
 };

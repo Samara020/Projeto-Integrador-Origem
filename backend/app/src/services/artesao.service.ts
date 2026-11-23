@@ -1,7 +1,6 @@
 import { ErroApp } from "../middleware/error";
 import { toId } from "../lib/ids";
-import prisma from "../lib/prisma";
-import { lojaRepository } from "../repositories/loja.repository";
+import { lojaRepository, usuarioRepository } from "../repositories";
 
 type PerfilArtesao = {
   nomeArtistico: string;
@@ -20,8 +19,6 @@ const listaDeTexto = (valor: unknown): string[] => {
   return valor.filter((item): item is string => typeof item === "string");
 };
 
-const texto = (valor: unknown): string => (typeof valor === "string" ? valor : "");
-
 const mediaDe = (notas: { nota: number; status?: string }[]): number => {
   const validas = notas.filter((n) => (n.status ?? "PUBLICADO") === "PUBLICADO");
   if (!validas.length) return 0;
@@ -33,10 +30,7 @@ const disponibilidadeDe = (estoque: number | undefined): "DISPONIVEL" | "VENDIDO
 
 export const artesaoService = {
   async buscarMeuPerfil(usuarioId: string): Promise<PerfilArtesao> {
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: toId(usuarioId) },
-      include: { loja: { orderBy: { id: "asc" }, take: 1 } },
-    });
+    const usuario = await usuarioRepository.buscarComLoja(usuarioId);
     if (!usuario) throw new ErroApp(404, "Usuario nao encontrado.");
 
     const loja = usuario.loja[0];
@@ -78,10 +72,7 @@ export const artesaoService = {
       loja = await lojaRepository.atualizar(loja.id, dadosLoja);
     }
 
-    await prisma.usuario.update({
-      where: { id },
-      data: { telefone: dados.contato.telefone },
-    });
+    await usuarioRepository.atualizarTelefone(id, dados.contato.telefone);
 
     return {
       nomeArtistico: loja.nome,
@@ -90,49 +81,16 @@ export const artesaoService = {
   },
 
   async perfilPublico(usuarioId: string) {
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: toId(usuarioId) },
-      include: {
-        loja: {
-          orderBy: { id: "asc" },
-          take: 1,
-          include: {
-            produtos: {
-              where: { excluido: false, pausado: false, statusValidacao: "APROVADA" },
-              orderBy: { id: "asc" },
-              include: {
-                imagens: { take: 1 },
-                estoque: { select: { quantidadeDisponivel: true } },
-                avaliacoes: { select: { nota: true, status: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
+    const usuario = await usuarioRepository.buscarPerfilPublicoArtesao(usuarioId);
     const loja = usuario?.loja[0];
     if (!usuario || !loja) throw new ErroApp(404, "Artesao nao encontrado.");
 
     const produtos = loja.produtos;
     const ids = produtos.map((p) => p.id);
 
-    const [avaliacoes, itensVendidos] = await Promise.all([
-      ids.length
-        ? prisma.avaliacao.findMany({
-            where: { produtoId: { in: ids } },
-            select: { nota: true, status: true },
-          })
-        : Promise.resolve([]),
-      ids.length
-        ? prisma.itemPedido.aggregate({
-            where: {
-              produtoId: { in: ids },
-              pedido: { status: { in: ["PAGO", "ENVIADO", "ENTREGUE"] } },
-            },
-            _sum: { quantidade: true },
-          })
-        : Promise.resolve({ _sum: { quantidade: 0 } }),
+    const [avaliacoes, pecasVendidas] = await Promise.all([
+      lojaRepository.listarAvaliacoesDeProdutos(ids),
+      lojaRepository.somarItensVendidos(ids),
     ]);
 
     const tecnicas = listaDeTexto(loja.tecnicas);
@@ -153,7 +111,7 @@ export const artesaoService = {
       imagens: [loja.foto, loja.fotoCapa].filter((item): item is string => Boolean(item)),
       avaliacaoMedia: mediaDe(avaliacoes),
       totalAvaliacoes: avaliacoes.filter((a) => a.status === "PUBLICADO").length,
-      pecasVendidas: itensVendidos._sum.quantidade ?? 0,
+      pecasVendidas,
       produtos: produtos.map((p) => ({
         id: p.id,
         nome: p.nome,

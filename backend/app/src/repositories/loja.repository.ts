@@ -42,6 +42,33 @@ export const lojaRepository = {
     return prisma.loja.update({ where: { id: toId(id) }, data: dados });
   },
 
+  atualizarConfiguracaoEnvio(id: Id, configuracaoEnvio: any) {
+    return prisma.loja.update({
+      where: { id: toId(id) },
+      data: { configuracaoEnvio },
+    });
+  },
+
+  listarAvaliacoesDeProdutos(produtoIds: number[]) {
+    if (!produtoIds.length) return Promise.resolve([]);
+    return prisma.avaliacao.findMany({
+      where: { produtoId: { in: produtoIds } },
+      select: { nota: true, status: true },
+    });
+  },
+
+  async somarItensVendidos(produtoIds: number[]) {
+    if (!produtoIds.length) return 0;
+    const resultado = await prisma.itemPedido.aggregate({
+      where: {
+        produtoId: { in: produtoIds },
+        pedido: { status: { in: ["PAGO", "ENVIADO", "ENTREGUE"] } },
+      },
+      _sum: { quantidade: true },
+    });
+    return resultado._sum.quantidade ?? 0;
+  },
+
   listarProdutos(lojaId: Id) {
     return prisma.produto.findMany({ where: { lojaId: toId(lojaId) } });
   },

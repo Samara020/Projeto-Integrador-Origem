@@ -1,4 +1,3 @@
-import { seloAtivoDe, statusValidacaoDe } from "../lib/memoria";
 import {
   type ItemCatalogoIA,
   moduloIaConfigurado,
@@ -86,7 +85,7 @@ const paraProdutoRecomendado = (
     id: String(produto.loja?.usuario?.id ?? "1000"),
     nome: produto.loja?.usuario?.nome ?? "Artesão",
   },
-  seloAtivo: produto.seloAtivo ?? seloAtivoDe(produto.id),
+  seloAtivo: Boolean(produto.seloAtivo),
   regiao: {
     id: produto.origem ?? "PE",
     nome: produto.origem ?? "Pernambuco",
@@ -201,7 +200,7 @@ export const recomendacaoService = {
 
     const catalogoBruto = await produtoRepository.catalogoParaRecomendacao();
     const catalogoAprovado = catalogoBruto.filter(
-      (p: any) => (p.statusValidacao ?? statusValidacaoDe(p.id)) === "APROVADA"
+      (p: any) => (p.statusValidacao ?? "APROVADA") === "APROVADA"
     );
     const porId = new Map<string, any>(
       catalogoAprovado.map((p: any) => [String(p.id), p])

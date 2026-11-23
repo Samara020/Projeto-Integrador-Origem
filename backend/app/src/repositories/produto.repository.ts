@@ -379,4 +379,22 @@ export const produtoRepository = {
       select: { id: true, nome: true, preco: true, tecnica: true },
     });
   },
+
+  listarTecnicasDistintas() {
+    return prisma.produto.findMany({
+      where: { excluido: false, pausado: false },
+      select: { tecnica: true },
+      distinct: ["tecnica"],
+      orderBy: { tecnica: "asc" },
+    });
+  },
+
+  listarRegioesDistintas() {
+    return prisma.produto.findMany({
+      where: { excluido: false, pausado: false },
+      select: { origem: true },
+      distinct: ["origem"],
+      orderBy: { origem: "asc" },
+    });
+  },
 };

@@ -16,6 +16,16 @@ export const avaliacaoRepository = {
       orderBy: { id: "desc" },
     });
   },
+  buscarPedidoElegivel(pedidoId: Id | undefined, usuarioId: Id, produtoId: Id) {
+    return prisma.pedido.findFirst({
+      where: {
+        id: pedidoId ? toId(pedidoId) : -1,
+        usuarioId: toId(usuarioId),
+        status: { in: ["PAGO", "EM_PRODUCAO", "PRONTO", "ENVIADO", "ENTREGUE"] },
+        itens: { some: { produtoId: toId(produtoId) } },
+      },
+    });
+  },
   listarPorProduto(produtoId: Id) {
     return prisma.avaliacao.findMany({ where: { produtoId: toId(produtoId), status: "PUBLICADO" }, orderBy: { dataAvaliacao: "desc" }, include: incluir });
   },
