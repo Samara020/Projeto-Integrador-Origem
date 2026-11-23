@@ -1,10 +1,9 @@
 # Avaliação Final dos Critérios de Aceite — HU-01 a HU-16
 
 - **Data:** 2026-11-23
-- **Branch:** `banco-de-dados`
 - **Escopo obrigatório validado:** HU-01 a HU-16 (65 critérios no Plano de Testes 1.4). Fora do escopo obrigatório: HU-17, HU-19 a HU-23. Decisão de escopo pendente: HU-18, HU-24 e HU-25.
 - **Evidência principal de integração (23/11):** `docs/testes/log-integracao-postgres-2026-11-23.txt` e `docs/testes/evidencia-integracao-banco.md` — **12/12 suítes e 175/175 testes aprovados** no PostgreSQL (`origem_teste`), incluindo `FOR UPDATE` em `carrinho` e `pedido`, baixa/reposição atômica de estoque e consumo atômico de token (`consumirTokenUsoUnico`).
-- **Evidências complementares (22/11 e ambiente):** suítes unitárias/API do frontend (`docs/testes/2026-11-22-execucao-testes-automatizados.md`), módulo de IA (`pytest`), e registro de que a execução E2E em `e2e/cypress/e2e/*.cy.js` não pôde ser concluída na rodada atual por ausência do binário `cypress` no ambiente.
+- **Evidências complementares (22/11 e ambiente):** suítes unitárias/API do frontend (referência anterior em `avaliacao-criterios-backlog-2026-11-15.md` e relatório manual histórico de 18/11/2026 no commit `bc03f92`), módulo de IA (`pytest`), e registro de que a execução E2E em `e2e/cypress/e2e/*.cy.js` não pôde ser concluída na rodada atual por limitação de execução do binário `cypress` no ambiente (dependência declarada em `e2e/package.json`, com 4 specs em `e2e/cypress/e2e/`: `acesso.cy.js`, `cadastro-peca.cy.js`, `compra.cy.js`, `vitrine.cy.js`, e plano cobrindo `TC01`–`TC24` e `TS01`–`TS20`).
 
 ## Matriz de rastreabilidade e classificação (65 critérios)
 
@@ -77,7 +76,7 @@
 | HU-16 | 16.3 Negar acesso sem papel ADMINISTRADOR sem expor dados | `backend/app/tests/auth-permissoes.test.ts`, `backend/app/tests/produtos.test.ts` | Atendido | Endpoints protegidos e permissões por papel bloqueiam perfis sem `ADMINISTRADOR` com 401/403 sem expor dados restritos. |
 
 ## Resumo quantitativo (65 critérios)
-- **Atendido:** 17
-- **Parcialmente atendido:** 45
-- **Não atendido:** 3
-- **Total:** 65
+- **Atendidos:** 20 (30,8%)
+- **Parcialmente atendidos:** 41 (63,1%)
+- **Não atendidos:** 4 (6,2%)
+- **Total:** 65 critérios (HU-01 a HU-16 — escopo obrigatório Must Have do Plano de Testes 1.4, que contém TC01–TC24 e TS01–TS20)
