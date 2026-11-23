@@ -1,64 +1,90 @@
 # Justificativa das Decisões Arquiteturais com Princípios e Padrões — Sistema Origem
 
 - **Data:** 2026-11-23
-- **Base analisada:** `Projeto-Integrador-Origem (9).zip` / branch `banco-de-dados` (commit `8795309`)
-- **Objetivo:** Justificar tecnicamente as decisões arquiteturais do Projeto Origem à luz das responsabilidades por camada/módulo, princípios SOLID, responsabilidades GRASP e padrões GoF, explicitando limitações reais sem declarar padrões sem evidência no código.
+- **Base analisada:** `Projeto-Integrador-Origem (9).zip` / branch `banco-de-dados` (commit `8795309ba92f91e403c250d2869454a4211c4da4`)
+- **Escopo inspecionado:** 62 arquivos em `backend/app/src/`, 194 arquivos em `frontend/src/` e arquivos de implementação, configuração e testes em `modulo-ia/` (sem refatoração de código neste escopo).
 
 ## 1. Responsabilidades de cada camada e módulo
 
 ### 1.1 Backend (`backend/app/src/` — 62 arquivos)
-- **`routes/`** (`auth.routes.ts`, `produtos.routes.ts`, `pedidos.routes.ts`): define rotas HTTP e encaminha requisições.
-- **`controllers/`** (`auth.controller.ts`, `produtos.controller.ts`, `pedidos.controller.ts`): recebe parâmetros/corpo HTTP, invoca os serviços e formata respostas.
-- **`services/`** (`auth.service.ts`, `produto.service.ts`, `pedido.service.ts`): concentra regras de negócio, validações e orquestração de operações.
-- **`repositories/`** (`usuario.repository.ts`, `produto.repository.ts`, `pedido.repository.ts`): encapsula consultas e transações de persistência com Prisma/SQL.
-- **`middleware/`** (`auth.ts`, `error.ts`, `validacao.ts`): centraliza autenticação/autorização, validação e tratamento padronizado de erros.
-- **`lib/`** (`prisma.ts`, `jwt.ts`, `revogacao-token.ts`, `memoria.ts`): provê infraestrutura compartilhada, cliente Prisma, gestão de tokens e estruturas auxiliares em memória.
-- **`aed/`** (estruturas de dados, algoritmos e `GerenciadorEstoque.ts`): implementa estruturas e operações algorítmicas específicas.
+- **`routes/`** (`auth.routes.ts`, `produtos.routes.ts`, `pedidos.routes.ts`): define endpoints, métodos HTTP, autenticação, autorização e validações de entrada.
+- **`controllers/`** (`auth.controller.ts`, `produtos.controller.ts`, `pedidos.controller.ts`): recebe requisições, aciona serviços e constrói respostas HTTP.
+- **`services/`** (`auth.service.ts`, `produto.service.ts`, `pedido.service.ts`, `painel.service.ts`): executa regras de negócio, validações e coordenação dos casos de uso.
+- **`repositories/`** (`usuario.repository.ts`, `produto.repository.ts`, `pedido.repository.ts`, `ticket.repository.ts`): encapsula operações de consulta e persistência, principalmente com Prisma.
+- **`middleware/`** (`auth.ts`, `error.ts`, `validacao.ts`): centraliza autenticação, autorização, validação e tratamento de erros.
+- **`lib/`** (`prisma.ts`, `jwt.ts`, `revogacao-token.ts`, `memoria.ts`): reúne recursos compartilhados de infraestrutura, como Prisma, JWT, IDs e estado em memória.
+- **`aed/`**: contém estruturas de dados, algoritmos e o gerenciador de estoque.
 
-### 1.2 Frontend (`frontend/src/`)
-- **`app/`**: páginas, layouts e endpoints da aplicação Next.js.
-- **`components/`**: componentes visuais organizados por domínio.
-- **`hooks/`**: integração de estado e efeitos com React (ex.: `hooks/useCarrinho.ts` via `useSyncExternalStore`).
-- **`services/`**: operações de domínio e comunicação HTTP no cliente (ex.: `services/carrinho.ts`, alternando entre backend para usuários autenticados e armazenamento local para não autenticados).
-- **`store/`**: estado compartilhado e fábrica de store (ex.: `store/carrinho.ts` e `store/criar-store.ts`).
-- **`lib/`**: utilitários, armazenamento e cliente HTTP (`lib/http.ts`).
-- **`types/`**: tipos compartilhados da aplicação.
+Evidência concreta no fluxo de autenticação: `routes/auth.routes.ts` define as rotas e valida a entrada, `controllers/auth.controller.ts` coordena requisição e resposta HTTP, `services/auth.service.ts` executa cadastro, login e recuperação de senha, `repositories/usuario.repository.ts` executa operações sobre usuários e `lib/prisma.ts` disponibiliza o cliente de acesso ao banco.
+
+### 1.2 Frontend (`frontend/src/` — 194 arquivos)
+- **`app/`**: páginas, layouts e rotas de API do Next.js (incluindo rotas marcadas como Fake API e `frontend/src/app/api/produtos/recomendacoes/route.ts`).
+- **`components/`**: componentes visuais organizados por domínio e finalidade.
+- **`hooks/`**: integração dos componentes com estado e comportamento React (ex.: `hooks/useCarrinho.ts`, `hooks/useProdutos.ts`).
+- **`services/`**: operações de domínio e comunicação HTTP (ex.: `services/carrinho.ts`, `services/produtos.ts`).
+- **`store/`**: estado compartilhado entre componentes (`store/carrinho.ts`, `store/criar-store.ts`).
+- **`lib/`**: recursos auxiliares, como HTTP (`lib/http.ts`), armazenamento local (`lib/armazenamento.ts`), validação e integração com IA (`lib/modulo-ia.ts`).
+- **`types/`**: tipos e contratos utilizados pelo frontend.
+- **`mocks/`**: dados e funções de demonstração utilizados pelas rotas simuladas.
+
+Evidência concreta no fluxo do carrinho: `hooks/useCarrinho.ts` expõe o carrinho aos componentes React; `services/carrinho.ts` decide como obter e modificar itens (usando o backend para usuários autenticados e armazenamento local para visitantes); `store/carrinho.ts` instancia o estado compartilhado; `store/criar-store.ts` implementa armazenamento e notificação; `lib/http.ts` centraliza requisições HTTP; e `lib/armazenamento.ts` encapsula o acesso ao `localStorage`.
 
 ### 1.3 Módulo de IA (`modulo-ia/`)
-- **`app/service.py`**: expõe endpoints, valida requisições e coordena o fluxo do serviço (BentoML / Pydantic).
-- **`app/recommendation.py`**: calcula pontuação e justificativa das recomendações.
-- **`app/fallback.py`**: seleciona candidatos em etapas quando necessário.
-- **`app/catalog.py`**: carrega e consulta o catálogo a partir de arquivos JSON (sem persistência compartilhada com o PostgreSQL nos arquivos inspecionados).
-- **`app/config.py`**: centraliza pesos, limites e parâmetros de configuração.
-- **`tests/`**: suítes de testes do serviço, API, recomendação e desempenho.
+- **`app/service.py`**: recebe requisições, valida autenticação e parâmetros e coordena a recomendação (BentoML / Pydantic).
+- **`app/recommendation.py`**: calcula pontuações, ordena candidatos e gera justificativas.
+- **`app/fallback.py`**: seleciona candidatos por etapas de relaxamento dos critérios.
+- **`app/catalog.py`**: carrega e consulta o catálogo JSON.
+- **`app/config.py`**: define pesos, limites e chave de autenticação.
+- **`data/`**: armazena os catálogos utilizados pelo módulo.
+- **`tests/`**: testa API, serviço, recomendação e desempenho.
 
 ## 2. Princípios SOLID e responsabilidades GRASP
 
-| Princípio / Padrão | Evidência no código | Avaliação |
-| :--- | :--- | :--- |
-| **SOLID — SRP** | Separação entre `routes`, `controllers`, `services`, `repositories` e `middleware` (ex.: fluxo de autenticação). | Observado |
-| **SOLID — OCP** | Não há evidência consolidada de extensão via abstrações fechadas para modificação sem alterar código existente. | A investigar / oportunidade |
-| **SOLID — LSP** | Não foram identificadas hierarquias relevantes de subtipagem/substituição no código inspecionado. | Sem evidência |
-| **SOLID — ISP** | Não foram identificadas interfaces segregadas representativas nas camadas analisadas. | Sem evidência |
-| **SOLID — DIP** | `auth.service.ts` e demais serviços importam repositórios concretos diretamente, sem inversão por abstração de interface. | Parcial / oportunidade |
-| **GRASP — Controller** | `controllers` recebem chamadas HTTP e delegam a execução aos `services`. | Observado |
-| **GRASP — Information Expert** | `repositories` concentram consultas e persistência sobre as entidades/tabelas. | Observado |
-| **GRASP — High Cohesion** | Organização por domínio e camada, com ressalvas onde `produto.service.ts` acessa `lib/memoria.ts` ou há duplicação de validações entre rota e serviço. | Observado com ressalvas |
-| **GRASP — Low Coupling** | Separação entre camadas reduz acoplamento direto da HTTP/UI ao banco, mas dependências concretas entre `services` e `repositories` mantêm acoplamento parcial. | Parcial |
+### 2.1 SOLID
+- **SRP — Responsabilidade Única (Observado):** controllers delegam operações aos serviços, repositórios concentram consultas e `recommendation.py` concentra cálculo e ordenação das recomendações.
+- **OCP — Aberto/Fechado (Sem evidência suficiente):** não há abstrações ou mecanismos consistentes demonstrando extensão de comportamentos sem alteração das implementações existentes.
+- **LSP — Substituição de Liskov (Não demonstrado):** não foram identificadas hierarquias de implementação ou contratos polimórficos relevantes que permitam avaliar substituição.
+- **ISP — Segregação de Interfaces (Não demonstrado):** não foram encontradas interfaces de repositórios ou serviços separadas por contratos específicos.
+- **DIP — Inversão de Dependência (Parcialmente atendido):** serviços como `auth.service.ts` dependem diretamente de objetos concretos (`usuarioRepository`, `produtoRepository`, `pedidoRepository`), sem injeção baseada em abstrações.
 
-## 3. Padrões GoF e pipelines (rigor de evidência)
+### 2.2 GRASP
+- **Controller (Observado):** `AuthController`, `ProdutosController` e `PedidosController` recebem operações HTTP e delegam aos serviços.
+- **Information Expert (Observado):** repositórios como `usuario.repository.ts` e `pedido.repository.ts` concentram operações sobre seus respectivos dados.
+- **High Cohesion (Predominante, com ressalvas):** serviços como `auth.service.ts` e `carrinho.service.ts` são coesos ao domínio, enquanto `painel.service.ts` reúne operações de mais de um contexto (painel de artesão, administração, catálogo e recomendações).
+- **Low Coupling (Parcial):** a separação entre camadas reduz acoplamento direto da HTTP/UI ao banco, mas dependências concretas e acesso direto ao Prisma aumentam o acoplamento em pontos específicos.
+- **Creator (Não demonstrado de forma relevante):** há criação de entidades em serviços/repositórios, sem evidência suficiente de aplicação específica e relevante desse princípio.
 
-- **Observer (`frontend/src/store/criar-store.ts`):** há implementação concreta de inscrição/notificação de ouvintes quando o estado muda.
-- **Singleton / instância compartilhada (`backend/app/src/lib/prisma.ts`):** reutilização da instância do Prisma via `globalThis.prismaGlobal` observada, com ressalva quanto à forma específica de reutilização em ambiente de execução/desenvolvimento.
-- **Encadeamento de middlewares Express (`backend/app/src/middleware/`):** forma um pipeline sequencial de processamento, com **similaridade estrutural** ao *Chain of Responsibility*, mas não deve ser afirmado formalmente como implementação estrita do padrão GoF.
-- **Padrões sem evidência suficiente para declarar como implementados:** *Strategy* (sem troca formal de estratégias intercambiáveis comprovada), *Factory Method* (`criarApp()` é função de inicialização/composição da aplicação, não comprovando por si só o padrão GoF) e *Adapter* (sem camada explícita de adaptação de interfaces comprovada).
+## 3. Padrões GoF, similaridades estruturais e oportunidades
 
-## 4. Motivação, benefícios e limitações
+### 3.1 Observados / com ressalva / similaridade estrutural
+- **Observer (Implementado em `frontend/src/store/criar-store.ts`):** mantém conjunto de ouvintes (`Set`), inscrição via `assinar()` e notificação quando `definir()` altera o estado.
+- **Singleton (Implementação com ressalva em `backend/app/src/lib/prisma.ts`):** reutiliza a instância do Prisma via `globalThis.prismaGlobal` durante o desenvolvimento para evitar múltiplas instâncias em recarga de módulos; não deve ser afirmado como implementação clássica e universal em todos os ambientes.
+- **Chain of Responsibility (Similaridade estrutural em `backend/app/src/index.ts` e `backend/app/src/middleware/{auth,validacao,error}.ts`):** encadeamento de middlewares Express com `next()`; descrito como pipeline de middlewares com similaridade ao padrão, sem afirmar equivalência GoF formal estrita.
 
-1. **Arquitetura em camadas no backend:** separa transporte HTTP, coordenação, regras de negócio e persistência, facilitando manutenção, testes isolados e localização de falhas.
-2. **Separação por módulos de domínio:** agrupa autenticação, produtos, pedidos, carrinho, pagamentos e avaliações, reduzindo conflitos de contexto.
-3. **Repositórios encapsulando persistência:** centraliza consultas Prisma e evita vazamento de detalhes de banco para `controllers`.
-4. **Middlewares compartilhados:** unificam autenticação, autorização e tratamento de erros.
-5. **Frontend organizado por funcionalidade e estado reativo:** facilita evolução de telas e reuso de hooks/serviços, com comportamento adaptado ao estado de autenticação no carrinho.
-6. **Serviço de IA desacoplado (`modulo-ia/`):** isola cálculo de recomendação e runtime Python do backend principal.
-7. **Limitações e melhorias futuras (sem refatoração neste escopo):** introduzir interfaces/abstrações onde o DIP é parcial, reduzir duplicação de validações e estado em memória (`lib/memoria.ts`) e alinhar a fonte de dados do `catalog.py` caso seja exigida sincronização direta com o PostgreSQL.
+### 3.2 Não declarados como implementados por ausência de evidência
+- **Strategy:** não há família de algoritmos encapsulados em contratos intercambiáveis (a alternância IA/baseline aparece por condições no fluxo da rota).
+- **Factory Method:** `criarApp()` em `backend/app/src/index.ts` cria e configura a aplicação Express, o que isoladamente não comprova o padrão GoF Factory Method.
+- **Adapter:** não foi identificada implementação explícita de adaptador para integrar provedores externos.
+
+### 3.3 Oportunidades condicionais (propostas, não implementações atuais)
+- **Strategy:** encapsular diferentes algoritmos/provedores de recomendação (IA vs. baseline) ou políticas distintas de cálculo de frete caso ganhem complexidade.
+- **Adapter:** uniformizar interfaces em integrações futuras com gateways de pagamento ou transportadoras.
+
+## 4. Decisões arquiteturais, motivação e benefícios
+
+- **Backend organizado em camadas (`routes/`, `controllers/`, `services/`, `repositories/`):** separa comunicação HTTP, regras de negócio e persistência, facilitando manutenção, testes e localização de responsabilidades.
+- **Organização por domínios funcionais:** separa autenticação, produtos, pedidos, carrinho, pagamentos e avaliações para agrupar operações relacionadas e facilitar a evolução.
+- **Uso de repositórios:** centraliza consultas e reduz consultas espalhadas pelos controllers.
+- **Middlewares compartilhados (`auth.ts`, `validacao.ts`, `error.ts`):** reutilizam autenticação, autorização, validação e tratamento de erros.
+- **Frontend organizado por responsabilidade (`components/`, `hooks/`, `services/`, `store/`, `lib/`):** separa interface, comportamento, estado e comunicação com APIs, incluindo comportamento diferenciado no carrinho para usuário autenticado vs. visitante.
+- **Estado compartilhado próprio (`store/criar-store.ts`):** compartilha estado entre componentes sem introduzir biblioteca externa adicional de gerenciamento de estado.
+- **Módulo de IA separado (`modulo-ia/app/`):** isola o processamento de recomendações em serviço Python independente do backend principal.
+- **Uso do Prisma para persistência (`lib/prisma.ts` e repositórios):** centraliza o acesso ao PostgreSQL por meio de cliente de banco.
+
+## 5. Limitações e ressalvas encontradas no código
+
+- **`painel.service.ts`:** acessa diretamente o Prisma para consultar técnicas e regiões e acumula responsabilidades de múltiplos contextos (painel de artesão, administração, catálogo e recomendações).
+- **Estado em memória:** `produto.repository.ts` e `produto.service.ts` consultam/manipulam estado de validação/curadoria/selos/avaliações em `lib/memoria.ts`, e `ticket.repository.ts` mantém tickets em array local sem persistência no PostgreSQL após reinicialização.
+- **Acoplamento a implementações concretas e duplicação:** serviços importam repositórios concretos diretamente e há validações repetidas entre rotas e serviços.
+- **Rotas Fake API no frontend:** rotas em `frontend/src/app/api/` baseadas em `mocks/` não devem ser tratadas como endpoints com persistência garantida no backend.
+- **Catálogo JSON e divergência de fluxo na IA:** `modulo-ia/app/catalog.py` lê arquivos JSON sem persistência compartilhada com o PostgreSQL, e a rota `frontend/src/app/api/produtos/recomendacoes/route.ts` (via `frontend/src/lib/modulo-ia.ts`) difere do fluxo padrão em que `hooks/useProdutos.ts` → `services/produtos.ts` → `lib/http.ts` chama `/produtos/recomendacoes` no backend (porta 4000) → `ProdutosController.recomendados()` → `produtoService.recomendados()`, que não invoca o serviço Python de IA.
