@@ -46,3 +46,9 @@ jobs:
           curl -sf http://localhost:4000/categorias > /dev/null
           curl -sf http://localhost:3000/ > /dev/null
           docker compose down
+
+      - name: Mostrar logs se falhar
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs postgres
