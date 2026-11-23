@@ -1,4 +1,7 @@
-import "dotenv/config";
+// A Vercel já injeta as variáveis de ambiente; dotenv é necessário só localmente.
+if (process.env.VERCEL !== "1") {
+  require("dotenv/config");
+}
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
