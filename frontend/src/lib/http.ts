@@ -58,48 +58,8 @@ type Opcoes = {
   baseUrl?: string;
 };
 
-function normalizarCaminhoBackend(caminho: string): string {
-  if (
-    caminho.startsWith("/produtos/admin/") ||
-    caminho.startsWith("/produtos/artesao/") ||
-    caminho.startsWith("/painel/") ||
-    caminho.startsWith("/avaliacoes/")
-  ) {
-    return caminho;
-  }
-
-  if (caminho.startsWith("/admin/produtos/")) {
-    return `/produtos${caminho}`;
-  }
-  if (caminho === "/artesao/pecas" || caminho.startsWith("/artesao/pecas/")) {
-    return `/produtos${caminho}`;
-  }
-  if (
-    caminho.startsWith("/admin/perfil") ||
-    caminho.startsWith("/admin/senha") ||
-    caminho.startsWith("/admin/painel/") ||
-    caminho.startsWith("/artesao/painel/") ||
-    caminho.startsWith("/artesao/envio/") ||
-    caminho.startsWith("/envios/")
-  ) {
-    return `/painel${caminho}`;
-  }
-  if (
-    caminho === "/admin/avaliacoes" ||
-    caminho.startsWith("/admin/avaliacoes/") ||
-    /^\/produtos\/[^/]+\/avaliacoes$/.test(caminho)
-  ) {
-    return `/avaliacoes${caminho}`;
-  }
-
-  return caminho;
-}
-
 export function montarUrl(caminho: string, parametros?: Parametros, base = obterBaseUrl()): string {
-  let caminhoFinal = normalizarCaminhoBackend(caminho);
-  if (!caminhoFinal.startsWith("/")) {
-    caminhoFinal = `/${caminhoFinal}`;
-  }
+  let caminhoFinal = caminho.startsWith("/") ? caminho : `/${caminho}`;
 
   // Se base for "/api" e o caminho já começar com "/api/", evita duplicar "/api/api/"
   if (base === "/api" && caminhoFinal.startsWith("/api/")) {

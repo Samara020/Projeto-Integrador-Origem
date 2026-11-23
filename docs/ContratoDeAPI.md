@@ -8,8 +8,8 @@ Este documento estabelece o contrato de API RESTful completo para o **Sistema Or
 
 ## 1. Padrões Gerais da API
 
-- **Base URL:** `/`
-- **Formato de Requisição/Resposta:** `application/json`
+- **Base URL:** `/` (todas as rotas canônicas abaixo são montadas diretamente na raiz do Express em `backend/app/src/routes/index.ts`, sem reescrita de rotas no frontend; aliases prefixados legados como `/produtos/admin/*`, `/painel/*` e `/avaliacoes/*` permanecem apenas para retrocompatibilidade).
+- **Formato de Requisição/Resposta:** `application/json` (IDs inteiros do PostgreSQL são serializados como `string` pelo middleware `idsComoTexto`).
 - **Autenticação:** Bearer Token (JWT) via cabeçalho `Authorization: Bearer <token>` para rotas protegidas.
 - **Códigos de Status HTTP Padrão:**
   - `200 OK`: Sucesso na requisição.
@@ -18,6 +18,7 @@ Este documento estabelece o contrato de API RESTful completo para o **Sistema Or
   - `401 Unauthorized`: Falha de autenticação (não logado).
   - `403 Forbidden`: Acesso negado por falta de permissão (RBAC).
   - `404 Not Found`: Recurso não encontrado.
+  - `409 Conflict`: Conflito de estado ou estoque insuficiente.
   - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
@@ -76,7 +77,13 @@ Autentica o usuário e emite o token de sessão JWT.
 > middleware exige `sv` igual à versão atual. Tokens legados sem `sv` são
 > rejeitados quando emitidos antes da invalidação; se a versão atual for maior
 > que `1`, também são rejeitados os emitidos exatamente no segundo da
-> invalidação. Logout e expiração natural continuam válidos.
+> invalidação.
+>
+> **Proteção contra força bruta (HU-01 / TC11):** tentativas inválidas
+> consecutivas são persistidas na tabela `tentativa_login`. Após `5` falhas
+> seguidas para o mesmo e-mail, novas tentativas retornam `429 Too Many Requests`
+> com cabeçalho `Retry-After` (bloqueio temporário de `15` minutos). Um login
+> bem-sucedido antes do limite ou após a expiração do bloqueio zera o contador. Logout e expiração natural continuam válidos.
 
 #### POST /auth/logout
 Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
@@ -335,8 +342,10 @@ Analisa e altera o status de validação de origem e autenticidade da peça.
 ### 2.4. Módulo: Vitrine, Catálogo e Busca Avançada (HU-04, HU-06, HU-25)
 
 #### GET /produtos
-Retorna o catálogo de peças ativas com suporte a paginação e filtros combinados.
-*(Exemplo: `GET /produtos?termo=ceramica&categoria=Decoracao&origem=Para&pagina=1&limite=10`)*
+Retorna o catálogo de peças aprovadas e ativas com suporte a paginação e filtros combinados (`termo`, `categoria`, `tecnica`, `regiao`, `origem`, `disponivel`, `destaque`, `precoMax`, `pecaUnica`, `avaliacaoMin`, `ordenar`, `pagina`, `limite` até 50).
+*(Exemplo: `GET /produtos?termo=ceramica&categoria=Artesanato&origem=Caruaru&pagina=1&limite=10`)*
+
+Rotas auxiliares públicas da vitrine: `GET /categorias`, `GET /tecnicas`, `GET /regioes` e `GET /indicadores`.
 
 *Response (200 OK):*
 ```json
@@ -498,8 +507,8 @@ Remove um item do carrinho.
 }
 ```
 
-#### PUT /carrinho
-Atualiza quantidade de item no carrinho.
+#### PUT /carrinho/itens/{produtoId} (e alias legado `PUT /carrinho`)
+Atualiza a quantidade absoluta de um item no carrinho (com trava transacional `FOR UPDATE` em carrinho e estoque).
 
 *Body (schema rigoroso antes do controller):*
 ```json
@@ -574,6 +583,19 @@ Processa o pagamento do pedido criado.
 
 > O débito é feito sobre o total calculado no servidor a partir do
 > `valorFrete` persistido e dos subtotais dos itens.
+>
+> **Idempotência (RN38):** aceita opcionalmente o cabeçalho `Idempotency-Key`
+> (ou os campos opcionais `idempotencyKey` / `eventoId` no corpo). Replays
+> sequenciais ou concorrentes com a mesma chave para o mesmo pedido retornam a
+> transação original (`idempotente: true`) sem duplicar registros em `pagamento`
+> nem `historico_pedido`. Reutilizar a mesma chave em outro pedido retorna `409 Conflict`.
+>
+> **Recusa, falha ou expiração (RN33):** em caso de recusa (`tokenCartao`
+> iniciado por `tok_recusado` / `tok_falha`, `simularFalha: true` ou
+> `resultado: "RECUSADO"`) ou expiração (`resultado: "EXPIRADO"` / `tok_expirado`),
+> o endpoint responde `402 Payment Required` com `status` (`RECUSADO` ou `EXPIRADO`),
+> `statusPedido: "CANCELADO"`, `reservaLiberada: true` e `mensagem`, registrando o
+> pagamento recusado/expirado e restaurando atomicamente o estoque reservado dos itens.
 
 ---
 
@@ -735,9 +757,13 @@ Modera uma avaliação sinalizada como suspeita ou inapropriada.
 > Lacuna (frontend): `acao` também aceita `"MANTER"`. A avaliação volta a
 > `PUBLICADO` e sai da fila de moderação.
 
-#### GET /admin/avaliacoes (lacuna, frontend)
-Lista as avaliações sinalizadas para moderação (Exclusivo para `ADMINISTRADOR`).
-Parâmetro: `status` (`PUBLICADO`, `EM_MODERACAO` ou `REMOVIDO`). Sem ele, devolve todas, da mais recente para a mais antiga.
+#### GET /admin/avaliacoes
+Lista as avaliações sinalizadas para moderação (Exclusivo para `ADMINISTRADOR`, persistidas em `avaliacao.status`).
+Parâmetro: `status` (`PUBLICADO`, `EM_MODERACAO` ou `REMOVIDO`). Sem ele, devolve todas as sinalizadas, da mais recente para a mais antiga.
+
+Rotas complementares de avaliações:
+- `GET /produtos/{id}/avaliacoes`: lista avaliações com status `PUBLICADO` de uma peça e sua média recalculada.
+- `GET /comprador/avaliacoes`: lista as avaliações feitas pelo comprador autenticado.
 
 *Response (200 OK):*
 ```json
@@ -783,16 +809,23 @@ Abre uma solicitação de suporte na plataforma.
 ```
 
 #### GET /suporte/tickets
-Lista os tickets de suporte abertos pelo usuário ou geridos pela equipe.
+Lista os tickets de suporte abertos pelo usuário autenticado (persistidos nas tabelas `ticket` e `ticket_mensagem`).
 
 *Response (200 OK):*
 ```json
 {
   "tickets": [
-    { "ticketId": "tkt_801", "assunto": "Dúvida sobre prazo de entrega", "status": "ABERTO" }
+    { "ticketId": "801", "assunto": "Dúvida sobre prazo de entrega", "status": "TRIAGEM_INTELIGENTE" }
   ]
 }
 ```
+
+Rotas complementares de suporte e personalização (HU-22, HU-23, HU-24):
+- `GET /suporte/tickets/{id}`: consulta detalhe e histórico de mensagens do ticket do usuário autenticado.
+- `POST /suporte/tickets/{id}/mensagens`: adiciona nova mensagem (`{ "texto": "..." }`) ao ticket.
+- `PUT /suporte/tickets/{id}/status`: atualiza status do ticket (`ABERTO`, `ESCALADO_HUMANO`, `RESOLVIDO`).
+- `POST /produtos/{id}/personalizacoes`: registra solicitação de personalização pelo `COMPRADOR` (persistida em `personalizacao`).
+- `GET /comprador/personalizacoes`: lista solicitações de personalização do `COMPRADOR` autenticado.
 
 ---
 
@@ -1017,7 +1050,7 @@ Uma mensagem desconhecida retorna `404 Not Found`.
 
 ---
 
-### 2.11. Módulo: Perfil do administrador (lacuna)
+### 2.11. Módulo: Perfil do administrador
 
 #### GET /admin/perfil
 Devolve a conta de quem administra (Exclusivo para `ADMINISTRADOR`).

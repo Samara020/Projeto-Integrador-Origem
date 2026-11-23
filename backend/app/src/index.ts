@@ -22,7 +22,7 @@ export function criarApp(): Application {
     cors({
       origin: CORS_ORIGIN,
       credentials: true,
-      exposedHeaders: ["X-Recomendacao-Fonte"],
+      exposedHeaders: ["X-Recomendacao-Fonte", "Retry-After"],
     })
   );
   app.use(express.json({ limit: "10mb" }));

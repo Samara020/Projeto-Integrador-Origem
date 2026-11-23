@@ -1,10 +1,8 @@
 import prisma from "../src/lib/prisma";
-import { avaliacoesRemovidas, validacoes } from "../src/lib/memoria";
 import jwt from "jsonwebtoken";
 
 export async function limparBanco() {
-  validacoes.clear();
-  avaliacoesRemovidas.clear();
+  await prisma.tentativaLogin.deleteMany();
   await prisma.ticketMensagem.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.personalizacao.deleteMany();

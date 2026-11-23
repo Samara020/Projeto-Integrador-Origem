@@ -17,6 +17,7 @@ export type Resposta<T = unknown> = {
 
 type Opcoes = {
   token?: string;
+  headers?: Record<string, string>;
 };
 
 async function chamar<T>(
@@ -26,7 +27,10 @@ async function chamar<T>(
   opcoes: Opcoes = {},
 ): Promise<Resposta<T>> {
   const inicio = performance.now();
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...(opcoes.headers ?? {}),
+  };
   if (corpo !== undefined) headers["Content-Type"] = "application/json";
   if (opcoes.token) headers.Authorization = `Bearer ${opcoes.token}`;
 

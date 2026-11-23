@@ -137,3 +137,20 @@ CREATE INDEX IF NOT EXISTS idx_personalizacao_usuario
     ON personalizacao (fk_usuario_id_usuario);
 CREATE INDEX IF NOT EXISTS idx_personalizacao_produto
     ON personalizacao (fk_produto_id_produto);
+
+-- Idempotência de eventos de pagamento (RN38) e motivo de recusa/expiração (RN33).
+ALTER TABLE pagamento
+    ADD COLUMN IF NOT EXISTS chave_idempotencia VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS motivo TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pagamento_chave_idempotencia
+    ON pagamento (chave_idempotencia)
+    WHERE chave_idempotencia IS NOT NULL;
+
+-- Registro persistido de tentativas de login para bloqueio temporário (HU-01 / TC11).
+CREATE TABLE IF NOT EXISTS tentativa_login (
+    email VARCHAR(254) PRIMARY KEY,
+    tentativas INTEGER NOT NULL DEFAULT 0,
+    bloqueado_ate TIMESTAMP,
+    atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);

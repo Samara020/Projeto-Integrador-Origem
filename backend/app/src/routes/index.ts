@@ -1,11 +1,14 @@
 import { IRouter, Request, Response } from "express";
 import authRoutes from "./auth.routes";
-import produtosRoutes, { validacaoAdminRouter } from "./produtos.routes";
+import produtosRoutes, {
+  rotasDiretasProdutos,
+  validacaoAdminRouter,
+} from "./produtos.routes";
 import artesaoRoutes, { rotasDiretasArtesao } from "./artesaos.routes";
 import carrinhoRoutes from "./carrinho.routes";
 import pedidosRoutes, { rotasDiretasPedidos } from "./pedidos.routes";
 import pagamentosRoutes from "./pagamentos.routes";
-import avaliacoesRoutes from "./avaliacoes.routes";
+import avaliacoesRoutes, { rotasDiretasAvaliacoes } from "./avaliacoes.routes";
 import suporteRoutes from "./suporte.routes";
 import painelRoutes from "./painel.routes";
 import demoRoutes from "./demo.routes";
@@ -44,8 +47,10 @@ export function montarRotas(app: IRouter): void {
   app.use("/avaliacoes", avaliacoesRoutes);
   app.use("/suporte", suporteRoutes);
   app.use("/painel", painelRoutes);
-  // Caminhos canônicos do contrato (ex.: /artesao/painel/metricas, /admin/painel/metricas).
-  // O mount em /painel acima é mantido por compatibilidade.
+  // Rotas canônicas do ContratoDeAPI.md montadas diretamente na raiz (sem reescrita no frontend).
+  // Os mounts legados (/painel, /produtos, /avaliacoes) são mantidos por compatibilidade.
+  app.use("/", rotasDiretasProdutos);
+  app.use("/", rotasDiretasAvaliacoes);
   app.use("/", painelRoutes);
   app.use("/", rotasDiretasPedidos);
   app.use("/", catalogoRoutes);

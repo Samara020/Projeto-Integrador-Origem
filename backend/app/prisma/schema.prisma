@@ -204,12 +204,14 @@ model ItemPedido {
 }
 
 model Pagamento {
-  id             Int      @id(map: "pk_pagamento") @default(autoincrement()) @map("id_pagamento")
-  data           DateTime @db.Timestamp(6)
-  valor          Decimal  @db.Decimal(10, 2)
-  status         String   @db.VarChar(30)
-  formaPagamento String   @map("forma_pagamento") @db.VarChar(30)
-  pedidoId       Int      @map("fk_pedido_id_pedidos")
+  id                 Int      @id(map: "pk_pagamento") @default(autoincrement()) @map("id_pagamento")
+  data               DateTime @db.Timestamp(6)
+  valor              Decimal  @db.Decimal(10, 2)
+  status             String   @db.VarChar(30)
+  formaPagamento     String   @map("forma_pagamento") @db.VarChar(30)
+  chaveIdempotencia  String?  @unique(map: "uq_pagamento_chave_idempotencia") @map("chave_idempotencia") @db.VarChar(120)
+  motivo             String?  @db.Text
+  pedidoId           Int      @map("fk_pedido_id_pedidos")
 
   pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pagamento_pedido")
 
@@ -316,4 +318,13 @@ model RecuperacaoSenha {
 
   @@index([usuarioId], map: "idx_recuperacao_usuario")
   @@map("recuperacao_senha")
+}
+
+model TentativaLogin {
+  email        String    @id @db.VarChar(254)
+  tentativas   Int       @default(0)
+  bloqueadoAte DateTime? @map("bloqueado_ate") @db.Timestamp(6)
+  atualizadoEm DateTime  @default(now()) @map("atualizado_em") @db.Timestamp(6)
+
+  @@map("tentativa_login")
 }

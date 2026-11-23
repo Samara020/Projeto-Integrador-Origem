@@ -45,4 +45,26 @@ router.get("/comprador/avaliacoes", autenticar, compradorApenas, (req, res, next
   controller.listarPorComprador(req, res).catch(next)
 );
 
+export const rotasDiretasAvaliacoes = Router();
+
+rotasDiretasAvaliacoes.get("/artesao/avaliacoes", autenticar, artesaoApenas, (req, res, next) =>
+  controller.listarPorArtesao(req, res).catch(next)
+);
+rotasDiretasAvaliacoes.put(
+  "/admin/avaliacoes/:id/moderar",
+  autenticar,
+  adminApenas,
+  validarCorpo(z.object({ acao: z.enum(["REMOVER", "MANTER"]) })),
+  (req, res, next) => controller.moderar(req, res).catch(next)
+);
+rotasDiretasAvaliacoes.get("/admin/avaliacoes", autenticar, adminApenas, (req, res, next) =>
+  controller.listarParaModeracao(req, res).catch(next)
+);
+rotasDiretasAvaliacoes.get("/produtos/:id/avaliacoes", (req, res, next) =>
+  controller.listarPorProduto(req, res).catch(next)
+);
+rotasDiretasAvaliacoes.get("/comprador/avaliacoes", autenticar, compradorApenas, (req, res, next) =>
+  controller.listarPorComprador(req, res).catch(next)
+);
+
 export default router;

@@ -1,6 +1,4 @@
 import { ErroApp } from "../middleware/error";
-import prisma from "../lib/prisma";
-import { toId } from "../lib/ids";
 import { avaliacaoRepository, produtoRepository } from "../repositories";
 
 export const avaliacaoService = {
@@ -14,11 +12,11 @@ export const avaliacaoService = {
     const produto = await produtoRepository.buscarPorId(dados.produtoId);
     if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
 
-    const pedido = await prisma.pedido.findFirst({ where: {
-      id: dados.pedidoId ? toId(dados.pedidoId) : -1, usuarioId: toId(dados.usuarioId),
-      status: { in: ["PAGO", "EM_PRODUCAO", "PRONTO", "ENVIADO", "ENTREGUE"] },
-      itens: { some: { produtoId: produto.id } },
-    } });
+    const pedido = await avaliacaoRepository.buscarPedidoElegivel(
+      dados.pedidoId,
+      dados.usuarioId,
+      produto.id
+    );
     if (!pedido) throw new ErroApp(403, "Avalie somente peças de uma compra confirmada sua.");
     const suspeita = /https?:\/\/|whatsapp|zap|\bpix\b|telefone/i.test(dados.comentario ?? "");
     const avaliacao = await avaliacaoRepository.criar({ ...dados,

@@ -5,11 +5,14 @@ import { gerarToken } from "../lib/jwt";
 import { invalidarSessoesUsuario, obterVersaoSessaoUsuario, revogarToken, tokenFoiRevogado } from "../lib/revogacao-token";
 import { ErroApp } from "../middleware/error";
 import { recuperacaoRepository } from "../repositories/recuperacao.repository";
+import { tentativaLoginRepository } from "../repositories/tentativa-login.repository";
 import { usuarioRepository } from "../repositories/usuario.repository";
 
 const RODADAS_HASH = 12;
 const PAPEIS_VALIDOS = ["COMPRADOR", "ARTESAO", "ADMINISTRADOR"];
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_TENTATIVAS_LOGIN = Number(process.env.LOGIN_MAX_TENTATIVAS) || 5;
+const BLOQUEIO_LOGIN_MINUTOS = Number(process.env.LOGIN_BLOQUEIO_MINUTOS) || 15;
 
 function obterSegredoJwt(): string {
   const segredo = process.env.JWT_SECRET;
@@ -96,9 +99,27 @@ export const authService = {
     }
 
     const emailNormalizado = dados.email.trim().toLowerCase();
+    const registroTentativa = await tentativaLoginRepository.buscar(emailNormalizado);
+    if (registroTentativa?.bloqueadoAte && registroTentativa.bloqueadoAte > new Date()) {
+      const segundosRestantes = Math.max(
+        1,
+        Math.ceil((registroTentativa.bloqueadoAte.getTime() - Date.now()) / 1000)
+      );
+      throw new ErroApp(
+        429,
+        "Muitas tentativas de login inválidas. Conta temporariamente bloqueada; tente novamente em alguns minutos.",
+        segundosRestantes
+      );
+    }
+
     const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
 
     if (!usuario) {
+      await tentativaLoginRepository.registrarFalha(
+        emailNormalizado,
+        MAX_TENTATIVAS_LOGIN,
+        BLOQUEIO_LOGIN_MINUTOS
+      );
       throw new ErroApp(401, "E-mail ou senha incorretos.");
     }
 
@@ -108,8 +129,15 @@ export const authService = {
       : dados.senha === usuario.senha;
 
     if (!senhaValida) {
+      await tentativaLoginRepository.registrarFalha(
+        emailNormalizado,
+        MAX_TENTATIVAS_LOGIN,
+        BLOQUEIO_LOGIN_MINUTOS
+      );
       throw new ErroApp(401, "E-mail ou senha incorretos.");
     }
+
+    await tentativaLoginRepository.limpar(emailNormalizado);
 
     if (!ehHashBcrypt) {
       const novoHash = await bcrypt.hash(dados.senha, RODADAS_HASH);
@@ -142,7 +170,8 @@ export const authService = {
     const emailNormalizado = dados.email.trim().toLowerCase();
     const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
     const servidorTesteIsolado =
-      process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
+      process.env.NODE_ENV === "test" &&
+      (process.env.ORIGEM_TEST_SERVER === "1" || process.env.JEST_WORKER_ID !== undefined);
 
     let tokenRecuperacao: string | undefined;
     if (usuario) {

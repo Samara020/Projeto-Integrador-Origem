@@ -1,11 +1,6 @@
 import { ErroApp } from "../middleware/error";
 import { toId } from "../lib/ids";
 import {
-  seloAtivoDe,
-  statusValidacaoDe,
-  validacoes,
-} from "../lib/memoria";
-import {
   type FiltrosRecomendacao,
   type FonteRecomendacao,
   recomendacaoService,
@@ -70,7 +65,7 @@ const paraProdutoPublico = (produto: any) => ({
   sku: produto.sku,
   statusValidacao: produto.statusValidacao,
   modalidadeProducao: produto.modalidadeProducao,
-  seloAtivo: produto.seloAtivo ?? seloAtivoDe(produto.id),
+  seloAtivo: Boolean(produto.seloAtivo),
   disponibilidade: disponibilidadeDe(produto),
   descricao: produto.descricao ?? "",
   imagens: produto.imagens.map((i: any) => i.url),
@@ -156,7 +151,7 @@ export const produtoService = {
         sku: produto.sku,
         imagemPrincipal: produto.imagens[0]?.url ?? PLACEHOLDER,
         artesao: dadosDoArtesao(produto.loja),
-        seloAtivo: produto.seloAtivo ?? seloAtivoDe(produto.id),
+        seloAtivo: Boolean(produto.seloAtivo),
         regiao: { id: produto.origem, nome: produto.origem },
         modalidadeProducao: produto.modalidadeProducao,
         disponibilidade: disponibilidadeDe(produto),
@@ -236,18 +231,11 @@ export const produtoService = {
       capacidadeProducao: dados.capacidadeProducao ?? null,
     });
 
-    // Novo produto aguarda curadoria (statusValidacao persistido no banco e espelhado em memoria).
-    validacoes.set(produto.id, {
-      status: "PENDENTE",
-      seloAtivo: false,
-      justificativa: null,
-      decididoEm: null,
-    });
-
+    // Novo produto aguarda curadoria (statusValidacao persistido no PostgreSQL).
     return {
       id: produto.id,
       sku: produto.sku,
-      statusValidacao: produto.statusValidacao ?? statusValidacaoDe(produto.id),
+      statusValidacao: produto.statusValidacao ?? "PENDENTE",
       criadoEm: new Date().toISOString(),
     };
   },
@@ -410,35 +398,32 @@ export const produtoService = {
   async listarPendentes(filtros: { status?: string }) {
     const todos = await produtoRepository.listarTodos();
     const produtos = todos.filter(
-      (p: any) => !filtros.status || (p.statusValidacao ?? statusValidacaoDe(p.id)) === filtros.status
+      (p: any) => !filtros.status || (p.statusValidacao ?? "APROVADA") === filtros.status
     );
 
     return {
       total: produtos.length,
-      itens: produtos.map((p: any) => {
-        const decisao = validacoes.get(p.id);
-        return {
-          id: p.id,
-          nome: p.nome,
-          sku: p.sku,
-          imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
-          artesao: dadosDoArtesao(p.loja),
-          tecnica: p.tecnica,
-          regiao: p.origem,
-          enviadoEm: p.enviadoEm ?? null,
-          informacoesOrigem: p.informacoesOrigem,
-          certificado: p.certificado,
-          material: p.material,
-          dimensoes: p.dimensoes,
-          peso: pesoDe(p.peso),
-          prazoProducaoDias: p.prazoProducaoDias,
-          capacidadeProducao: p.capacidadeProducao,
-          statusValidacao: p.statusValidacao ?? statusValidacaoDe(p.id),
-          justificativa: p.justificativaValidacao ?? decisao?.justificativa ?? null,
-          decididoPorId: p.decididoPorId ?? null,
-          decididoEm: p.decididoEm ?? decisao?.decididoEm ?? null,
-        };
-      }),
+      itens: produtos.map((p: any) => ({
+        id: p.id,
+        nome: p.nome,
+        sku: p.sku,
+        imagemPrincipal: p.imagens[0]?.url ?? PLACEHOLDER,
+        artesao: dadosDoArtesao(p.loja),
+        tecnica: p.tecnica,
+        regiao: p.origem,
+        enviadoEm: p.enviadoEm ?? null,
+        informacoesOrigem: p.informacoesOrigem,
+        certificado: p.certificado,
+        material: p.material,
+        dimensoes: p.dimensoes,
+        peso: pesoDe(p.peso),
+        prazoProducaoDias: p.prazoProducaoDias,
+        capacidadeProducao: p.capacidadeProducao,
+        statusValidacao: p.statusValidacao ?? "APROVADA",
+        justificativa: p.justificativaValidacao ?? null,
+        decididoPorId: p.decididoPorId ?? null,
+        decididoEm: p.decididoEm ?? null,
+      })),
     };
   },
 
@@ -473,7 +458,6 @@ export const produtoService = {
       decididoEm: decisao.decididoEm,
       decididoPorId: usuarioId ? toId(usuarioId) : undefined,
     });
-    validacoes.set(toId(id), decisao);
 
     return {
       id: produto.id,

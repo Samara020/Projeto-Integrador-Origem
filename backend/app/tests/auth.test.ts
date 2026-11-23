@@ -210,6 +210,70 @@ describe("Autenticação - cadastro e login", () => {
         })
         .expect(200);
     });
+
+    test("TC11 · bloqueia temporariamente com 429 após 5 tentativas inválidas e libera após expiração", async () => {
+      for (let i = 0; i < 5; i += 1) {
+        await request(app)
+          .post("/auth/login")
+          .send({ email: "login@test.com", senha: `errada-${i}` })
+          .expect(401);
+      }
+
+      const registro = await prisma.tentativaLogin.findUnique({
+        where: { email: "login@test.com" },
+      });
+      expect(registro).not.toBeNull();
+      expect(registro!.tentativas).toBe(5);
+      expect(registro!.bloqueadoAte).not.toBeNull();
+
+      // 6ª tentativa bloqueada mesmo com a senha correta
+      const bloqueado = await request(app)
+        .post("/auth/login")
+        .send({ email: "login@test.com", senha: "senha123" })
+        .expect(429);
+
+      expect(bloqueado.body.mensagem).toMatch(/temporariamente bloqueada/i);
+      expect(Number(bloqueado.headers["retry-after"])).toBeGreaterThan(0);
+
+      // Após expiração da janela de bloqueio, login volta a funcionar e zera o registro
+      await prisma.tentativaLogin.update({
+        where: { email: "login@test.com" },
+        data: { bloqueadoAte: new Date(Date.now() - 1000) },
+      });
+
+      const desbloqueado = await request(app)
+        .post("/auth/login")
+        .send({ email: "login@test.com", senha: "senha123" })
+        .expect(200);
+
+      expect(desbloqueado.body.token).toBeDefined();
+      const limpo = await prisma.tentativaLogin.findUnique({
+        where: { email: "login@test.com" },
+      });
+      expect(limpo).toBeNull();
+    });
+
+    test("TC11 · login bem-sucedido antes do limite zera o contador de falhas", async () => {
+      for (let i = 0; i < 3; i += 1) {
+        await request(app)
+          .post("/auth/login")
+          .send({ email: "login@test.com", senha: "errada" })
+          .expect(401);
+      }
+
+      await request(app)
+        .post("/auth/login")
+        .send({ email: "login@test.com", senha: "senha123" })
+        .expect(200);
+
+      // Mais 3 falhas não devem disparar bloqueio imediato pois o contador foi zerado
+      for (let i = 0; i < 3; i += 1) {
+        await request(app)
+          .post("/auth/login")
+          .send({ email: "login@test.com", senha: "errada" })
+          .expect(401);
+      }
+    });
   });
 
   describe("Migração de senhas antigas", () => {

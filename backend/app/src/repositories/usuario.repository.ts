@@ -32,6 +32,44 @@ export const usuarioRepository = {
     return prisma.usuario.update({ where: { id: toId(id) }, data: { senha } });
   },
 
+  atualizarTelefone(id: Id, telefone: string) {
+    return prisma.usuario.update({ where: { id: toId(id) }, data: { telefone } });
+  },
+
+  atualizarPerfil(id: Id, dados: { nome: string; funcao?: string; telefone?: string }) {
+    return prisma.usuario.update({ where: { id: toId(id) }, data: dados });
+  },
+
+  buscarComLoja(id: Id) {
+    return prisma.usuario.findUnique({
+      where: { id: toId(id) },
+      include: { loja: { orderBy: { id: "asc" }, take: 1 } },
+    });
+  },
+
+  buscarPerfilPublicoArtesao(id: Id) {
+    return prisma.usuario.findUnique({
+      where: { id: toId(id) },
+      include: {
+        loja: {
+          orderBy: { id: "asc" },
+          take: 1,
+          include: {
+            produtos: {
+              where: { excluido: false, pausado: false, statusValidacao: "APROVADA" },
+              orderBy: { id: "asc" },
+              include: {
+                imagens: { take: 1 },
+                estoque: { select: { quantidadeDisponivel: true } },
+                avaliacoes: { select: { nota: true, status: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+  },
+
   contarPorPapel(papel: string) {
     return prisma.usuario.count({ where: { usuarioTipo: papel } });
   },
