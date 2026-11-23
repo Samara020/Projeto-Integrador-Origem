@@ -9,17 +9,17 @@ export class AdminController {
   }
 
   async buscarPerfil(req: Request, res: Response) {
-    const resultado = await adminService.buscarPerfilAdmin();
+    const resultado = await adminService.buscarPerfilAdmin(req.usuario!.id);
     return res.json(resultado);
   }
 
   async atualizarPerfil(req: Request, res: Response) {
-    const resultado = await adminService.atualizarPerfilAdmin(req.body);
+    const resultado = await adminService.atualizarPerfilAdmin(req.usuario!.id, req.body);
     return res.json(resultado);
   }
 
   async alterarSenha(req: Request, res: Response) {
-    const resultado = await adminService.alterarSenhaAdmin(req.body);
+    const resultado = await adminService.alterarSenhaAdmin(req.usuario!.id, req.body);
     return res.json(resultado);
   }
 }

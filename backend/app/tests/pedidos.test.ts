@@ -44,7 +44,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
 
       expect(resposta.body.pedidoId).toEqual(expect.any(String));
       expect(resposta.body.status).toBe("AGUARDANDO_PAGAMENTO");
-      expect(resposta.body.valorTotal).toBe(200);
+      expect(resposta.body.valorTotal).toBe(218);
 
       // Persistência no banco do pedido, itens e histórico
       const pedido = await prisma.pedido.findUnique({
@@ -340,6 +340,192 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
         .expect(409);
 
       expect(resTentativa.body.mensagem).toMatch(/nao pode mais ser alterado/i);
+    });
+
+    test("duas solicitacoes simultaneas de cancelamento repõem o estoque uma unica vez", async () => {
+      const { comprador, artesao, produto, endereco } = await cenario();
+      const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2);
+      const token = `Bearer ${gerarToken(artesao.id, "ARTESAO")}`;
+
+      // Estado de estoque após a venda: 3. As duas requisições tentam cancelar
+      // o mesmo pedido simultaneamente; somente uma deve ganhar a transição.
+      await prisma.estoque.update({
+        where: { produtoId: produto.id },
+        data: { quantidadeDisponivel: 3 },
+      });
+
+      const cancelar = () =>
+        request(app)
+          .put(`/artesao/pedidos/${pedido.id}/status`)
+          .set("Authorization", token)
+          .send({ statusProducao: "CANCELADO" });
+
+      const respostas = await Promise.all([cancelar(), cancelar()]);
+      expect(respostas.map((resposta) => resposta.status).sort()).toEqual([200, 409]);
+
+      const estoque = await prisma.estoque.findUnique({ where: { produtoId: produto.id } });
+      expect(estoque!.quantidadeDisponivel).toBe(5);
+    });
+
+    test("transicao concorrente nao reabre pedido depois do cancelamento e da reposicao", async () => {
+      const { comprador, artesao, produto, endereco } = await cenario();
+      const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2);
+      const token = `Bearer ${gerarToken(artesao.id, "ARTESAO")}`;
+
+      await prisma.estoque.update({
+        where: { produtoId: produto.id },
+        data: { quantidadeDisponivel: 3 },
+      });
+
+      const cancelar = () =>
+        request(app)
+          .put(`/artesao/pedidos/${pedido.id}/status`)
+          .set("Authorization", token)
+          .send({ statusProducao: "CANCELADO" });
+      const enviar = () =>
+        request(app)
+          .put(`/artesao/pedidos/${pedido.id}/status`)
+          .set("Authorization", token)
+          .send({ statusProducao: "ENVIADO", codigoRastreio: "BR123456789" });
+
+      const respostas = await Promise.all([cancelar(), enviar()]);
+      expect(respostas.every((resposta) => [200, 409].includes(resposta.status))).toBe(true);
+
+      const pedidoFinal = await prisma.pedido.findUnique({
+        where: { id: pedido.id },
+        include: { historico: { orderBy: { id: "desc" }, take: 1 } },
+      });
+      expect(pedidoFinal!.status).toBe("CANCELADO");
+      expect(pedidoFinal!.historico[0].status).toBe("CANCELADO");
+
+      const estoque = await prisma.estoque.findUnique({ where: { produtoId: produto.id } });
+      expect(estoque!.quantidadeDisponivel).toBe(5);
+    });
+
+    test("Pedido multiloja nao pode ter status alterado globalmente", async () => {
+      const comprador = await criarUsuarioComprador();
+      const artesao1 = await criarUsuarioArtesao();
+      const artesao2 = await criarUsuarioArtesao();
+      const loja1 = await criarLoja(artesao1.id);
+      const loja2 = await criarLoja(artesao2.id);
+      const cat = await criarCategoria();
+
+      const p1 = await criarProduto(cat.id, loja1.id, { nome: "Peça 1", preco: 50 });
+      const p2 = await criarProduto(cat.id, loja2.id, { nome: "Peça 2", preco: 70 });
+
+      const endereco = await criarEndereco();
+
+      // Cria carrinho com os dois produtos
+      const carrinho = await prisma.carrinho.create({
+        data: {
+          usuarioId: comprador.id,
+          status: "ATIVO",
+          dataCriacao: new Date(),
+        },
+      });
+
+      await prisma.itemCarrinho.createMany({
+        data: [
+          { carrinhoId: carrinho.id, numeroItem: 1, produtoId: p1.id, quantidade: 1, precoUnitario: 50 },
+          { carrinhoId: carrinho.id, numeroItem: 2, produtoId: p2.id, quantidade: 1, precoUnitario: 70 },
+        ],
+      });
+
+      const token = gerarToken(comprador.id, "COMPRADOR");
+
+      const respCheckout = await request(app)
+        .post("/pedidos/checkout")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ enderecoEntrega: { cep: "50000-000", rua: "Rua Teste", numero: "1", cidade: "Recife" } })
+        .expect(201);
+
+      const pedidoId = respCheckout.body.pedidoId;
+
+      // Tenta alterar status do pedido multiloja
+      const resStatus = await request(app)
+        .put(`/artesao/pedidos/${pedidoId}/status`)
+        .set("Authorization", `Bearer ${gerarToken(artesao1.id, "ARTESAO")}`)
+        .send({ statusProducao: "ENVIADO", codigoRastreio: "BR123456789" })
+        .expect(409);
+
+      expect(resStatus.body.mensagem).toMatch(/lojas.*não podem ser alterados globalmente|separe em subpedidos/i);
+    });
+
+    test("checkout relê quantidade e preço após aguardar o lock do carrinho", async () => {
+      const comprador = await criarUsuarioComprador();
+      const artesao = await criarUsuarioArtesao();
+      const loja = await criarLoja(artesao.id);
+      const categoria = await criarCategoria();
+      const produto = await criarProduto(categoria.id, loja.id, { nome: "Produto Teste Estoque", preco: 10, estoque: 5 });
+      const carrinho = await criarCarrinhoComItem(comprador.id, produto.id, 1);
+      const token = gerarToken(comprador.id, "COMPRADOR");
+
+      let sinalizarLock!: () => void;
+      let liberarLock!: () => void;
+      const lockObtido = new Promise<void>((resolve) => { sinalizarLock = resolve; });
+      const aguardarLiberacao = new Promise<void>((resolve) => { liberarLock = resolve; });
+      const transacaoConcorrente = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id_carrinho FROM carrinho WHERE id_carrinho = ${carrinho.id} FOR UPDATE`;
+        sinalizarLock();
+        await aguardarLiberacao;
+        await tx.itemCarrinho.update({
+          where: { carrinhoId_numeroItem: { carrinhoId: carrinho.id, numeroItem: 1 } },
+          data: { quantidade: 2 },
+        });
+        await tx.produto.update({ where: { id: produto.id }, data: { preco: 20 } });
+      });
+      await lockObtido;
+
+      const checkoutPromise = request(app)
+        .post("/pedidos/checkout")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ enderecoEntrega: { cep: "50000-000", rua: "Rua Teste", numero: "1", cidade: "Recife" } });
+      const respostaCheckout = checkoutPromise.then((resposta) => resposta);
+
+      // Aguarda o checkout chegar à consulta FOR UPDATE antes de alterar a linha.
+      // A query de pg_stat_activity é restrita ao banco de teste e à conexão desta suíte.
+      const limite = Date.now() + 5000;
+      let checkoutAguardandoLock = false;
+      while (Date.now() < limite) {
+        const consultas = await prisma.$queryRaw<Array<{ quantidade: number }>>`
+          SELECT COUNT(*)::int AS quantidade
+          FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND pid <> pg_backend_pid()
+            AND wait_event_type = 'Lock'
+            AND query ILIKE '%SELECT id_carrinho FROM carrinho%FOR UPDATE%'
+        `;
+        if (consultas[0]?.quantidade > 0) {
+          checkoutAguardandoLock = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      liberarLock();
+      await transacaoConcorrente;
+      expect(checkoutAguardandoLock).toBe(true);
+
+      const resCheckout = await respostaCheckout;
+      expect(resCheckout.status).toBe(201);
+
+      // O pedido usa a quantidade e o preço confirmados enquanto o checkout aguardava.
+      expect(resCheckout.body.pedidoId).toBeDefined();
+      const pedido = await prisma.pedido.findUnique({
+        where: { id: Number(resCheckout.body.pedidoId) },
+        include: { itens: true },
+      });
+      expect(pedido).not.toBeNull();
+      expect(pedido!.itens).toHaveLength(1);
+      expect(pedido!.itens[0].quantidade).toBe(2);
+      expect(Number(pedido!.itens[0].precoUnitario)).toBe(20);
+
+      // Estoque baixado de 5 para 3.
+      const estoque = await prisma.estoque.findUnique({ where: { produtoId: produto.id } });
+      expect(estoque!.quantidadeDisponivel).toBe(3);
+
+      const carrinhoAtual = await prisma.itemCarrinho.count({ where: { carrinhoId: carrinho.id } });
+      expect(carrinhoAtual).toBe(0);
     });
   });
 

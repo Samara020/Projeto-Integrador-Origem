@@ -1,4 +1,4 @@
-
+﻿
 BEGIN;
 
 -- ============================================================
@@ -9,30 +9,30 @@ BEGIN;
 
 -- Usuário administrador
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1001, 'Equipe Origem', 'admin@origem.dev', 'origem123', '81999990000', 'ADMINISTRADOR');
+VALUES (1001, 'Equipe Origem', 'admin@origem.dev', '$2a$12$XZS04IjymcUs4910YRcqJONBL1mvLusxmyD5ZwtczpIzg.8WmEo2q', '81999990000', 'ADMINISTRADOR');
 
 -- Usuário comprador demo
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1000, 'Joana Compradora', 'comprador@origem.dev', 'origem123', '81999990000', 'COMPRADOR');
+VALUES (1000, 'Joana Compradora', 'comprador@origem.dev', '$2a$12$XZS04IjymcUs4910YRcqJONBL1mvLusxmyD5ZwtczpIzg.8WmEo2q', '81999990000', 'COMPRADOR');
 
 -- Usuários artesãos (vinculados às lojas)
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1002, 'Ana Pereira', 'artesao@origem.dev', 'origem123', '81999990001', 'ARTESAO');
+VALUES (1002, 'Ana Pereira', 'artesao@origem.dev', '$2a$12$XZS04IjymcUs4910YRcqJONBL1mvLusxmyD5ZwtczpIzg.8WmEo2q', '81999990001', 'ARTESAO');
 
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1003, 'Maria de Lourdes', 'maria.lourdes@origem.dev', 'artesao123', '81999990002', 'ARTESAO');
+VALUES (1003, 'Maria de Lourdes', 'maria.lourdes@origem.dev', '$2a$12$.dVxYKkIIN57C7oTYmY.POD.E.NXgvRfGy2vYd/DjmPd5XLpTs/Vm', '81999990002', 'ARTESAO');
 
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1004, 'Seu Damião', 'damiao@origem.dev', 'artesao123', '81999990003', 'ARTESAO');
+VALUES (1004, 'Seu Damião', 'damiao@origem.dev', '$2a$12$.dVxYKkIIN57C7oTYmY.POD.E.NXgvRfGy2vYd/DjmPd5XLpTs/Vm', '81999990003', 'ARTESAO');
 
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1005, 'Severino Gravador', 'severino@origem.dev', 'artesao123', '81999990004', 'ARTESAO');
+VALUES (1005, 'Severino Gravador', 'severino@origem.dev', '$2a$12$.dVxYKkIIN57C7oTYmY.POD.E.NXgvRfGy2vYd/DjmPd5XLpTs/Vm', '81999990004', 'ARTESAO');
 
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1006, 'Ateliê Mãos da Mata', 'atelie@origem.dev', 'artesao123', '81999990005', 'ARTESAO');
+VALUES (1006, 'Ateliê Mãos da Mata', 'atelie@origem.dev', '$2a$12$.dVxYKkIIN57C7oTYmY.POD.E.NXgvRfGy2vYd/DjmPd5XLpTs/Vm', '81999990005', 'ARTESAO');
 
 INSERT INTO usuario (id_usuario, nome, email, senha, telefone, usuario_tipo)
-VALUES (1007, 'Zefa do Pajeú', 'zefa@origem.dev', 'artesao123', '81999990006', 'ARTESAO');
+VALUES (1007, 'Zefa do Pajeú', 'zefa@origem.dev', '$2a$12$.dVxYKkIIN57C7oTYmY.POD.E.NXgvRfGy2vYd/DjmPd5XLpTs/Vm', '81999990006', 'ARTESAO');
 
 -- Lojas (vinculadas aos artesãos)
 INSERT INTO loja (id_loja, nome, descricao, fk_usuario_id_usuario)

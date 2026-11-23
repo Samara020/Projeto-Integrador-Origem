@@ -1,7 +1,6 @@
 "use client";
 
 import { BadgeCheck } from "lucide-react";
-import Image from "next/image";
 import { useEffect } from "react";
 import { Container } from "@/components/layout/Container";
 import {
@@ -13,6 +12,7 @@ import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Estrelas } from "@/components/ui/Estrelas";
+import { Foto } from "@/components/ui/Foto";
 import { useArtesao } from "@/hooks/useArtesaos";
 import { formatarInteiro, formatarNota, plural } from "@/lib/formato";
 import type { ArtesaoPerfil } from "@/types";
@@ -48,11 +48,15 @@ function Carregando() {
 }
 
 function Perfil({ artesao }: { artesao: ArtesaoPerfil }) {
+  const resumoLocal = [artesao.regiao, artesao.tecnica, artesao.especialidade]
+    .filter((item) => item && item.trim().length > 0)
+    .join(" · ");
+
   return (
     <section aria-labelledby="artesao-nome" className="bg-info text-superficie">
       <Container className="flex flex-col gap-6 py-8 md:flex-row md:items-center md:gap-8">
         {artesao.foto ? (
-          <Image
+          <Foto
             src={artesao.foto}
             alt={`Foto de ${artesao.nome}`}
             width={144}
@@ -81,16 +85,16 @@ function Perfil({ artesao }: { artesao: ArtesaoPerfil }) {
               </span>
             )}
           </div>
-          <p className="text-apoio text-fundo">
-            {artesao.regiao} · {artesao.tecnica} · {artesao.especialidade}
-          </p>
-          <p className="max-w-2xl text-corpo">{artesao.biografia}</p>
-          {artesao.totalAvaliacoes > 0 && (
+          {resumoLocal && <p className="text-apoio text-fundo">{resumoLocal}</p>}
+          {artesao.biografia && <p className="max-w-2xl text-corpo">{artesao.biografia}</p>}
+          {artesao.totalAvaliacoes > 0 ? (
             <p className="flex flex-wrap items-center gap-2 text-apoio text-fundo">
               <Estrelas nota={artesao.avaliacaoMedia} />
               {formatarNota(artesao.avaliacaoMedia)} ·{" "}
               {plural(artesao.totalAvaliacoes, "avaliação", "avaliações")}
             </p>
+          ) : (
+            <p className="text-legenda text-fundo/80">Ainda sem avaliações registradas</p>
           )}
         </div>
 
@@ -98,7 +102,9 @@ function Perfil({ artesao }: { artesao: ArtesaoPerfil }) {
           <span className="font-titulo text-display font-bold leading-none tabular-nums">
             {formatarInteiro(artesao.pecasVendidas)}
           </span>
-          <span className="text-legenda text-fundo">peças vendidas</span>
+          <span className="text-legenda text-fundo">
+            {artesao.pecasVendidas === 1 ? "peça vendida" : "peças vendidas"}
+          </span>
         </div>
       </Container>
     </section>
@@ -108,6 +114,7 @@ function Perfil({ artesao }: { artesao: ArtesaoPerfil }) {
 function Historia({ artesao }: { artesao: ArtesaoPerfil }) {
   const [capa, ...outras] = artesao.imagens;
   const primeiroNome = artesao.nome.split(" ")[0];
+  const subtitulo = [artesao.nomeLoja, artesao.regiao].filter(Boolean).join(" · ");
 
   return (
     <section
@@ -118,12 +125,10 @@ function Historia({ artesao }: { artesao: ArtesaoPerfil }) {
         <h2 id="historia-titulo" className="font-titulo text-h2 font-bold text-tinta">
           A história de {primeiroNome}
         </h2>
-        <p className="text-apoio text-tinta-3">
-          {artesao.nomeLoja} · {artesao.regiao}
-        </p>
+        {subtitulo && <p className="text-apoio text-tinta-3">{subtitulo}</p>}
         {capa && (
           <div className="relative aspect-3/2 w-full overflow-hidden rounded-raio border border-superficie-2 bg-superficie-2">
-            <Image
+            <Foto
               src={capa}
               alt={`${artesao.nome} trabalhando no ateliê`}
               fill
@@ -135,19 +140,27 @@ function Historia({ artesao }: { artesao: ArtesaoPerfil }) {
       </div>
 
       <div className="flex flex-col gap-4">
-        {artesao.historia.map((paragrafo) => (
-          <p key={paragrafo.slice(0, 40)} className="text-corpo text-tinta-2">
-            {paragrafo}
+        {artesao.historia.length > 0 ? (
+          artesao.historia.map((paragrafo) => (
+            <p key={paragrafo.slice(0, 40)} className="text-corpo text-tinta-2">
+              {paragrafo}
+            </p>
+          ))
+        ) : (
+          <p className="text-apoio text-tinta-3">
+            O ateliê ainda não publicou sua história por aqui.
           </p>
-        ))}
-        <figure className="border-l-4 border-terracota pl-4">
-          <blockquote className="font-titulo text-h3 font-bold text-tinta">
-            {`"${artesao.citacao}"`}
-          </blockquote>
-          <figcaption className="mt-1 text-apoio text-tinta-3">
-            {artesao.nome}, {artesao.regiao}
-          </figcaption>
-        </figure>
+        )}
+        {artesao.citacao.trim().length > 0 && (
+          <figure className="border-l-4 border-terracota pl-4">
+            <blockquote className="font-titulo text-h3 font-bold text-tinta">
+              {`"${artesao.citacao}"`}
+            </blockquote>
+            <figcaption className="mt-1 text-apoio text-tinta-3">
+              {[artesao.nome, artesao.regiao].filter(Boolean).join(", ")}
+            </figcaption>
+          </figure>
+        )}
         {outras.length > 0 && (
           <ul className="grid grid-cols-2 gap-4">
             {outras.map((imagem) => (
@@ -155,7 +168,7 @@ function Historia({ artesao }: { artesao: ArtesaoPerfil }) {
                 key={imagem}
                 className="relative aspect-3/2 overflow-hidden rounded-raio border border-superficie-2 bg-superficie-2"
               >
-                <Image
+                <Foto
                   src={imagem}
                   alt=""
                   fill

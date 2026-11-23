@@ -10,7 +10,7 @@ import { Campo } from "@/components/ui/Campo";
 import { formatarMoeda } from "@/lib/formato";
 import { ApiError } from "@/lib/http";
 import { validarCep, validarNumero, validarRua } from "@/lib/validacao";
-import type { EnderecoEntrega, OpcaoEnvio } from "@/types";
+import type { CotacaoFrete, EnderecoEntrega } from "@/types";
 
 type Erros = Partial<Record<"cep" | "rua" | "numero", string>>;
 
@@ -23,12 +23,20 @@ function formatarCep(valor: string) {
 
 export function FormularioEntrega({
   subtotal,
-  opcaoEnvio,
+  cotacao,
+  cotandoFrete,
+  erroFrete,
+  aoCotarFrete,
+  aoLimparFrete,
   aoContinuar,
 }: {
   subtotal: number;
-  opcaoEnvio: OpcaoEnvio;
-  aoContinuar: (endereco: EnderecoEntrega) => Promise<void>;
+  cotacao: CotacaoFrete | null;
+  cotandoFrete: boolean;
+  erroFrete: string | null;
+  aoCotarFrete: (cep: string, forcar?: boolean) => Promise<CotacaoFrete | null>;
+  aoLimparFrete: () => void;
+  aoContinuar: (endereco: EnderecoEntrega, opcaoEnvioId: string) => Promise<void>;
 }) {
   const [cep, setCep] = useState("");
   const [rua, setRua] = useState("");
@@ -36,7 +44,9 @@ export function FormularioEntrega({
   const [erros, setErros] = useState<Erros>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const total = subtotal + opcaoEnvio.valor;
+
+  const frete = cotacao ? cotacao.valor : null;
+  const total = cotacao ? subtotal + cotacao.valor : null;
 
   const validarCampo = (campo: "cep" | "rua" | "numero", valor: string) => {
     const validadores = {
@@ -49,6 +59,17 @@ export function FormularioEntrega({
       [campo]: validadores[campo](valor),
     }));
   };
+
+  function aoAlterarCep(bruto: string) {
+    const formatado = formatarCep(bruto);
+    setCep(formatado);
+    const digitos = formatado.replace(/\D/g, "");
+    if (digitos.length === 8) {
+      void aoCotarFrete(formatado);
+    } else {
+      aoLimparFrete();
+    }
+  }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -63,7 +84,15 @@ export function FormularioEntrega({
     setEnviando(true);
     setFalha(null);
     try {
-      await aoContinuar({ cep, rua: rua.trim(), numero: numero.trim() });
+      const cotacaoConfirmada = cotacao ?? (await aoCotarFrete(cep, true));
+      if (!cotacaoConfirmada) {
+        setFalha("Consulte e confirme o frete antes de seguir para o pagamento.");
+        return;
+      }
+      await aoContinuar(
+        { cep, rua: rua.trim(), numero: numero.trim() },
+        cotacaoConfirmada.servico.id,
+      );
     } catch (causa) {
       setFalha(
         causa instanceof ApiError
@@ -104,8 +133,13 @@ export function FormularioEntrega({
             placeholder="50000-000"
             value={cep}
             erro={erros.cep}
-            onChange={(evento) => setCep(formatarCep(evento.target.value))}
-            onBlur={() => validarCampo("cep", cep)}
+            onChange={(evento) => aoAlterarCep(evento.target.value)}
+            onBlur={() => {
+              validarCampo("cep", cep);
+              if (cep.replace(/\D/g, "").length === 8 && !cotacao) {
+                void aoCotarFrete(cep);
+              }
+            }}
           />
           <Campo
             id="checkout-numero"
@@ -136,15 +170,38 @@ export function FormularioEntrega({
           <h3 className="font-titulo text-h3 font-bold text-tinta">
             Opção de envio
           </h3>
-          <div className="flex flex-col gap-1 rounded-raio border border-terracota p-4 text-apoio text-tinta sm:flex-row sm:items-center sm:justify-between">
-            <p>
-              <span className="font-semibold">{opcaoEnvio.nome}</span> ·{" "}
-              {opcaoEnvio.prazo}
+          {cotandoFrete && (
+            <p role="status" className="rounded-raio border border-borda p-4 text-apoio text-tinta-2">
+              Calculando frete para o CEP informado...
             </p>
-            <p className="font-bold tabular-nums">
-              {formatarMoeda(opcaoEnvio.valor)}
+          )}
+          {!cotandoFrete && erroFrete && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-raio border border-erro/40 bg-superficie p-4 text-apoio text-erro">
+              <p>{erroFrete}</p>
+              <Botao
+                variante="secundario"
+                onClick={() => void aoCotarFrete(cep, true)}
+              >
+                Tentar de novo
+              </Botao>
+            </div>
+          )}
+          {!cotandoFrete && !erroFrete && cotacao && (
+            <div className="flex flex-col gap-1 rounded-raio border border-terracota p-4 text-apoio text-tinta sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                <span className="font-semibold">{cotacao.servico.nome}</span> ·{" "}
+                {cotacao.servico.prazo}
+              </p>
+              <p className="font-bold tabular-nums">
+                {formatarMoeda(cotacao.valor)}
+              </p>
+            </div>
+          )}
+          {!cotandoFrete && !erroFrete && !cotacao && (
+            <p className="rounded-raio border border-dashed border-borda p-4 text-apoio text-tinta-3">
+              Informe um CEP válido para consultar o frete.
             </p>
-          </div>
+          )}
         </div>
 
         <div className="flex items-start gap-3 rounded-raio bg-selo/5 p-4 text-apoio text-selo">
@@ -162,7 +219,7 @@ export function FormularioEntrega({
 
       <ResumoPedido
         subtotal={subtotal}
-        frete={opcaoEnvio.valor}
+        frete={frete}
         total={total}
         acao={
           <Botao type="submit" larguraTotal carregando={enviando}>

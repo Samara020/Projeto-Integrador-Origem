@@ -1,138 +1,207 @@
-// TC03 e TC05: regras da vitrine e da busca na Fake API (listarProdutos dos mocks,
-// usado por GET /api/produtos). Só a regra; a rota HTTP é testada no nível de API.
-import { buscarProduto, listarDestaques, listarProdutos } from "@/mocks";
+// TC03 e TC05: catálogo, busca, detalhe, disponibilidade e recomendações (services/produtos.ts).
+import { ApiError, http } from "@/lib/http";
+import { produtosService } from "@/services/produtos";
 
-const todos = () => listarProdutos({ limite: 48 });
+jest.mock("@/lib/http", () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, mensagem: string) {
+      super(mensagem);
+      this.name = "ApiError";
+      this.status = status;
+    }
+  },
+  http: jest.fn(),
+}));
 
-describe("TC03 · vitrine mostra só peças disponíveis", () => {
-  test("disponivel=true deixa de fora as peças reservadas e vendidas", () => {
-    const { itens, total } = listarProdutos({ disponivel: true, limite: 48 });
+const mockedHttp = http as jest.Mock;
 
-    expect(itens.length).toBeGreaterThan(0);
-    expect(itens.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
-    expect(itens.map((p) => p.id)).not.toContain("prd_206"); // RESERVADO
-    expect(itens.map((p) => p.id)).not.toContain("prd_208"); // VENDIDO
-    expect(total).toBe(todos().itens.filter((p) => p.disponibilidade === "DISPONIVEL").length);
-  });
-
-  test("os destaques da home também só trazem peças disponíveis", () => {
-    const destaques = listarDestaques();
-
-    expect(destaques.length).toBeGreaterThan(0);
-    expect(destaques.every((p) => p.disponibilidade === "DISPONIVEL")).toBe(true);
-  });
+beforeEach(() => {
+  mockedHttp.mockReset();
 });
 
-describe("TC03 · busca por termo e filtros", () => {
-  test("busca ignora acento e maiúscula: 'ceramica' acha 'Vaso Cerâmica Raízes'", () => {
-    const { itens } = listarProdutos({ termo: "CERAMICA", limite: 48 });
+describe("produtosService · listagem e filtros", () => {
+  test("listar envia os filtros na chamada GET /produtos com AbortSignal", async () => {
+    const controlador = new AbortController();
+    const resposta = { total: 1, pagina: 1, limite: 8, itens: [] };
+    mockedHttp.mockResolvedValueOnce(resposta);
 
-    expect(itens.map((p) => p.id)).toContain("prd_201");
-  });
+    const resultado = await produtosService.listar(
+      {
+        termo: "ceramica",
+        categoria: "1002",
+        tecnica: "Cerâmica manual",
+        regiao: "Agreste",
+        precoMax: 200,
+        avaliacaoMin: 4,
+        disponivel: true,
+        pecaUnica: true,
+        ordenar: "melhor-avaliacao",
+        pagina: 2,
+        limite: 8,
+      },
+      controlador.signal,
+    );
 
-  test("busca por termo deixa de fora peças vendidas ('pavao' não traz 'Matriz Entalhada Pavão')", () => {
-    const { itens, total } = listarProdutos({ termo: "pavao" });
-
-    expect(itens.map((p) => p.id)).not.toContain("prd_208");
-    expect(total).toBe(0);
-  });
-
-  test("termo sem correspondência devolve envelope vazio", () => {
-    expect(listarProdutos({ termo: "termo-que-nao-existe-xyz" })).toEqual({
-      total: 0,
-      pagina: 1,
-      limite: 8,
-      itens: [],
+    expect(resultado).toEqual(resposta);
+    expect(mockedHttp).toHaveBeenCalledWith("/produtos", {
+      parametros: {
+        termo: "ceramica",
+        categoria: "1002",
+        tecnica: "Cerâmica manual",
+        regiao: "Agreste",
+        precoMax: 200,
+        avaliacaoMin: 4,
+        disponivel: true,
+        pecaUnica: true,
+        ordenar: "melhor-avaliacao",
+        pagina: 2,
+        limite: 8,
+      },
+      sinal: controlador.signal,
     });
   });
 
-  test("filtro de categoria devolve só a categoria pedida", () => {
-    const { itens } = listarProdutos({ categoria: "literatura", limite: 48 });
+  test("listarDestaques consulta GET /produtos com destaque=true", async () => {
+    mockedHttp.mockResolvedValueOnce({ total: 0, pagina: 1, limite: 10, itens: [] });
 
-    expect(itens.map((p) => p.id).sort()).toEqual(["prd_209", "prd_210"]);
-  });
+    await produtosService.listarDestaques();
 
-  test("filtro de técnica devolve só a técnica pedida", () => {
-    expect(listarProdutos({ tecnica: "bordado", limite: 48 }).itens.map((p) => p.id).sort()).toEqual(["prd_204", "prd_211"]);
-  });
-
-  test("filtro de região devolve só peças de artesãos da região", () => {
-    const { itens } = listarProdutos({ regiao: "zona-da-mata", limite: 48 });
-
-    expect(itens.map((p) => p.id).sort()).toEqual(["prd_201", "prd_212", "prd_213"]);
-    expect(itens.every((p) => p.regiao.id === "zona-da-mata")).toBe(true);
-  });
-
-  test.each(["tecnica", "regiao"] as const)("%s inexistente devolve lista vazia", (filtro) => {
-    expect(listarProdutos({ [filtro]: "valor-que-nao-existe" })).toMatchObject({ total: 0, itens: [] });
-  });
-
-  test("precoMax corta as peças mais caras (valor-limite inclusivo)", () => {
-    const { itens } = listarProdutos({ precoMax: 70, limite: 48 });
-
-    expect(itens.length).toBeGreaterThan(0);
-    expect(itens.every((p) => p.preco <= 70)).toBe(true);
-    expect(itens.map((p) => p.id)).toContain("prd_203"); // custa exatamente 70
-  });
-
-  test("pecaUnica=true devolve só peça única", () => {
-    const { itens } = listarProdutos({ pecaUnica: true, limite: 48 });
-
-    expect(itens.length).toBeGreaterThan(0);
-    expect(itens.every((p) => p.modalidadeProducao === "PECA_UNICA")).toBe(true);
-  });
-
-  test.each([
-    ["menor-preco", (a: number, b: number) => a - b],
-    ["maior-preco", (a: number, b: number) => b - a],
-  ] as const)("ordenar por %s só muda a ordem: mesmas peças, preços em sequência", (ordenar, comparar) => {
-    const original = todos().itens;
-    const ordenados = listarProdutos({ ordenar, limite: 48 }).itens;
-    const precos = ordenados.map((p) => p.preco);
-
-    expect(ordenados.length).toBe(original.length);
-    expect(ordenados.map((p) => p.id).sort()).toEqual(original.map((p) => p.id).sort());
-    expect(precos).toEqual([...precos].sort(comparar));
+    expect(mockedHttp).toHaveBeenCalledWith("/produtos", {
+      parametros: { destaque: true },
+      sinal: undefined,
+    });
   });
 });
 
-describe("TC03 · paginação no envelope do contrato", () => {
-  test("padrão: página 1 com 8 itens e total de todas as peças", () => {
-    const pagina = listarProdutos({});
+describe("produtosService · detalhe e disponibilidade", () => {
+  test("buscar normaliza técnica, região, disponibilidade pelo estoque e imagemPrincipal", async () => {
+    mockedHttp.mockResolvedValueOnce({
+      id: "2009",
+      nome: "Vaso do Sertão",
+      preco: 190,
+      descricao: "Modelado à mão.",
+      imagens: ["/produtos/vaso.jpg"],
+      categoria: { id: "1002", nome: "Cerâmica" },
+      tecnica: "Cerâmica manual",
+      estoque: 3,
+      origem: "Caruaru, PE",
+      modalidadeProducao: "PRONTA_ENTREGA",
+      seloAtivo: true,
+      avaliacaoMedia: 4.8,
+      totalAvaliacoes: 5,
+      dimensoes: "",
+      material: "",
+      artesao: { id: "1004", nome: "Maria Silva", loja: "Ateliê Raízes" },
+    });
 
-    expect(pagina).toMatchObject({ pagina: 1, limite: 8, total: todos().total });
-    expect(pagina.itens).toHaveLength(Math.min(8, todos().total));
+    const detalhe = await produtosService.buscar("2009");
+
+    expect(mockedHttp).toHaveBeenCalledWith("/produtos/2009", { sinal: undefined });
+    expect(detalhe).toMatchObject({
+      id: "2009",
+      imagemPrincipal: "/produtos/vaso.jpg",
+      tecnica: { id: "Cerâmica manual", nome: "Cerâmica manual" },
+      regiao: { id: "Caruaru, PE", nome: "Caruaru, PE" },
+      disponibilidade: "DISPONIVEL",
+      artesao: { id: "1004", nome: "Maria Silva", loja: "Ateliê Raízes" },
+    });
   });
 
-  test("limite fica entre 1 e 48 e página mínima é 1", () => {
-    expect(listarProdutos({ limite: 0 }).limite).toBe(1);
-    expect(listarProdutos({ limite: 500 }).limite).toBe(48);
-    expect(listarProdutos({ pagina: -3 }).pagina).toBe(1);
+  test("buscar marca como VENDIDO quando estoque é 0 e disponibilidade não veio", async () => {
+    mockedHttp.mockResolvedValueOnce({
+      id: "2008",
+      nome: "Matriz Pavão",
+      preco: 250,
+      imagens: [],
+      categoria: { id: "1003", nome: "Arte" },
+      tecnica: { id: "Xilogravura", nome: "Xilogravura" },
+      estoque: 0,
+      regiao: { id: "Olinda, PE", nome: "Olinda, PE" },
+      modalidadeProducao: "PECA_UNICA",
+      seloAtivo: false,
+      avaliacaoMedia: 0,
+      totalAvaliacoes: 0,
+      dimensoes: "",
+      material: "",
+      artesao: { id: "1004", nome: "Maria Silva", loja: "Ateliê Raízes", cidade: "Olinda, PE" },
+    });
+
+    const detalhe = await produtosService.buscar("2008");
+
+    expect(detalhe.disponibilidade).toBe("VENDIDO");
   });
 
-  test("as páginas de 5, emendadas, reproduzem a lista inteira na mesma ordem", () => {
-    const inteira = todos().itens.map((p) => p.id);
-    const paginas = Math.ceil(inteira.length / 5);
-    const emendadas = Array.from({ length: paginas }, (_, i) =>
-      listarProdutos({ limite: 5, pagina: i + 1 }).itens.map((p) => p.id),
-    ).flat();
+  test("buscar propaga 404 da API", async () => {
+    mockedHttp.mockRejectedValueOnce(new ApiError(404, "Produto nao encontrado."));
 
-    expect(paginas).toBeGreaterThan(1);
-    expect(emendadas).toEqual(inteira);
-    expect(listarProdutos({ limite: 5, pagina: paginas + 1 }).itens).toEqual([]);
+    await expect(produtosService.buscar("999999")).rejects.toMatchObject({
+      status: 404,
+      message: "Produto nao encontrado.",
+    });
   });
 });
 
-describe("TC05 · disponibilidade no detalhe da peça", () => {
-  test.each([
-    ["prd_201", "DISPONIVEL"],
-    ["prd_206", "RESERVADO"],
-    ["prd_208", "VENDIDO"],
-  ])("%s está %s", (id, disponibilidade) => {
-    expect(buscarProduto(id)?.disponibilidade).toBe(disponibilidade);
+describe("produtosService · recomendações e avaliações", () => {
+  test("recomendados filtra peças reservadas/vendidas e mantém somente DISPONIVEL", async () => {
+    mockedHttp.mockResolvedValueOnce({
+      recomendados: [
+        {
+          id: "2002",
+          nome: "Luminária",
+          preco: 120,
+          imagemPrincipal: "/a.jpg",
+          artesao: { id: "1004", nome: "Ana" },
+          seloAtivo: true,
+          regiao: "Agreste",
+          disponibilidade: "DISPONIVEL",
+          modalidadeProducao: "PRONTA_ENTREGA",
+          motivo: "Mesma técnica",
+        },
+        {
+          id: "2008",
+          nome: "Matriz Vendida",
+          preco: 300,
+          imagemPrincipal: "/b.jpg",
+          artesao: { id: "1004", nome: "Ana" },
+          seloAtivo: false,
+          regiao: "Olinda",
+          disponibilidade: "VENDIDO",
+          modalidadeProducao: "PECA_UNICA",
+        },
+        {
+          id: "2006",
+          nome: "Carranca Reservada",
+          preco: 210,
+          imagemPrincipal: "/c.jpg",
+          artesao: { id: "1004", nome: "Ana" },
+          seloAtivo: false,
+          regiao: "Sertão",
+          disponibilidade: "RESERVADO",
+          modalidadeProducao: "PECA_UNICA",
+        },
+      ],
+    });
+
+    const resposta = await produtosService.recomendados("2001");
+
+    expect(mockedHttp).toHaveBeenCalledWith("/produtos/recomendacoes", {
+      parametros: { produtoId: "2001" },
+      sinal: undefined,
+    });
+    expect(resposta.recomendados).toHaveLength(1);
+    expect(resposta.recomendados[0]).toMatchObject({
+      id: "2002",
+      disponibilidade: "DISPONIVEL",
+      motivo: "Mesma técnica",
+    });
   });
 
-  test("peça inexistente devolve null", () => {
-    expect(buscarProduto("prd_999")).toBeNull();
+  test("avaliacoes consulta GET /produtos/{id}/avaliacoes", async () => {
+    const payload = { media: 4.5, total: 2, itens: [] };
+    mockedHttp.mockResolvedValueOnce(payload);
+
+    await expect(produtosService.avaliacoes("2001")).resolves.toEqual(payload);
+    expect(mockedHttp).toHaveBeenCalledWith("/produtos/2001/avaliacoes", { sinal: undefined });
   });
 });

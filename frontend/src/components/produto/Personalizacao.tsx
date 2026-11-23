@@ -1,7 +1,6 @@
 "use client";
 
-import { CheckCircle2, Paperclip } from "lucide-react";
-import Image from "next/image";
+import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { AvisoFormulario } from "@/components/conta/AvisoFormulario";
@@ -11,6 +10,7 @@ import { Campo } from "@/components/ui/Campo";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
+import { Foto } from "@/components/ui/Foto";
 import { Selecao } from "@/components/ui/Selecao";
 import { Selo } from "@/components/ui/Selo";
 import { useProduto } from "@/hooks/useProdutos";
@@ -35,7 +35,6 @@ const TAMANHOS = [
 
 function Formulario({ produto }: { produto: ProdutoDetalhe }) {
   const [dados, setDados] = useState({ cor: "", tamanho: "", inscricao: "", detalhes: "", mensagem: "" });
-  const [referencias, setReferencias] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviada, setEnviada] = useState<Solicitacao | null>(null);
@@ -80,7 +79,7 @@ function Formulario({ produto }: { produto: ProdutoDetalhe }) {
     <form onSubmit={enviar} noValidate className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3 rounded-raio border border-borda bg-superficie p-3">
-          <Image src={produto.imagemPrincipal} alt="" width={90} height={72} className="h-18 w-22 rounded-raio object-cover" />
+          <Foto src={produto.imagemPrincipal} alt="" width={90} height={72} className="h-18 w-22 rounded-raio object-cover" />
           <div className="flex flex-col gap-0.5">
             <p className="text-legenda font-bold uppercase tracking-wide text-terracota">Peça base selecionada</p>
             <p className="font-titulo text-h3 font-bold text-tinta">{produto.nome}</p>
@@ -100,18 +99,13 @@ function Formulario({ produto }: { produto: ProdutoDetalhe }) {
             <label htmlFor="perso-mensagem" className="text-apoio font-bold text-tinta">Mensagem ao artesão</label>
             <textarea id="perso-mensagem" rows={3} placeholder="Para que ocasião é, o que não pode faltar, o que você quer evitar." className="w-full rounded-raio border border-borda bg-superficie px-3 py-2 text-corpo text-tinta placeholder:text-tinta-4 hover:border-borda-forte" {...campo("mensagem")} />
           </div>
-          <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-raio border border-dashed border-aviso px-4 py-3 text-apoio text-tinta-2 hover:border-terracota">
-            <Paperclip className="size-4 shrink-0" aria-hidden="true" />
-            {referencias.length === 0 ? "Enviar fotos de referência · PNG ou JPG" : referencias.join(", ")}
-            <input type="file" accept="image/png,image/jpeg" multiple className="sr-only" onChange={(e) => setReferencias(Array.from(e.target.files ?? []).slice(0, 3).map((f) => f.name))} />
-          </label>
         </fieldset>
       </div>
 
       <aside className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4 lg:sticky lg:top-24">
         <h2 className="font-titulo text-h3 font-bold text-tinta">Como vai ficar</h2>
         <div className="relative aspect-3/2 w-full overflow-hidden rounded-raio bg-areia">
-          <Image src={produto.imagemPrincipal} alt="" fill sizes="(min-width: 1024px) 24rem, 100vw" className="object-cover" />
+          <Foto src={produto.imagemPrincipal} alt="" fill sizes="(min-width: 1024px) 24rem, 100vw" className="object-cover" />
           {produto.seloAtivo && <div className="absolute left-2 top-2"><Selo variante="autentico">Autêntico</Selo></div>}
         </div>
         <dl className="flex flex-col gap-1 rounded-raio bg-areia p-3 text-apoio font-bold text-tinta" aria-live="polite">
@@ -143,7 +137,7 @@ export function Personalizacao({ produtoId }: { produtoId: string }) {
       {erro?.status === 404 && <EstadoVazio titulo="Não encontramos essa peça" descricao="Ela pode ter sido vendida ou retirada pelo artesão." acao={<BotaoLink href="/catalogo">Voltar para o catálogo</BotaoLink>} />}
       {erro && erro.status !== 404 && <EstadoErro mensagem={erro.message} aoTentarDeNovo={recarregar} />}
       {produto && !aceita && (
-        <EstadoVazio titulo="Esta peça não aceita personalização" descricao="Só peças feitas sob encomenda podem ser alteradas. Peça única e pronta entrega saem como estão." acao={<BotaoLink href="/catalogo?tecnica=bordado">Ver peças sob encomenda</BotaoLink>} />
+        <EstadoVazio titulo="Esta peça não aceita personalização" descricao="Só peças feitas sob encomenda podem ser alteradas. Peça única e pronta entrega saem como estão." acao={<BotaoLink href="/catalogo?tecnica=Bordado">Ver peças sob encomenda</BotaoLink>} />
       )}
       {produto && aceita && <Formulario produto={produto} />}
     </Container>

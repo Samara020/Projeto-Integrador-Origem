@@ -30,6 +30,9 @@ JWT_SECRET="chave_secreta_mude_em_producao"
 JWT_EXPIRES_IN="7d"
 PORT=4000
 CORS_ORIGIN=http://localhost:3000
+RECOMENDACAO_API_URL="http://localhost:3001"
+RECOMENDACAO_API_KEY="origem-mockup-key"
+RECOMENDACAO_TIMEOUT_MS=2000
 ```
 
 | Variável | Descrição | Padrão |
@@ -41,6 +44,9 @@ CORS_ORIGIN=http://localhost:3000
 | `JWT_EXPIRES_IN` | Expiração do token | `7d` |
 | `PORT` | Porta da API | `4000` |
 | `CORS_ORIGIN` | Origem permitida pelo CORS | `http://localhost:3000` |
+| `RECOMENDACAO_API_URL` | URL do serviço de IA (`modulo-ia`, BentoML). Sem ela, usa baseline local | `""` |
+| `RECOMENDACAO_API_KEY` | Chave enviada no cabeçalho `X-API-Key` ao `modulo-ia` | `origem-mockup-key` |
+| `RECOMENDACAO_TIMEOUT_MS` | Timeout (ms) da chamada ao `modulo-ia` antes do fallback | `2000` |
 
 ---
 
@@ -236,6 +242,8 @@ Lista de produtos para comparação.
 `PUT /produtos/:id` — `autenticar` + `artesaoApenas`
 
 Atualiza produto próprio. `403` se o produto não pertencer à loja do usuário.
+
+> **Validação de estoque:** O endpoint validade estoque disponível **antes** de qualquer escrita no banco. Se o payload indicar `estoque` negativo, a resposta é **400** e **nenhum dado é alterado** (preço e estoque permanecem inalterados - escrita atômica/rollback).
 
 `DELETE /produtos/:id` — `autenticar` + `artesaoApenas`
 

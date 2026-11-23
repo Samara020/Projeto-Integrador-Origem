@@ -22,7 +22,7 @@ export const pagamentoService = {
       throw new ErroApp(400, "Pedido ja se encontra pago ou finalizado.");
     }
 
-    const valorTotal = pedido.itens.reduce(
+    const valorTotal = Number(pedido.valorFrete) + pedido.itens.reduce(
       (s: number, i: any) => s + Number(i.subtotal),
       0
     );
@@ -39,6 +39,8 @@ export const pagamentoService = {
       transacaoId: pagamento.id,
       status: pagamento.status,
       dataPagamento: pagamento.data,
+      valorFrete: Number(pedido.valorFrete ?? 0),
+      valorTotal: Number(pagamento.valor),
     };
   },
 };

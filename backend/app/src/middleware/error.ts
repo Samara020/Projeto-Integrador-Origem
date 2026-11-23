@@ -38,10 +38,9 @@ export const tratarErro = (
     }));
 
     const primeiraMensagem = erros[0]?.mensagem;
+    // "Invalid input" e a mensagem padrao do Zod 4 para campo ausente ou de tipo errado.
     const ehMensagemAmigavel =
-      primeiraMensagem &&
-      !primeiraMensagem.startsWith("Required") &&
-      !primeiraMensagem.startsWith("Expected");
+      primeiraMensagem && !primeiraMensagem.startsWith("Invalid input");
 
     const mensagem = ehMensagemAmigavel
       ? primeiraMensagem

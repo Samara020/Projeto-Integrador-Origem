@@ -16,7 +16,7 @@ export class SuporteController {
   }
 
   async buscarPorId(req: Request, res: Response) {
-    const resultado = await suporteService.buscarPorId(req.params.id);
+    const resultado = await suporteService.buscarPorId(req.params.id, req.usuario!.id);
     return res.json(resultado);
   }
 }

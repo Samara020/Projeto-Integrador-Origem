@@ -30,7 +30,7 @@ app.MapPost("/demo/compras", (
         return Results.BadRequest(new { mensagem = "Informe o identificador da tentativa." });
     if (string.IsNullOrWhiteSpace(compra.Usuario))
         return Results.BadRequest(new { mensagem = "Informe o usuário." });
-    if (compra.ProdutoId != EstoqueDemonstracao.ProdutoId)
+    if (!EstoqueDemonstracao.ProdutoAceito(compra.ProdutoId))
         return Results.BadRequest(new { mensagem = "Produto fora da demonstração." });
     if (compra.Quantidade <= 0)
         return Results.BadRequest(new { mensagem = "Informe uma quantidade válida." });
@@ -79,6 +79,15 @@ enum StatusCompra
 sealed class EstoqueDemonstracao
 {
     public const string ProdutoId = "prd_201";
+    private static readonly HashSet<string> ProdutosAceitos = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "prd_201",
+        "2001"
+    };
+
+    public static bool ProdutoAceito(string? produtoId) =>
+        !string.IsNullOrWhiteSpace(produtoId) && ProdutosAceitos.Contains(produtoId);
+
     private readonly object _trava = new();
     private readonly Dictionary<Guid, CompraRegistrada> _compras = new();
     private readonly FilaPedidos _fila;

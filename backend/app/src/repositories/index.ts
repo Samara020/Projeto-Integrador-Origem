@@ -9,3 +9,4 @@ export { pagamentoRepository } from "./pagamento.repository";
 export { avaliacaoRepository } from "./avaliacao.repository";
 export { ticketRepository } from "./ticket.repository";
 export { adminRepository } from "./admin.repository";
+export { recuperacaoRepository } from "./recuperacao.repository";

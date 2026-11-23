@@ -58,6 +58,11 @@ export type ProdutoDetalhe = ProdutoResumo & {
   // lacunas: a comparação mostra dimensões e material
   dimensoes: string;
   material: string;
+  sku?: string;
+  peso?: number | string;
+  certificado?: string | null;
+  informacoesOrigem?: string | null;
+  statusValidacao?: StatusValidacao;
 };
 
 export type OrdenacaoProdutos =
@@ -83,6 +88,15 @@ export type FiltrosProdutos = {
 // motivo: justificativa do módulo de IA (HU-17). Ausente quando a sugestão vem do baseline.
 export type ProdutoSugerido = ProdutoResumo & {
   motivo?: string;
+  score?: number;
+};
+
+export type FiltrosRecomendacao = {
+  produtoId?: string;
+  categoria?: string;
+  tecnica?: string;
+  regiao?: string;
+  limite?: number;
 };
 
 export type RespostaRecomendacoes = {
@@ -210,12 +224,14 @@ export type OpcaoEnvio = {
 export type PedidoCriado = {
   pedidoId: string;
   status: StatusPedido;
+  valorFrete?: number;
   valorTotal: number;
 };
 
 export type PedidoResumo = {
   id: string;
   status: StatusPedido;
+  valorFrete?: number;
   valorTotal: number;
   criadoEm: string;
   // lacuna: o histórico e o acompanhamento exibem os itens comprados.
@@ -297,6 +313,14 @@ export type MetricasArtesao = {
   vendasPorDia: { dia: string; valor: number }[];
   alertas: AlertaArtesao[];
   pedidosRecentes: PedidoRecente[];
+  avaliacoesRecentes?: {
+    id: string;
+    autor: string;
+    produto: string;
+    nota: number;
+    comentario: string;
+    criadoEm: string;
+  }[];
 };
 
 // Gestão de estoque (lacuna: GET /artesao/pecas e PUT /artesao/pecas/{id}/estoque)
@@ -508,10 +532,15 @@ export type DadosRecuperarSenha = {
   email: string;
 };
 
+export type RespostaRecuperarSenha = RespostaMensagem & {
+  token?: string;
+  tokenRecuperacao?: string;
+};
+
 // lacuna: POST /auth/redefinir-senha com o token que chega por e-mail
 export type DadosRedefinirSenha = {
   token: string;
-  senha: string;
+  novaSenha: string;
 };
 
 // Avaliação após a compra (HU-19): POST /avaliacoes

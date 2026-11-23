@@ -1,13 +1,13 @@
 "use client";
 
 import { ArrowLeft, PackageCheck } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { BotaoLink } from "@/components/ui/Botao";
 import { Esqueleto } from "@/components/ui/Esqueleto";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
+import { Foto } from "@/components/ui/Foto";
 import { usePedidos } from "@/hooks/usePedidos";
 import { formatarData, formatarMoeda } from "@/lib/formato";
 import type { StatusPedido } from "@/types";
@@ -55,7 +55,7 @@ export function DetalhePedido({ id }: { id: string }) {
             <h2 className="font-titulo text-h2 font-bold text-tinta">Itens comprados</h2>
             {pedido.itens.map((item) => (
               <div key={item.produtoId} className="flex items-center gap-4 rounded-raio border border-borda p-4">
-                <Image src={item.imagemPrincipal} alt={item.nome} width={80} height={80} className="size-20 shrink-0 rounded-raio object-cover" />
+                <Foto src={item.imagemPrincipal} alt={item.nome} width={80} height={80} className="size-20 shrink-0 rounded-raio object-cover" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-apoio font-bold text-tinta">{item.nome}</p>
                   <p className="text-apoio text-tinta-3">Quantidade: {item.quantidade}</p>
@@ -65,9 +65,17 @@ export function DetalhePedido({ id }: { id: string }) {
             ))}
             {pedido.itens.length === 0 && <p className="text-apoio text-tinta-3">Os itens deste pedido não estão disponíveis.</p>}
           </div>
-          <div className="flex items-center justify-between border-t border-borda pt-5 text-corpo font-bold text-tinta">
-            <span>Total pago</span>
-            <span className="tabular-nums">{formatarMoeda(pedido.valorTotal)}</span>
+          <div className="flex flex-col gap-2 border-t border-borda pt-5">
+            {pedido.valorFrete !== undefined && pedido.valorFrete > 0 && (
+              <div className="flex items-center justify-between text-apoio text-tinta-2">
+                <span>Frete</span>
+                <span className="tabular-nums">{formatarMoeda(pedido.valorFrete)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-corpo font-bold text-tinta">
+              <span>Total pago</span>
+              <span className="tabular-nums">{formatarMoeda(pedido.valorTotal)}</span>
+            </div>
           </div>
           <p className="flex items-center gap-2 text-apoio text-selo"><PackageCheck className="size-5" aria-hidden="true" /> Sua compra é acompanhada pela Origem.</p>
         </section>

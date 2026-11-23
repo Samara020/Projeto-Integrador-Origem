@@ -79,17 +79,20 @@ function Artigos({ busca }: { busca: string }) {
 
 function NovoTicket() {
   const router = useRouter();
-  const { abrir } = useTickets();
+  const { abrir, autenticado } = useTickets();
   const [assunto, setAssunto] = useState("");
   const [descricao, setDescricao] = useState("");
   const [prioridade, setPrioridade] = useState<PrioridadeTicket>("NORMAL");
-  const [anexos, setAnexos] = useState<string[]>([]);
   const [erros, setErros] = useState<{ assunto?: string; descricao?: string }>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    if (!autenticado) {
+      router.push("/entrar?volta=%2Fsuporte");
+      return;
+    }
     const novos = { assunto: assunto.trim().length < 3 ? "Diga o assunto em poucas palavras." : undefined, descricao: descricao.trim().length < 10 ? "Conte um pouco mais: pelo menos 10 caracteres." : undefined };
     setErros(novos);
     if (novos.assunto || novos.descricao) return;
@@ -114,34 +117,49 @@ function NovoTicket() {
         <textarea id="ticket-descricao" rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Conte o que aconteceu" aria-invalid={erros.descricao ? true : undefined} aria-describedby="ticket-descricao-erro" className={`w-full rounded-raio border bg-superficie px-3 py-2 text-corpo text-tinta placeholder:text-tinta-4 ${erros.descricao ? "border-erro" : "border-borda hover:border-borda-forte"}`} />
         <p id="ticket-descricao-erro" className="min-h-5 text-apoio text-erro">{erros.descricao}</p>
       </div>
-      <div className="flex flex-col gap-2">
-        <span className="text-apoio font-bold text-tinta">Anexos</span>
-        <label className="flex h-11 cursor-pointer items-center rounded-raio border border-borda bg-superficie px-3 text-apoio text-tinta-3 hover:border-borda-forte">
-          {anexos.length === 0 ? "Adicionar arquivos" : anexos.join(", ")}
-          <input type="file" multiple className="sr-only" onChange={(e) => setAnexos(Array.from(e.target.files ?? []).slice(0, 3).map((f) => f.name))} />
-        </label>
-        <p className="min-h-5" aria-hidden="true" />
-      </div>
       <Selecao id="ticket-prioridade" rotulo="Prioridade" opcoes={[{ id: "NORMAL", nome: "Normal" }, { id: "ALTA", nome: "Alta, pedido parado ou peça danificada" }]} value={prioridade} onChange={(e) => setPrioridade(e.target.value as PrioridadeTicket)} />
-      <Botao type="submit" carregando={enviando} className="self-start">{enviando ? "Enviando" : "Enviar solicitação"}</Botao>
+      <Botao type="submit" carregando={enviando} className="self-start">
+        {autenticado ? (enviando ? "Enviando" : "Enviar solicitação") : "Entrar para enviar"}
+      </Botao>
     </form>
   );
 }
 
 function SeusTickets() {
-  const { tickets, carregando } = useTickets();
+  const { tickets, carregando, erro, recarregar, autenticado } = useTickets();
   return (
     <section aria-labelledby="tickets-titulo" className={CARTAO}>
       <h2 id="tickets-titulo" className="font-titulo text-h3 font-bold text-tinta">Seus tickets</h2>
       {carregando && <Esqueleto className="h-12" />}
-      {!carregando && tickets.length === 0 && <p className="text-apoio text-tinta-3">Nenhum ticket aberto até agora.</p>}
+      {!carregando && !autenticado && (
+        <p className="text-apoio text-tinta-3">
+          <Link href="/entrar?volta=%2Fsuporte" className="font-bold text-terracota hover:underline">
+            Entre na sua conta
+          </Link>{" "}
+          para acompanhar seus tickets.
+        </p>
+      )}
+      {!carregando && autenticado && erro && (
+        <div role="alert" className="flex flex-col items-start gap-2 text-apoio text-erro">
+          <p>{erro.message}</p>
+          <Botao variante="secundario" onClick={recarregar}>
+            Tentar de novo
+          </Botao>
+        </div>
+      )}
+      {!carregando && autenticado && !erro && tickets.length === 0 && (
+        <p className="text-apoio text-tinta-3">Nenhum ticket aberto até agora.</p>
+      )}
       <ul className="flex flex-col gap-3">
         {tickets.map((t) => (
           <li key={t.ticketId} className="flex flex-col gap-0.5">
             <Link href={`/suporte/${t.ticketId}`} className="text-apoio text-tinta hover:text-terracota hover:underline">
               #{t.ticketId} · {t.assunto}
             </Link>
-            <StatusTicket status={t.status} complemento={`aberto ${tempoRelativo(t.criadoEm)}`} />
+            <StatusTicket
+              status={t.status}
+              complemento={t.criadoEm ? `aberto ${tempoRelativo(t.criadoEm)}` : undefined}
+            />
           </li>
         ))}
       </ul>

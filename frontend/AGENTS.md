@@ -38,7 +38,6 @@ Regras visuais ficam em `DESIGN.md`. Regras de git e commit ficam no `AGENTS.md`
 ```
 src/
   app/            rotas: page.tsx, layout.tsx, loading.tsx, error.tsx
-    api/          Fake API (Route Handlers). Some na Avaliação 2
   components/
     ui/           peça base sem regra de negócio (Botao, Selo, Campo, snippets do Chakra)
     layout/       Header, Footer, Container
@@ -47,10 +46,9 @@ src/
     carrinho/     ItemCarrinho, ResumoCarrinho
   services/       um arquivo por domínio. Único lugar que fala com a API
   types/          contratos TypeScript, espelho do ContratoDeAPI.md
-  mocks/          dados da Fake API. Só `app/api` importa daqui
   hooks/          useProdutos, useProduto, useCarrinho
-  store/          estado global (carrinho, sessão)
-  lib/            http.ts, formato.ts (moeda, data)
+  store/          estado global (carrinho, sessão, histórico, comparação)
+  lib/            http.ts, formato.ts (moeda, data), imagem.ts, armazenamento.ts
 ```
 
 - `src/app/components/ui/` é o local antigo. Componente novo nasce em `src/components/`.
@@ -92,76 +90,47 @@ src/
 
 Busca e filtros vivem na URL: `/catalogo?termo=barro&categoria=ceramica&regiao=agreste&pagina=2`. Assim o link pode ser compartilhado e o botão voltar funciona.
 
-## Camada de dados (vale 35% da Avaliação 1)
+## Camada de dados
 
 O caminho de um dado até a tela é sempre este:
 
 ```
-componente -> hook -> service -> lib/http.ts -> /api (Fake API hoje, backend real depois)
+componente -> hook -> service -> lib/http.ts -> backend Express (NEXT_PUBLIC_API_URL ou http://localhost:4000)
 ```
 
 ### Regras
 
 1. **Nenhum dado fixo em `page.tsx` nem em componente.** Nem array, nem objeto, nem número de vitrine ("+800 artesãos"). Tudo vem de um service.
-2. **Componente não chama `fetch`.** Componente usa hook. Hook usa service. Só `lib/http.ts` chama `fetch`.
-3. **Só `app/api` importa de `mocks/`.** Se uma tela importar de `mocks/`, está errado.
+2. **Componente não chama `fetch`.** Componente usa hook. Hook usa service. Só `lib/http.ts` chama `fetch` (via Axios).
+3. **Sem Fake API nem `mocks/` no app.** Todas as rotas de negócio falam com o backend real (`NEXT_PUBLIC_API_URL`, padrão `http://localhost:4000`; no servidor, `API_BASE_URL` / `BACKEND_URL` / `NEXT_PUBLIC_API_URL`).
 4. **Nome de campo igual ao contrato.** `nome`, `preco`, `imagemPrincipal`, `seloAtivo`. Não traduza nem renomeie no front.
-5. **Rota fake igual à rota real.** `GET /produtos` do contrato vira `src/app/api/produtos/route.ts`. `GET /produtos/{id}` vira `src/app/api/produtos/[id]/route.ts`.
-6. **Listagem usa o envelope do contrato:** `{ total, pagina, limite, itens }`. Tipo: `Paginado<T>` em `types/`.
-7. **Erro tem formato único:** status HTTP correto e corpo `{ "mensagem": "texto para o usuário" }`. O `http.ts` transforma isso em `ApiError`.
+5. **Listagem usa o envelope do contrato:** `{ total, pagina, limite, itens }`. Tipo: `Paginado<T>` em `types/`.
+6. **Erro tem formato único:** status HTTP correto e corpo `{ "mensagem": "texto para o usuário" }`. O `http.ts` transforma isso em `ApiError`.
 
-### Troca pelo backend real (Avaliação 2)
+### Estado local do navegador
 
-`lib/http.ts` lê a base da URL de `NEXT_PUBLIC_API_URL`. Sem a variável, usa `/api`.
-
-Na Avaliação 2: define `NEXT_PUBLIC_API_URL` com o endereço do backend, apaga `src/app/api/` e `src/mocks/`. Tela, hook e tipo não mudam.
-
-`authService.entrar` deixa de ler `admin:perfil` (o backend devolve o nome atualizado).
-
-### Dado que muda (carrinho, pedido, sessão)
-
-Route Handler em deploy serverless não guarda estado entre chamadas. Por isso, na Avaliação 1:
-
-- Leitura (produtos, artesãos, categorias, técnicas, regiões, avaliações, indicadores): Fake API em `app/api`.
-- Escrita (carrinho, pedidos, pagamento, avaliação nova, tickets de suporte, comparação, peças vistas, personalização, login simulado, decisões de validação e moderação e o perfil do administrador): o service guarda no `localStorage`, com a mesma assinatura que terá com o backend (`carrinhoService.adicionar(produto, quantidade)` devolve `Promise`).
-- A triagem do suporte (HU-23) é uma lista de regras por palavra-chave em `services/suporte.ts`. O módulo de IA a substitui na Avaliação 2.
-
-Quem usa o service não sabe a diferença. Na Avaliação 2 só o miolo do service muda.
+- Autenticação, pedidos, avaliações, suporte, personalizações, painéis e carrinho autenticado persistem no backend/PostgreSQL.
+- Permanecem no `localStorage` apenas preferências/rascunhos locais do navegador: carrinho de visitante não autenticado (`carrinhoService`), histórico de peças vistas (`historicoService`), comparação (`comparacaoService`) e rascunho de nova peça não publicada (`painelArtesaoService.rascunho`).
 
 ### Onde buscar dado
 
-Busque em Client Component, pelo hook. Server Component não consegue chamar `/api` com URL relativa, e a avaliação quer ver loading, erro e vazio na tela.
+Busque em Client Component, pelo hook, para manter controle consistente de carregamento, erro e vazio na tela.
 
 Todo hook de leitura devolve o mesmo formato: `{ dados, carregando, erro, recarregar }`.
 
-### Simular lentidão e erro
+### Simular falhas
 
-Toda rota fake passa pelo helper de `lib/fake-api.ts`: aplica atraso de 400 ms e aceita `?_erro=500` para forçar falha. Use isso para testar loading e erro antes do PR.
+Para validar os estados de erro na interface, utilize falhas controladas no backend/ambiente de teste ou mocks de `http.ts` nos testes unitários.
 
-### Lacunas do contrato (combinar com o backend)
+### Contrato real dos services (alinhado ao backend Express)
 
-O contrato ainda não tem, e a Avaliação 1 pede:
+Todas as rotas e formatos de resposta seguem `../docs/ContratoDeAPI.md` e a normalização de caminhos em `src/lib/http.ts`:
 
-- `GET /categorias`, `GET /tecnicas`, `GET /regioes`.
-- `GET /produtos/{id}/avaliacoes`.
-- Filtros `tecnica` e `regiao` em `GET /produtos` (hoje só `termo`, `categoria`, `origem`).
-- `GET /indicadores` (números da vitrine: artesãos, peças, nota média).
-- Formato do corpo de erro. A Fake API usa `{ "mensagem": "..." }`.
-- Campos de detalhe do produto: descrição, técnica, região, estoque, galeria de imagens, disponibilidade, total de avaliações.
-- Região e disponibilidade no item de `GET /produtos` (o card mostra os dois).
-- `nome` e `imagemPrincipal` no item de `GET /carrinho`.
-- Perfil do artesão (`GET /artesaos/{id}/perfil`): foto, técnica, especialidade, verificado, história, citação, imagens, média e total de avaliações, peças vendidas.
-- `POST /auth/redefinir-senha` com o token que chega por e-mail.
-- `GET /comprador/avaliacoes`; `compraVerificada` e `respostaArtesao` na avaliação; `dimensoes` e `material` no detalhe da peça.
-- `POST /suporte/tickets/{id}/mensagens` (mensagens do chat, classificação e sugestões da triagem); `prioridade` no ticket.
-- `POST /produtos/{id}/personalizacoes` (solicitação ao artesão) e histórico de peças vistas.
-- `codigoConvite` em `POST /auth/register` para administrador (sem ele, 403).
-- `tecnica` e `regiao` em `POST /auth/register` para artesão. O Figma também pede CPF/CNPJ e localização: o front ainda não coleta, porque o contrato não recebe.
-- Fila de validação de origem (`GET /admin/produtos/pendentes`): filtro `?status` e campos de auditoria (`statusValidacao`, `justificativa`, `decididoEm`, `enviadoEm`, `tecnica`, `regiao`, `imagemPrincipal`, `informacoesOrigem`, `certificado`).
-- `GET /admin/avaliacoes?status=` (fila de moderação) e ação `MANTER` em `PUT /admin/avaliacoes/{id}/moderar`.
-- Perfil e senha do administrador: `GET` e `PUT /admin/perfil`, `PUT /admin/senha`.
-
-Os campos marcados com "lacuna" em `src/types/index.ts` são exatamente estes.
+- Catálogo e produtos: `GET /categorias`, `GET /tecnicas`, `GET /regioes`, `GET /indicadores`, `GET /produtos` (com `termo`, `categoria`, `tecnica`, `regiao`/`origem`, `precoMax`, `avaliacaoMin`, `disponivel`, `pecaUnica`, `ordenar`, `pagina`, `limite`), `GET /produtos/:id`, `GET /produtos/comparar`, `GET /produtos/recomendacoes`, `GET /produtos/:id/avaliacoes`.
+- Autenticação e sessão: `POST /auth/register`, `POST /auth/login`, `POST /auth/recuperar-senha`, `POST /auth/redefinir-senha`. Respostas `401` fora de `/auth/*` limpam a sessão e redirecionam para `/entrar?motivo=sessao-expirada&volta=...`.
+- Carrinho, frete, checkout e pedidos: `GET /carrinho`, `POST /carrinho/itens`, `PUT /carrinho/itens/:produtoId` (ajuste absoluto `>= 1`), `DELETE /carrinho/itens/:produtoId`, `POST /painel/envios/cotacao`, `POST /pedidos/checkout`, `POST /pagamentos`, `GET /comprador/pedidos`.
+- Avaliações, suporte e personalização: `POST /avaliacoes`, `GET /avaliacoes/comprador/avaliacoes`, `POST /suporte/tickets`, `GET /suporte/tickets`, `GET /suporte/tickets/:id`, `POST /suporte/tickets/:id/mensagens`, `PUT /suporte/tickets/:id/status`, `POST /produtos/:id/personalizacoes`, `GET /comprador/personalizacoes`.
+- Painéis do artesão e administrador: `/artesaos/:id/perfil`, `/artesao/*`, `/produtos/artesao/pecas*`, `/painel/artesao/*`, `/painel/admin/*`, `/produtos/admin/produtos/*` e `/avaliacoes/admin/avaliacoes*`.
 
 Se faltar campo para a sua tela: proponha a mudança em `../docs/ContratoDeAPI.md` no mesmo PR. Não invente campo só no front.
 
@@ -197,8 +166,8 @@ Os frames "Estado de carregamento", "Estado vazio" e "Erro 500" do Figma são a 
 ## Checklist do PR
 
 - [ ] `npm run build` e `npm run lint` passam.
-- [ ] Nenhum dado fixo na tela. Nenhum import de `mocks/` fora de `app/api`.
-- [ ] Carregando, erro e vazio implementados e testados com `?_erro=500`.
+- [ ] Nenhum dado fixo na tela. Sem dependência de Fake API ou `mocks/`.
+- [ ] Carregando, erro e vazio implementados e validados.
 - [ ] Testado em 360 px, 768 px e 1440 px de largura.
 - [ ] Só tokens do `DESIGN.md`. Nenhum hex solto, nenhum item da lista "NUNCA usar".
 - [ ] Todo link e botão da tela leva a algum lugar.

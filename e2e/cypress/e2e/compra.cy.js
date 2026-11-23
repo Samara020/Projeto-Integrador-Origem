@@ -1,34 +1,85 @@
-// TC04, TC06, TC07, TC10 e TC13: carrinho, checkout e pedidos, do jeito que o comprador usa.
+// TC05, TC06, TC10, TC13, TC19, TC20 e Card 18 Itens 8, 9: carrinho, checkout, frete, pedidos e persistência no backend real + Postgres.
 
-const PASSARO = { id: "prd_203", nome: "Pássaro de Madeira", total: "R$ 88,00" }; // R$ 70 + frete R$ 18
+const ALLOWED_API_ORIGINS = new Set([
+  "http://localhost:4200",
+  "http://127.0.0.1:4200",
+]);
 
-function adicionarPassaroPelaTela() {
-  cy.visit(`/produto/${PASSARO.id}`);
+function getApiUrl() {
+  const url = (
+    Cypress.expose("API_URL") ||
+    "http://localhost:4200"
+  ).replace(/\/$/, "");
+
+  let origin;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    origin = url;
+  }
+
+  if (url.includes(":4000") || url.includes(":3000")) {
+    throw new Error(
+      "[E2E Proteção] Execução bloqueada: proibido apontar para as portas do runtime principal (:3000 / :4000). Use o ambiente descartável (:4200).",
+    );
+  }
+
+  if (!ALLOWED_API_ORIGINS.has(origin)) {
+    throw new Error(
+      `[E2E Proteção] Execução bloqueada: a API aponta para ${url} (origin ${origin}), fora da allowlist autorizada (${Array.from(ALLOWED_API_ORIGINS).join(", ")}).`,
+    );
+  }
+
+  return url;
+}
+
+function adicionarPelaTela(produto) {
+  cy.visit(`/produto/${produto.id}`);
   cy.hidratado();
-  cy.contains("h1", PASSARO.nome).should("be.visible");
+  cy.contains("h1", produto.nome).should("be.visible");
   cy.contains("button", "Adicionar ao carrinho").click();
   cy.contains('[role="status"]', "Peça no carrinho").should("be.visible");
-  cy.get('a[aria-label="Carrinho com 1 item"]').should("exist");
+}
+
+function adicionarComoComprador() {
+  const apiUrl = getApiUrl();
+  cy.intercept("POST", `${apiUrl}/carrinho/itens`).as("adicionarItemCarrinho");
+  cy.contains("button", "Adicionar ao carrinho").click();
+  cy.wait("@adicionarItemCarrinho").then(({ response }) => {
+    expect(response?.statusCode).to.be.oneOf([200, 201]);
+  });
+  cy.get('a[aria-label="Carrinho com 1 item"]').should("be.visible");
 }
 
 function preencherEntrega() {
   cy.get("#checkout-cep").type("50030230");
   cy.get("#checkout-numero").type("100");
   cy.get("#checkout-rua").type("Rua da Aurora");
+  // Garante que a cotação de frete da API real apareceu antes de seguir.
+  cy.contains("Origem Econômico").should("be.visible");
 }
 
-describe("TC04 · adição e remoção de produto no carrinho", () => {
+describe("TC19 / Card 18 Item 8 · adição e remoção de produto no carrinho", () => {
+  let produto;
+
+  before(() => {
+    cy.criarProdutoAprovado({ nome: `Peça Carrinho ${Date.now()}`, preco: 70, estoque: 5 }).then(
+      (p) => {
+        produto = p;
+      },
+    );
+  });
+
   it("adiciona pela página da peça e remove na tela do carrinho", () => {
-    adicionarPassaroPelaTela();
+    adicionarPelaTela(produto);
 
     cy.get('a[aria-label="Carrinho com 1 item"]').click();
     cy.location("pathname").should("eq", "/carrinho");
     cy.contains("1 peça escolhida").should("be.visible");
-    cy.contains("article", PASSARO.nome).should("be.visible");
-    // cy.contains normaliza o espaço não separável de "R$ 88,00".
-    cy.contains("aside", "Total").contains(PASSARO.total).should("be.visible");
+    cy.contains("article", produto.nome).should("be.visible");
+    cy.contains("aside", "Subtotal").contains("R$ 70,00").should("be.visible");
 
-    cy.contains("article", PASSARO.nome).contains("button", "Remover").click();
+    cy.contains("article", produto.nome).contains("button", "Remover").click();
 
     cy.contains("Seu carrinho está vazio").should("be.visible");
     cy.get('a[aria-label="Carrinho vazio"]').should("exist");
@@ -36,13 +87,22 @@ describe("TC04 · adição e remoção de produto no carrinho", () => {
   });
 });
 
-describe("TC06 e TC10 · finalização da compra", () => {
-  it("comprador logado compra com Pix e o pedido guarda os mesmos itens e total", () => {
-    adicionarPassaroPelaTela();
-    // A sessão entra antes da próxima carga de página, que é quando os stores a leem.
-    cy.request("POST", "/api/auth/login", { email: "comprador@origem.dev", senha: "origem123" }).then(({ body }) => {
-      cy.window().then((win) => win.localStorage.setItem("origem:sessao", JSON.stringify(body)));
-    });
+describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistência no banco", () => {
+  let produto;
+
+  before(() => {
+    cy.criarProdutoAprovado({ nome: `Peça Compra ${Date.now()}`, preco: 70, estoque: 10 }).then(
+      (p) => {
+        produto = p;
+      },
+    );
+  });
+
+  it("comprador logado cota frete, compra com Pix e acompanha o pedido pago no histórico", () => {
+    const apiUrl = getApiUrl();
+    cy.intercept("POST", `${apiUrl}/painel/envios/cotacao`).as("cotacao");
+    cy.visitarComo("COMPRADOR", `/produto/${produto.id}`);
+    adicionarComoComprador();
 
     cy.visit("/carrinho");
     cy.hidratado();
@@ -51,54 +111,48 @@ describe("TC06 e TC10 · finalização da compra", () => {
     cy.contains("h1", "Entrega").should("be.visible");
 
     preencherEntrega();
-    cy.contains("button", "Ir para pagamento").click();
-    cy.contains("h1", "Pagamento").should("be.visible");
-    cy.lerLocal("pedidos").its("0.status").should("eq", "AGUARDANDO_PAGAMENTO");
+    cy.wait("@cotacao").then(({ response }) => {
+      const frete = Number(response.body.valor);
+      const totalEsperado = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(produto.preco + frete).replace(/\u00a0/g, " ");
 
-    cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
-    cy.contains("button", "Pagar agora").click();
+      cy.contains("button", "Ir para pagamento").click();
+      cy.contains("h1", "Pagamento").should("be.visible");
+      cy.contains(totalEsperado).should("be.visible");
 
-    cy.contains("h1", "Pagamento confirmado").should("be.visible");
-    cy.contains(/ped_\d{6}/).should("be.visible");
-    cy.contains("Total pago").parent().contains(PASSARO.total).should("be.visible");
+      cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
+      cy.contains("button", "Pagar agora").click();
 
-    cy.lerLocal("pedidos").then((pedidos) => {
-      expect(pedidos, "um pedido só").to.have.length(1);
-      expect(pedidos[0].status).to.equal("PAGO");
-      expect(pedidos[0].valorTotal).to.equal(88);
-      expect(pedidos[0].itens).to.deep.equal([
-        { produtoId: PASSARO.id, quantidade: 1, precoUnitario: 70, nome: PASSARO.nome, imagemPrincipal: pedidos[0].itens[0].imagemPrincipal },
-      ]);
+      cy.contains("h1", "Pagamento confirmado").should("be.visible");
+      cy.contains("Total pago").parent().contains(totalEsperado).should("be.visible");
     });
-    cy.lerLocal("carrinho").should("deep.equal", []);
+
+    cy.get("dd")
+      .first()
+      .invoke("text")
+      .then((pedidoId) => {
+        const idLimpo = pedidoId.trim();
+        expect(idLimpo).to.match(/^\d+$/);
+
+        cy.visit("/conta");
+        cy.hidratado();
+        cy.contains("h1", "Compras realizadas").should("be.visible");
+        cy.contains(`PEDIDO #${idLimpo}`).should("be.visible");
+
+        cy.visit(`/conta/pedidos/${idLimpo}`);
+        cy.hidratado();
+        cy.contains("h1", "Detalhes da compra").should("be.visible");
+        cy.contains("span", /^Pago$/).should("be.visible");
+        cy.contains(produto.nome).should("be.visible");
+      });
   });
 
-  it("cartão de crédito válido paga o pedido (o formulário gera o token)", () => {
-    adicionarPassaroPelaTela();
-    cy.visit("/checkout");
-    cy.hidratado();
-    preencherEntrega();
-    cy.contains("button", "Ir para pagamento").click();
-    cy.contains("h1", "Pagamento").should("be.visible");
+  it("cartão de crédito válido paga o pedido e dados inválidos são barrados", () => {
+    cy.visitarComo("COMPRADOR", `/produto/${produto.id}`);
+    adicionarComoComprador();
 
-    // Cartão é o método padrão; a máscara põe os espaços e o " / " sozinha.
-    cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Cartão de crédito")
-      .should("have.attr", "aria-pressed", "true");
-    cy.get("#pagamento-numero").type("4111111111111111").should("have.value", "4111 1111 1111 1111");
-    cy.get("#pagamento-nome").type("Joana Compradora");
-    cy.get("#pagamento-validade").type("1230").should("have.value", "12 / 30");
-    cy.get("#pagamento-cvv").type("123");
-    cy.contains("button", "Pagar agora").click();
-
-    cy.contains("h1", "Pagamento confirmado").should("be.visible");
-    cy.lerLocal("pedidos").then((pedidos) => {
-      expect(pedidos).to.have.length(1);
-      expect(pedidos[0]).to.include({ status: "PAGO", valorTotal: 88 });
-    });
-  });
-
-  it("cartão com dados inválidos não paga e o pedido segue aguardando pagamento", () => {
-    adicionarPassaroPelaTela();
     cy.visit("/checkout");
     cy.hidratado();
     preencherEntrega();
@@ -107,114 +161,234 @@ describe("TC06 e TC10 · finalização da compra", () => {
 
     cy.get("#pagamento-numero").type("4111");
     cy.contains("button", "Pagar agora").click();
-
     cy.get("#pagamento-numero-erro").should("have.text", "Digite os 16 números do cartão.");
     cy.get("#pagamento-cvv-erro").should("have.text", "Digite o código de segurança.");
     cy.contains("h1", "Pagamento confirmado").should("not.exist");
-    cy.lerLocal("pedidos").its("0.status").should("eq", "AGUARDANDO_PAGAMENTO");
+
+    cy.get("#pagamento-numero").clear().type("4111111111111111");
+    cy.get("#pagamento-nome").type("Joana Compradora");
+    cy.get("#pagamento-validade").type("1230");
+    cy.get("#pagamento-cvv").type("123");
+    cy.contains("button", "Pagar agora").click();
+
+    cy.contains("h1", "Pagamento confirmado").should("be.visible");
   });
 
   it("endereço incompleto não cria pedido", () => {
-    adicionarPassaroPelaTela();
+    cy.visitarComo("COMPRADOR", `/produto/${produto.id}`);
+    adicionarComoComprador();
+
     cy.visit("/checkout");
     cy.hidratado();
-
     cy.get("#checkout-cep").type("5003");
     cy.contains("button", "Ir para pagamento").click();
 
     cy.get("#checkout-cep-erro").should("have.text", "Digite um CEP válido.");
     cy.get("#checkout-numero-erro").should("have.text", "Digite o número.");
     cy.get("#checkout-rua-erro").should("have.text", "Digite o nome da rua.");
-    cy.lerLocal("pedidos").should("be.null");
+    cy.location("pathname").should("eq", "/checkout");
+    cy.contains("h1", "Entrega").should("be.visible");
+  });
+
+  it("duplo clique em 'Ir para pagamento' e 'Pagar agora' gera apenas um pedido", () => {
+    const apiUrl = getApiUrl();
+    cy.visitarComo("COMPRADOR", `/produto/${produto.id}`).then((sessao) => {
+      adicionarComoComprador();
+
+      cy.visit("/checkout");
+      cy.hidratado();
+      preencherEntrega();
+
+      cy.contains("button", "Ir para pagamento").dblclick();
+      cy.contains("h1", "Pagamento").should("be.visible");
+      cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
+      cy.contains("button", "Pagar agora").dblclick();
+      cy.contains("h1", "Pagamento confirmado").should("be.visible");
+
+      cy.request({
+        method: "GET",
+        url: `${apiUrl}/comprador/pedidos`,
+        headers: { Authorization: `Bearer ${sessao.token}` },
+      }).then(({ body }) => {
+        expect(body.pedidos).to.have.length(1);
+        expect(body.pedidos[0].status).to.equal("PAGO");
+      });
+    });
+  });
+
+  it("TC06 / Card 18 Itens 7, 8 e 9 · fluxo integrado: cadastro de novo usuário -> adicionar item -> atualizar quantidade atômica -> frete -> checkout -> histórico", () => {
+    const apiUrl = getApiUrl();
+    const timestamp = Date.now();
+    const email = `novo.comprador.${timestamp}@origem-teste.dev`;
+    const senha = "SenhaSegura123";
+
+    cy.intercept("PUT", `${apiUrl}/carrinho/itens/*`).as("atualizarQuantidade");
+    cy.intercept("POST", `${apiUrl}/painel/envios/cotacao`).as("cotacaoFrete");
+
+    // 1. Cadastro de novo comprador
+    cy.visit("/cadastro");
+    cy.hidratado();
+    cy.get("#cadastro-nome").type("Comprador Fluxo Completo");
+    cy.get("#cadastro-email").type(email);
+    cy.get("#cadastro-senha").type(senha, { log: false });
+    cy.get('input[type="checkbox"]').check();
+    cy.contains("button[type=submit]", "Criar minha conta").click();
+
+    cy.location("pathname").should("eq", "/");
+    cy.lerLocal("sessao").should("not.be.null");
+
+    // 2. Adiciona peça ao carrinho
+    cy.visit(`/produto/${produto.id}`);
+    cy.hidratado();
+    adicionarComoComprador();
+
+    // 3. Abre carrinho e altera quantidade com chamada atômica PUT
+    cy.visit("/carrinho");
+    cy.hidratado();
+    cy.contains("1 peça escolhida").should("be.visible");
+    cy.contains("article", produto.nome).should("be.visible");
+
+    cy.get('button[aria-label="Aumentar quantidade"]').first().click();
+    cy.wait("@atualizarQuantidade").then((interception) => {
+      expect(interception.request.body).to.deep.equal({ quantidade: 2 });
+    });
+    cy.contains("2 peças escolhidas").should("be.visible");
+    const subtotalEsperado = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(produto.preco * 2).replace(/\u00a0/g, " ");
+    cy.contains("aside", "Subtotal").contains(subtotalEsperado).should("be.visible");
+
+    // 4. Vai para checkout e cota frete
+    cy.contains("a", "Finalizar compra").click();
+    cy.location("pathname").should("eq", "/checkout");
+    preencherEntrega();
+    cy.wait("@cotacaoFrete").then(({ response }) => {
+      const frete = Number(response.body.valor);
+      const totalEsperado = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(produto.preco * 2 + frete).replace(/\u00a0/g, " ");
+
+      cy.contains("button", "Ir para pagamento").click();
+      cy.contains("h1", "Pagamento").should("be.visible");
+      cy.contains(totalEsperado).should("be.visible");
+
+      cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
+      cy.contains("button", "Pagar agora").click();
+
+      // 5. Confirmação do pedido
+      cy.contains("h1", "Pagamento confirmado").should("be.visible");
+      cy.get("dd")
+        .first()
+        .invoke("text")
+        .then((pedidoTexto) => {
+          const idPedido = pedidoTexto.trim();
+          expect(idPedido).to.match(/^\d+$/);
+
+          // 6. Histórico de pedidos no perfil
+          cy.visit("/conta");
+          cy.hidratado();
+          cy.contains(`PEDIDO #${idPedido}`).should("be.visible");
+
+          cy.visit(`/conta/pedidos/${idPedido}`);
+          cy.hidratado();
+          cy.contains("h1", "Detalhes da compra").should("be.visible");
+          cy.contains("span", /^Pago$/).should("be.visible");
+          cy.contains(produto.nome).should("be.visible");
+        });
+    });
   });
 });
 
-describe("TC07 · acompanhamento e status do pedido", () => {
-  const PEDIDO = {
-    id: "ped_424242",
-    status: "AGUARDANDO_PAGAMENTO",
-    valorTotal: 88,
-    criadoEm: "2026-10-14T12:00:00.000Z",
-    itens: [{ produtoId: PASSARO.id, quantidade: 1, precoUnitario: 70, nome: PASSARO.nome, imagemPrincipal: "/x.jpg" }],
-  };
+describe("TC05 / TC19 / TC20 · persistência do carrinho e consistência de estoque no checkout", () => {
+  let produtoDisponivel;
+  let produtoEsgotado;
 
-  it("pedido aguardando pagamento aparece com esse status no histórico e no detalhe", () => {
-    cy.visitarComo("COMPRADOR", "/conta", { pedidos: [PEDIDO] });
+  before(() => {
+    const tag = Date.now();
+    cy.criarProdutoAprovado({ nome: `Peça Persistência ${tag}`, preco: 60, estoque: 8 }).then((p) => {
+      produtoDisponivel = p;
+    });
+    cy.criarProdutoAprovado({ nome: `Peça Esgotada ${tag}`, preco: 95, estoque: 0 }).then((p) => {
+      produtoEsgotado = p;
+    });
+  });
+
+  it("itens e quantidades do carrinho persistem no navegador após reload da página", () => {
+    cy.visitarComo("COMPRADOR", `/produto/${produtoDisponivel.id}`);
+    adicionarComoComprador();
+
+    cy.visit("/carrinho");
+    cy.hidratado();
+    cy.contains("1 peça escolhida").should("be.visible");
+    cy.contains("article", produtoDisponivel.nome).should("be.visible");
+
+    // Recarrega a página
+    cy.reload();
+    cy.hidratado();
+
+    // Carrinho deve permanecer intacto
+    cy.contains("1 peça escolhida").should("be.visible");
+    cy.contains("article", produtoDisponivel.nome).should("be.visible");
+    cy.contains("aside", "Subtotal").contains("R$ 60,00").should("be.visible");
+  });
+
+  it("sessão autenticada e perfil persistem após reload da página", () => {
+    cy.visitarComo("COMPRADOR", "/conta");
+    cy.contains("h1", "Compras realizadas").should("be.visible");
+
+    cy.reload();
+    cy.hidratado();
 
     cy.contains("h1", "Compras realizadas").should("be.visible");
-    cy.contains("Aguardando pagamento").should("be.visible");
-    cy.contains("a", "Acompanhar pedido").click();
-
-    cy.location("pathname").should("eq", `/conta/pedidos/${PEDIDO.id}`);
-    cy.contains("h1", "Detalhes da compra").should("be.visible");
-    cy.contains("Aguardando pagamento").should("be.visible");
-    cy.contains(PASSARO.nome).should("be.visible");
-    cy.contains("Quantidade: 1").should("be.visible");
+    cy.lerLocal("sessao").its("usuario.papel").should("eq", "COMPRADOR");
   });
 
-  it("depois do pagamento, o detalhe do pedido mostra o status Pago", () => {
-    adicionarPassaroPelaTela();
+  it("peça com estoque zerado não permite adicionar ao carrinho nem checkout", () => {
+    cy.visit(`/produto/${produtoEsgotado.id}`);
+    cy.hidratado();
+
+    cy.contains("h1", produtoEsgotado.nome).should("be.visible");
+    cy.contains("Vendida").should("be.visible");
+    cy.contains("button", "Adicionar ao carrinho").should("not.exist");
+    cy.contains("button", "Comprar agora").should("not.exist");
+  });
+
+  it("TC05 / TC20 · tentativa de checkout com estoque insuficiente recebe 409 do endpoint real /pedidos/checkout e preserva o carrinho", () => {
+    const apiUrl = getApiUrl();
+    cy.intercept("POST", `${apiUrl}/pedidos/checkout`).as("requisicaoCheckout");
+
+    cy.visitarComo("COMPRADOR", `/produto/${produtoDisponivel.id}`);
+    adicionarComoComprador();
+
+    // Zera o estoque da peça no backend real antes de tentar pagar para provocar 409 real
+    cy.request({
+      method: "PUT",
+      url: `${apiUrl}/produtos/artesao/pecas/${produtoDisponivel.id}/estoque`,
+      headers: { Authorization: `Bearer ${produtoDisponivel.artesao.token}` },
+      body: { estoque: 0 },
+    }).then(({ status, body }) => {
+      expect(status).to.eq(200);
+      expect(body.estoque).to.eq(0);
+    });
+
     cy.visit("/checkout");
     cy.hidratado();
     preencherEntrega();
     cy.contains("button", "Ir para pagamento").click();
-    cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Boleto").click();
-    cy.contains("button", "Pagar agora").click();
-    cy.contains("h1", "Pagamento confirmado").should("be.visible");
 
-    cy.lerLocal("pedidos").then((pedidos) => {
-      cy.visit(`/conta/pedidos/${pedidos[0].id}`);
+    cy.wait("@requisicaoCheckout").then(({ response }) => {
+      expect(response?.statusCode).to.eq(409);
+      expect(response?.body?.mensagem).to.match(/estoque|quantidade/i);
     });
+    cy.contains(/estoque|quantidade/i).should("be.visible");
+    cy.contains("h1", "Entrega").should("be.visible");
+    cy.contains("h1", "Pagamento confirmado").should("not.exist");
+
+    // Volta ao carrinho e verifica que o item não foi perdido
+    cy.visit("/carrinho");
     cy.hidratado();
-    cy.contains("h1", "Detalhes da compra").should("be.visible");
-    cy.contains("span", /^Pago$/).should("be.visible");
-  });
-});
-
-describe("TC13 · prevenção de pedidos duplicados", () => {
-  it("o botão de confirmar fica desabilitado enquanto o pedido é criado", () => {
-    adicionarPassaroPelaTela();
-    cy.visit("/checkout");
-    cy.hidratado();
-    preencherEntrega();
-    cy.contains("button", "Ir para pagamento").click();
-    cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
-
-    cy.contains("button", "Pagar agora").click();
-    cy.contains("button", "Pagar agora").should("be.disabled").and("have.attr", "aria-busy", "true");
-    cy.contains("h1", "Pagamento confirmado").should("be.visible");
-  });
-
-  // Rodou em 2026-10-14 e falhou: gravou ['ped_552906', 'ped_552906'], dois pedidos com o mesmo id.
-  // Sem correção de produto nesta entrega. Tirar o .skip quando o checkout travar o segundo envio.
-  it.skip("duplo clique em 'Ir para pagamento' cria um pedido só (defeito do produto: checkout sem trava de envio duplicado)", () => {
-    adicionarPassaroPelaTela();
-    cy.visit("/checkout");
-    cy.hidratado();
-    preencherEntrega();
-
-    cy.contains("button", "Ir para pagamento").dblclick();
-
-    cy.contains("h1", "Pagamento").should("be.visible");
-    cy.lerLocal("pedidos").then((pedidos) => {
-      expect(pedidos.map((pedido) => pedido.id), "ids dos pedidos gravados").to.have.length(1);
-    });
-  });
-
-  it("duplo clique em 'Pagar agora' não duplica o pedido", () => {
-    adicionarPassaroPelaTela();
-    cy.visit("/checkout");
-    cy.hidratado();
-    preencherEntrega();
-    cy.contains("button", "Ir para pagamento").click();
-    cy.contains('[role="group"][aria-label="Método de pagamento"] button', "Pix").click();
-
-    cy.contains("button", "Pagar agora").dblclick();
-
-    cy.contains("h1", "Pagamento confirmado").should("be.visible");
-    cy.lerLocal("pedidos").then((pedidos) => {
-      expect(pedidos).to.have.length(1);
-      expect(pedidos[0].status).to.equal("PAGO");
-    });
+    cy.contains("article", produtoDisponivel.nome).should("be.visible");
   });
 });

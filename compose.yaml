@@ -18,6 +18,7 @@ services:
       - ./database/sql/02_integrity_rules.sql:/docker-entrypoint-initdb.d/02_integrity_rules.sql:ro
       - ./database/sql/04_create_indexes.sql:/docker-entrypoint-initdb.d/04_create_indexes.sql:ro
       - ./database/sql/05_seed_dados_reais.sql:/docker-entrypoint-initdb.d/05_seed_dados_reais.sql:ro
+      - ./database/sql/07_suporte_exclusao_logica_produto.sql:/docker-entrypoint-initdb.d/07_suporte_exclusao_logica_produto.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U origem_user -d origem_db"]
       interval: 5s
@@ -32,17 +33,23 @@ services:
     environment:
       # Se a senha tiver caracteres especiais (@ : / ? # %), codifique-os na URL (percent-encoding).
       DATABASE_URL: postgresql://origem_user:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}@postgres:5432/origem_db
-      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env}
       JWT_EXPIRES_IN: 7d
       PORT: "4000"
       CORS_ORIGIN: http://localhost:3000
       # Cria tabelas/seed se o banco estiver vazio (só para desenvolvimento).
       AUTO_SETUP_DB: "true"
+      # Integração com o módulo de recomendação (modulo-ia / BentoML).
+      RECOMENDACAO_API_URL: http://modulo-ia:3001
+      RECOMENDACAO_API_KEY: ${RECOMENDACAO_API_KEY:-origem-mockup-key}
+      RECOMENDACAO_TIMEOUT_MS: "2000"
     ports:
       - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
+      modulo-ia:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:4000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
       interval: 5s
@@ -55,6 +62,8 @@ services:
     build:
       context: ./modulo-ia
       target: runtime
+    environment:
+      RECOMENDACAO_API_KEY: ${RECOMENDACAO_API_KEY:-origem-mockup-key}
     ports:
       - "3001:3001"
     restart: unless-stopped

@@ -355,39 +355,79 @@ Esse resultado corresponde ao processamento avaliado pelo teste e não represent
 | RNF-08 | Implementação baseada em Python e BentoML |
 | RNF-09 | Teste de desempenho com 10.000 produtos e verificação do P95 |
 
-## 14. Integração com o frontend Origem
+## 14. Integração com a aplicação Origem
 
-O frontend utiliza a rota `GET /produtos/recomendacoes`
-(`frontend/src/app/api/produtos/recomendacoes/route.ts`) para solicitar recomendações
-ao serviço de IA. Configure `frontend/.env.local` a partir de `frontend/.env.example`:
+No fluxo integrado (AV2), o **frontend** consulta o **backend principal**, que orquestra a chamada ao módulo de IA utilizando os dados reais e atualizados do catálogo no PostgreSQL:
+
+```text
+Frontend (:3000) ─► GET /produtos/recomendacoes ─► Backend Node (:4000) ─► POST /recommendations ─► Módulo de IA (:3001)
+```
+
+### Variáveis de ambiente (Backend)
+
+Configure `backend/app/.env` (ou use `docker compose up --build`, que já configura os serviços integrados):
 
 ```dotenv
 RECOMENDACAO_API_URL=http://localhost:3001
 RECOMENDACAO_API_KEY=origem-mockup-key
+RECOMENDACAO_TIMEOUT_MS=2000
 ```
 
-O fluxo de demonstração é:
+### Fluxo ponta a ponta
 
-1. A página do produto pede `/api/produtos/recomendacoes?produtoId=prd_201`.
-2. Com `RECOMENDACAO_API_URL` definida, a rota envia `POST /recommendations` com `product_id` e `limit: 4`.
-3. O serviço retorna os identificadores dos produtos recomendados e suas justificativas.
-4. Os IDs devolvidos viram cartões, e o `reason` vira o campo `motivo`, mostrado no cartão.
-5. A interface apresenta os produtos disponíveis. Se a IA retornar uma lista vazia, a seção de sugestões fica oculta.
-6. Sem configuração, ou se o serviço falhar ou passar de 2 segundos, o frontend utiliza as recomendações locais.
+1. O frontend chama `produtosService.recomendados()` (`GET /produtos/recomendacoes`), enviando `produtoId` (na página `/produto/[id]` e no histórico de `/recomendacoes`) ou filtros (`categoria`, `tecnica`, `regiao`, `limite`).
+2. O backend (`backend/app/src/services/produto.service.ts`) busca o catálogo ativo no PostgreSQL (`produtoRepository.catalogoParaRecomendacao()`), monta a lista enxuta `catalog` (`product_id`, `name`, `category`, `technique`, `region`, `available`) e envia `POST /recommendations` ao `modulo-ia` com `X-API-Key` e timeout de `2 s`.
+3. O módulo de IA calcula o score (categoria 50%, técnica 30%, região 20%), aplica o fallback progressivo, exclui indisponíveis e o item de referência, e retorna `{ recommendations: [{ product_id, score, reason }] }`.
+4. O backend valida que cada ID retornado pertence ao catálogo real e está disponível (`estoque > 0`), hidrata os objetos `ProdutoResumo` anexando `motivo` (`reason`) e `score`, e devolve o cabeçalho `X-Recomendacao-Fonte: ia`.
+5. Se o módulo de IA não estiver configurado, ficar indisponível, responder erro ou exceder `2 s`, o backend executa o baseline local com as mesmas regras e retorna `200 OK` com `X-Recomendacao-Fonte: baseline` (itens sem `motivo`).
+6. Na interface:
+   - `/produto/[id]` (`Recomendados.tsx`): exibe skeleton no carregamento, cards com `motivo` e link para `/produto/[id]`, oculta a seção se a lista vier vazia (RF-11) e exibe botão *"Tentar de novo"* se o backend falhar.
+   - `/recomendacoes` (`Recomendacoes.tsx`): recomenda a partir da última peça vista e da região/técnica favorita, exibindo estado vazio com link para o `/catalogo` quando não houver itens elegíveis.
 
-O cabeçalho `X-Recomendacao-Fonte` da resposta diz de onde veio a lista (`ia` ou `baseline`).
+> **Compatibilidade com Fake API (AV1):** quando o frontend roda sem `NEXT_PUBLIC_API_URL` (usando `/api`), a rota `frontend/src/app/api/produtos/recomendacoes/route.ts` continua funcional falando diretamente com `modulo-ia` sobre `catalogo_origem.json`.
 
-O site também exclui peças reservadas e vendidas ao montar os cartões devolvidos
-pela IA, as sugestões locais e os destaques usados quando não há histórico.
+### Contrato opcional `catalog` em `POST /recommendations`
 
-Portas utilizadas na demonstração local:
+Além de `product_id`, `category`, `technique`, `region` e `limit`, o endpoint aceita o campo opcional `catalog`:
+
+```json
+{
+  "product_id": "2001",
+  "limit": 4,
+  "catalog": [
+    {
+      "product_id": "2001",
+      "name": "Vaso Cerâmica Raízes",
+      "category": "Arte e Decoração",
+      "technique": "Cerâmica",
+      "region": "Zona da Mata - PE",
+      "available": true
+    }
+  ]
+}
+```
+
+Quando `catalog` é omitido, o módulo utiliza o arquivo padrão definido por `CATALOGO_IA` (`data/catalogo_origem.json`).
+
+Portas utilizadas na execução integrada:
 
 | Componente | Porta |
 |---|---:|
 | Frontend Next.js | 3000 |
-| Serviço BentoML | 3001 |
+| Serviço BentoML (`modulo-ia`) | 3001 |
+| Backend Node/Express | 4000 |
+| PostgreSQL | 5433 |
 
-A integração depende de os dois serviços estarem executando e de a configuração local da chave de API estar correta.
+### Teste automatizado de integração ponta a ponta
+
+Com os containers no ar (`docker compose up --build`), execute na raiz do repositório:
+
+```powershell
+$env:BACKEND_URL="http://localhost:4000"
+$env:RECOMENDACAO_API_URL="http://localhost:3001"
+$env:IA_BASE_URL="http://localhost:3001"
+npm --prefix frontend run test:api -- tests/api/recomendacoes-integracao.test.ts tests/api/modulo-ia.test.ts tests/api/recomendacoes.test.ts
+```
 
 ## 15. Catálogo
 

@@ -1,11 +1,11 @@
 import request from "supertest";
 import { criarApp } from "../src/index";
 import prisma from "../src/lib/prisma";
-import { validacoes } from "../src/lib/memoria";
 import {
   criarCategoria,
   criarLoja,
   criarProduto,
+  criarUsuario,
   criarUsuarioArtesao,
   criarUsuarioComprador,
   gerarToken,
@@ -25,7 +25,7 @@ describe("Produtos - endpoints e persistência", () => {
 
     await criarProduto(categoria.id, loja.id, { nome: "Vaso Aprovado" });
     const pendente = await criarProduto(categoria.id, loja.id, { nome: "Peça Pendente" });
-    validacoes.set(pendente.id, { status: "PENDENTE", seloAtivo: false, justificativa: null, decididoEm: null });
+    await prisma.produto.update({ where: { id: pendente.id }, data: { statusValidacao: "PENDENTE" } });
 
     const resposta = await request(app).get("/produtos").expect(200);
 
@@ -114,7 +114,7 @@ describe("Produtos - endpoints e persistência", () => {
         tecnica: "Cerâmica",
         origem: "Agreste",
         preco: 150,
-        modalidadeProducao: "PECA_UNICA",
+        modalidadeProducao: "PRONTA_ENTREGA",
         estoque: 1,
         imagens: ["https://exemplo.com/foto.jpg"],
         dimensoes: "20 × 15 cm",
@@ -135,7 +135,7 @@ describe("Produtos - endpoints e persistência", () => {
     expect(persistido!.nome).toBe("Novo Produto");
     expect(persistido!.lojaId).toBe(loja.id);
     expect(persistido!.categoriaId).toBe(categoria.id);
-    expect(persistido!.pecaUnica).toBe(true);
+    expect(persistido!.pecaUnica).toBe(false);
     expect(persistido!.estoque!.quantidadeDisponivel).toBe(1);
     expect(persistido!.imagens).toHaveLength(1);
   });
@@ -161,6 +161,137 @@ describe("Produtos - endpoints e persistência", () => {
       .expect(400);
   });
 
+  test("PUT /produtos com preço válido e estoque negativo retorna 400 e não altera dados", async () => {
+    const artesao = await criarUsuarioArtesao();
+    const loja = await criarLoja(artesao.id);
+    const categoria = await criarCategoria();
+    const token = gerarToken(artesao.id, "ARTESAO");
+
+    // Cria um produto com preço e estoque iniciais
+    const produto = await prisma.produto.create({
+      data: {
+        nome: "Produto Teste Estoque",
+        descricao: "Produto para teste de estoque negativo",
+        tecnica: "Cerâmica",
+        origem: "Agreste",
+        preco: 10,
+        modalidadeProducao: "PECA_UNICA",
+        pecaUnica: false,
+        categoriaId: categoria.id,
+        lojaId: loja.id,
+        estoque: {
+          create: { quantidadeDisponivel: 5, pontoReposicao: 0 },
+        },
+        sku: "TEST-001",
+        peso: 0.5,
+        dimensoes: "10 × 10 cm",
+        material: "Barro",
+        certificado: "cert-test.pdf",
+        informacoesOrigem: "Teste de origem",
+      },
+      include: { estoque: true },
+    });
+
+    const precoOriginal = produto.preco;
+    const estoqueOriginal = produto.estoque?.quantidadeDisponivel;
+
+    // Tenta atualizar com preço maior mas estoque negativo - deve falhar
+    await request(app)
+      .put(`/produtos/${produto.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        preco: 99,
+        estoque: -1,
+      })
+      .expect(400);
+
+    // Confirma que preço e estoque permaneceram inalterados no banco
+    const atualizado = await prisma.produto.findUnique({
+      where: { id: produto.id },
+      include: { estoque: true },
+    });
+    expect(Number(atualizado!.preco)).toBe(Number(precoOriginal));
+    expect(atualizado!.estoque!.quantidadeDisponivel).toBe(estoqueOriginal);
+    // Confirma que campos ricos e SKU persistem
+    expect(atualizado!.sku).toBe("TEST-001");
+    expect(Number(atualizado!.peso)).toBe(0.5);
+    expect(atualizado!.dimensoes).toBe("10 × 10 cm");
+    expect(atualizado!.material).toBe("Barro");
+    expect(atualizado!.certificado).toBe("cert-test.pdf");
+    expect(atualizado!.informacoesOrigem).toBe("Teste de origem");
+  });
+
+  test("Roundtrip API persiste campos ricos e auditoria; peça pendente não é pública", async () => {
+    const artesao = await criarUsuarioArtesao();
+    const admin = await criarUsuario("ADMINISTRADOR");
+    const token = gerarToken(artesao.id, "ARTESAO");
+
+    const resPOST = await request(app)
+      .post("/produtos")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        nome: "Luminária Mandacaru",
+        descricao: "Peça modelada e vazada à mão, inspirada na luz do sertão.",
+        categoria: "Casa e decoração",
+        tecnica: "Cerâmica manual",
+        origem: "Caruaru, Pernambuco",
+        preco: 145,
+        modalidadeProducao: "SOB_ENCOMENDA",
+        estoque: 8,
+        imagens: ["https://storage.sistemaorigem.com/img1.jpg"],
+        sku: "ORG-LUM-014",
+        material: "Barro vermelho, pigmento natural",
+        dimensoes: "28 × 18 × 18 cm",
+        peso: 1.2,
+        prazoProducaoDias: 12,
+        capacidadeProducao: 4,
+        informacoesOrigem: "Caruaru, Pernambuco · tradição familiar desde 1987",
+        certificado: "certificado_luminaria.pdf",
+      })
+      .expect(201);
+
+    expect(resPOST.body.sku).toBe("ORG-LUM-014");
+    expect(resPOST.body.statusValidacao).toBe("PENDENTE");
+
+    // Produto pendente não pode ser consultado pelo endpoint público.
+    await request(app).get(`/produtos/${resPOST.body.id}`).expect(404);
+
+    await request(app)
+      .put(`/produtos/admin/produtos/${resPOST.body.id}/validacao`)
+      .set("Authorization", `Bearer ${gerarToken(admin.id, "ADMINISTRADOR")}`)
+      .send({
+        status: "APROVADA",
+        justificativa: "Origem territorial e processos manuais comprovados.",
+      })
+      .expect(200);
+
+    // GET público após aprovação devolve os dados persistidos.
+    const resGET = await request(app)
+      .get(`/produtos/${resPOST.body.id}`)
+      .expect(200);
+
+    expect(resGET.body.nome).toBe("Luminária Mandacaru");
+    expect(resGET.body.sku).toBe("ORG-LUM-014");
+    expect(resGET.body.preco).toBe(145);
+    expect(resGET.body.peso).toBe(1.2);
+    expect(resGET.body.dimensoes).toBe("28 × 18 × 18 cm");
+    expect(resGET.body.material).toBe("Barro vermelho, pigmento natural");
+    expect(resGET.body.prazoProducaoDias).toBe(12);
+    expect(resGET.body.capacidadeProducao).toBe(4);
+    expect(resGET.body.certificado).toBe("certificado_luminaria.pdf");
+    expect(resGET.body.informacoesOrigem).toBe("Caruaru, Pernambuco · tradição familiar desde 1987");
+    expect(resGET.body.statusValidacao).toBe("APROVADA");
+
+    const fila = await request(app)
+      .get("/produtos/admin/produtos/pendentes?status=APROVADA")
+      .set("Authorization", `Bearer ${gerarToken(admin.id, "ADMINISTRADOR")}`)
+      .expect(200);
+    const decisao = fila.body.itens.find((item: { id: string | number }) => String(item.id) === String(resPOST.body.id));
+    expect(decisao).toBeDefined();
+    expect(decisao.decididoEm).toBeTruthy();
+    expect(Number(decisao.decididoPorId)).toBe(admin.id);
+  });
+
   test("POST /produtos sem autenticação retorna 401", async () => {
     await request(app)
       .post("/produtos")
@@ -179,11 +310,29 @@ describe("Produtos - endpoints e persistência", () => {
       .expect(403);
   });
 
-  test("GET /produtos/recomendacoes retorna lista", async () => {
+  test("GET /produtos/recomendacoes retorna lista e cabeçalho de fonte", async () => {
     const resposta = await request(app)
       .get("/produtos/recomendacoes?produtoId=qualquer")
       .expect(200);
+    expect(resposta.body).toHaveProperty("recomendados");
     expect(resposta.body).toHaveProperty("produtosRecomendados");
+    expect(resposta.headers["x-recomendacao-fonte"]).toBe("baseline");
+  });
+
+  test("GET /produtos/recomendacoes aceita ID numérico e recomenda outra peça disponível", async () => {
+    const categoria = await criarCategoria();
+    const artesao = await criarUsuarioArtesao();
+    const loja = await criarLoja(artesao.id);
+    const origem = await criarProduto(categoria.id, loja.id, { nome: "Peça consultada" });
+    const recomendada = await criarProduto(categoria.id, loja.id, { nome: "Peça disponível" });
+
+    const resposta = await request(app)
+      .get(`/produtos/recomendacoes?produtoId=${origem.id}`)
+      .expect(200);
+
+    expect(resposta.body.produtosRecomendados).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: String(recomendada.id) })])
+    );
   });
 
   test("GET /produtos/comparar retorna produtos comparados", async () => {
