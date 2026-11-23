@@ -20,3 +20,35 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/testes.yml
+
+  issue-falha:
+    name: Registrar falha da pipeline
+    needs: regressao
+    if: ${{ !cancelled() && needs.regressao.result == 'failure' }}
+    concurrency:
+      group: aviso-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Baixar relatórios disponíveis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "${{ github.run_id }}" --name relatorios-testes --dir artefato || true
+      - name: Reunir resultados JUnit
+        run: |
+          mkdir -p relatorios
+          if [ -d artefato ]; then
+            find artefato -name '*.xml' ! -name 'quarentena-*' -exec cp {} relatorios/ \;
+          fi
+      - uses: ./.github/actions/abrir-issue-falha

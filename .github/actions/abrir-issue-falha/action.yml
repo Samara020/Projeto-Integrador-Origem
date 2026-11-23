@@ -1,0 +1,25 @@
+name: Abrir issue de falha
+description: 'Abre uma issue no GitHub quando a regressão falha, com os testes que falharam (lidos dos JUnit XML
+  em relatorios/) e os links da execução e dos artefatos. Se já houver uma issue aberta para o mesmo workflow e
+  branch, comenta nela em vez de abrir outra. O job que usa esta action precisa da permissão issues: write.'
+inputs:
+  artefato-url:
+    description: Link do artefato relatorios-testes (saída artifact-url do upload-artifact).
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+  - name: Abrir ou atualizar issue de falha
+    shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      WORKFLOW: ${{ github.workflow }}
+      EVENTO: ${{ github.event_name }}
+      BRANCH: ${{ github.ref_name }}
+      COMMIT: ${{ github.sha }}
+      EXECUCAO_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+      ARTEFATO_URL: ${{ inputs.artefato-url }}
+    run: bash .github/scripts/abrir-issue-falha.sh

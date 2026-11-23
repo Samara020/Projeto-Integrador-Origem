@@ -10,14 +10,17 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 # Dois merges seguidos: o deploy mais novo cancela o antigo, nunca o contrário.
 concurrency:
-  group: deploy-main
-  cancel-in-progress: false
+  group: testes-main-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   regressao:
@@ -52,3 +55,56 @@ jobs:
         run: |
           docker compose ps
           docker compose logs postgres
+
+
+  quality-gate:
+    name: Quality Gate
+    if: ${{ always() }}
+    needs: [regressao, imagens]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Validar automação de alertas e gate
+        run: node --test .github/scripts/automacao.test.mjs
+      - name: Conferir todos os resultados obrigatórios
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node .github/scripts/quality-gate.mjs
+
+  issue-falha:
+    name: Registrar falha da pipeline
+    needs: [regressao, imagens, quality-gate]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(needs.*.result, 'failure') }}
+    concurrency:
+      group: aviso-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Baixar relatórios disponíveis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "${{ github.run_id }}" --name relatorios-testes --dir artefato || true
+      - name: Reunir resultados JUnit
+        run: |
+          mkdir -p relatorios
+          if [ -d artefato ]; then
+            find artefato -name '*.xml' ! -name 'quarentena-*' -exec cp {} relatorios/ \;
+          fi
+      - uses: ./.github/actions/abrir-issue-falha
