@@ -431,6 +431,8 @@ export type CotacaoFrete = {
   valor: number;
 };
 
+export type UsuarioAdminListado = { id: string; nome: string; papel: string };
+
 export type MetricasAdmin = {
   totalUsuarios: number;
   totalArtesaos: number;
@@ -448,6 +450,8 @@ export type MetricasAdmin = {
   categoriasMaisVendidas: { nome: string; percentual: number }[];
   denunciasPendentes: number;
   usuariosRecentes: { nome: string; papel: string }[];
+  usuariosCadastrados?: UsuarioAdminListado[];
+  artesaosCadastrados?: UsuarioAdminListado[];
   atividadesRecentes: string[];
 };
 

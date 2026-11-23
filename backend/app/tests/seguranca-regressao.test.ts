@@ -1,8 +1,9 @@
-import { describe, beforeEach, afterAll, test, expect } from "@jest/globals";
+import { describe, beforeEach, afterEach, afterAll, test, expect, jest } from "@jest/globals";
 import request from "supertest";
 import { sign } from "jsonwebtoken";
 import { criarApp } from "../src/index";
 import prisma from "../src/lib/prisma";
+import * as email from "../src/lib/email";
 import {
   criarCategoria,
   criarEndereco,
@@ -18,6 +19,7 @@ const app = criarApp();
 
 describe("Regressão de Segurança e Integridade (Auditoria 1 a 5)", () => {
   beforeEach(limparBanco);
+  afterEach(() => { jest.restoreAllMocks(); });
   afterAll(limparBanco);
 
   describe("Item 1 - Validação estrita no cadastro", () => {
@@ -126,13 +128,21 @@ describe("Regressão de Segurança e Integridade (Auditoria 1 a 5)", () => {
         .set("Authorization", `Bearer ${tokenSessao1}`)
         .expect(401);
 
+      const envio = jest.spyOn(email, "enviarEmail").mockResolvedValue({ enviado: true, canal: "log" });
       const rec = await request(app)
         .post("/auth/recuperar-senha")
         .send({ email: "mariana@teste.com" })
         .expect(200);
 
-      const tokenRecuperacao = rec.body.tokenRecuperacao;
-      expect(tokenRecuperacao).toBeDefined();
+      expect(rec.body.tokenRecuperacao).toBeUndefined();
+      expect(rec.body.token).toBeUndefined();
+      expect(envio).toHaveBeenCalledTimes(1);
+      const mensagem = envio.mock.calls[0][0];
+      expect(mensagem.para).toBe("mariana@teste.com");
+      const link = mensagem.texto.match(/https?:\/\/[^\s]+/)?.[0];
+      expect(link).toBeDefined();
+      const tokenRecuperacao = new URL(link!).searchParams.get("token");
+      expect(tokenRecuperacao).toBeTruthy();
 
       await new Promise((r) => setTimeout(r, 1100));
 

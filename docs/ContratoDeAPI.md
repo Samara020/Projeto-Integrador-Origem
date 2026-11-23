@@ -948,9 +948,21 @@ Retorna métricas globais e indicadores administrativos da plataforma.
 {
   "totalUsuarios": 350,
   "totalArtesaos": 45,
-  "volumeTransacionadoGlobal": 28450.00
+  "volumeTransacionadoGlobal": 28450.00,
+  "usuariosCadastrados": [
+    { "id": 1, "nome": "Ana Compradora", "papel": "COMPRADOR" },
+    { "id": 2, "nome": "Bia Artesã", "papel": "ARTESAO" }
+  ],
+  "artesaosCadastrados": [
+    { "id": 2, "nome": "Bia Artesã", "papel": "ARTESAO" }
+  ]
 }
 ```
+
+`usuariosCadastrados` traz a lista completa de contas e `artesaosCadastrados` o recorte
+de papel `ARTESAO`, ambos com `id`, `nome` e `papel`. As listas não incluem senha,
+hash nem token e existem para consulta no painel; edição e remoção de contas não
+fazem parte deste endpoint.
 
 ---
 

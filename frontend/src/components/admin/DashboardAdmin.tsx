@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, LayoutDashboard, Users } from "lucide-react";
+import { CheckCircle2, CircleAlert, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
@@ -29,6 +29,49 @@ function Carregando() {
   );
 }
 
+type CadastroAdmin = { id: string; nome: string; papel: string };
+
+function ListaCadastros({
+  id,
+  titulo,
+  itens,
+  vazio,
+}: {
+  id: string;
+  titulo: string;
+  itens: CadastroAdmin[];
+  vazio: string;
+}) {
+  return (
+    <article className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4 shadow-card">
+      <h2 id={id} className="font-titulo text-h3 font-bold">{titulo}</h2>
+      {itens.length === 0 ? (
+        <p className="text-apoio text-tinta-3">{vazio}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-apoio">
+            <caption className="sr-only">{titulo} com nome e papel</caption>
+            <thead>
+              <tr className="border-b border-borda text-left text-legenda uppercase tracking-wide text-tinta-3">
+                <th scope="col" className="py-2 pr-4 font-semibold">Nome</th>
+                <th scope="col" className="py-2 font-semibold">Papel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map((item) => (
+                <tr key={item.id} className="border-b border-borda/60 last:border-0">
+                  <td className="py-2 pr-4 text-tinta">{item.nome}</td>
+                  <td className="py-2 text-tinta-3">{item.papel}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </article>
+  );
+}
+
 function painelSemAtividade(dados: MetricasAdmin): boolean {
   const temNumero =
     dados.totalUsuarios > 0 ||
@@ -44,7 +87,9 @@ function painelSemAtividade(dados: MetricasAdmin): boolean {
     dados.vendasPorRegiao.length > 0 ||
     dados.categoriasMaisVendidas.length > 0 ||
     dados.usuariosRecentes.length > 0 ||
-    dados.atividadesRecentes.length > 0;
+    dados.atividadesRecentes.length > 0 ||
+    (dados.usuariosCadastrados?.length ?? 0) > 0 ||
+    (dados.artesaosCadastrados?.length ?? 0) > 0;
   return !temNumero && !temLista;
 }
 
@@ -150,15 +195,22 @@ export default function DashboardAdmin() {
               <Link href="/painel/admin/moderacao" className="inline-flex min-h-10 w-fit items-center gap-2 rounded-raio bg-terracota px-4 text-apoio font-bold text-white hover:bg-terracota-escura">
                 Revisar agora <CheckCircle2 className="size-4" aria-hidden="true" />
               </Link>
-              <h3 id="usuarios" className="mt-1 inline-flex items-center gap-2 font-titulo text-apoio font-bold">
-                <Users className="size-4" aria-hidden="true" /> Usuários ({formatarInteiro(dados.totalUsuarios)})
-              </h3>
-              {dados.usuariosRecentes.length === 0 ? (
-                <p className="text-apoio text-tinta-3">Nenhum cadastro recente listado.</p>
-              ) : (
-                <p className="text-apoio text-tinta-3">{dados.usuariosRecentes.map((usuario) => `${usuario.nome} · ${usuario.papel}`).join(" • ")}</p>
-              )}
             </article>
+          </section>
+
+          <section aria-label="Cadastros da plataforma" className="grid gap-4 lg:grid-cols-2">
+            <ListaCadastros
+              id="usuarios-cadastrados"
+              titulo={`Usuários cadastrados (${formatarInteiro((dados.usuariosCadastrados ?? []).length)})`}
+              itens={dados.usuariosCadastrados ?? []}
+              vazio="Nenhum usuário cadastrado."
+            />
+            <ListaCadastros
+              id="artesaos-cadastrados"
+              titulo={`Artesãos cadastrados (${formatarInteiro((dados.artesaosCadastrados ?? []).length)})`}
+              itens={dados.artesaosCadastrados ?? []}
+              vazio="Nenhum artesão cadastrado."
+            />
           </section>
 
           <section aria-labelledby="atividades-titulo" className="rounded-raio border border-borda bg-superficie p-4 shadow-card">

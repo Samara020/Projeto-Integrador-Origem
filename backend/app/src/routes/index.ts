@@ -1,6 +1,6 @@
 import { IRouter, Request, Response } from "express";
 import authRoutes from "./auth.routes";
-import produtosRoutes from "./produtos.routes";
+import produtosRoutes, { validacaoAdminRouter } from "./produtos.routes";
 import artesaoRoutes, { rotasDiretasArtesao } from "./artesaos.routes";
 import carrinhoRoutes from "./carrinho.routes";
 import pedidosRoutes, { rotasDiretasPedidos } from "./pedidos.routes";
@@ -35,6 +35,7 @@ export function montarRotas(app: IRouter): void {
     (req, res, next) => personalizacaoService.minhas(req.usuario!.id).then(p => res.json(p)).catch(next));
   app.use("/auth", authRoutes);
   app.use("/produtos", produtosRoutes);
+  app.use("/admin/produtos", validacaoAdminRouter);
   app.use("/artesaos", artesaoRoutes);
   app.use("/artesao", rotasDiretasArtesao);
   app.use("/carrinho", carrinhoRoutes);
@@ -43,6 +44,9 @@ export function montarRotas(app: IRouter): void {
   app.use("/avaliacoes", avaliacoesRoutes);
   app.use("/suporte", suporteRoutes);
   app.use("/painel", painelRoutes);
+  // Caminhos canônicos do contrato (ex.: /artesao/painel/metricas, /admin/painel/metricas).
+  // O mount em /painel acima é mantido por compatibilidade.
+  app.use("/", painelRoutes);
   app.use("/", rotasDiretasPedidos);
   app.use("/", catalogoRoutes);
   app.use("/demo", demoRoutes);

@@ -104,6 +104,10 @@ export const adminService = {
       validacoesPendentes, denunciasPendentes, ticketsSuporte: tickets.length,
       ticketsUrgentes: tickets.filter(t => t.prioridade === "ALTA").length,
       usuariosRecentes: usuarios.slice(0, 10).map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
+      usuariosCadastrados: usuarios.map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
+      artesaosCadastrados: usuarios
+        .filter(u => u.usuarioTipo === "ARTESAO")
+        .map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
     };
   },
 

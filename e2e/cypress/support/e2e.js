@@ -1,5 +1,7 @@
 // Comandos comuns dos testes E2E do Origem contra frontend + backend real + Postgres.
 
+const { ehImagemPublicaDeCatalogo } = require("./redeSegura");
+
 const ALLOWED_BASE_ORIGINS = new Set([
   "http://localhost:3200",
   "http://127.0.0.1:3200",
@@ -119,6 +121,13 @@ beforeEach(() => {
 
     // Chamadas de backend/API devem bater estritamente com a origem permitida da API descartável
     if (ALLOWED_API_ORIGINS.has(reqOrigin) && reqOrigin === apiOriginPermitida) {
+      return;
+    }
+
+    // Única exceção fora da API: leitura de imagem do bucket público do catálogo.
+    // A regra é restrita a GET + resourceType image + host/prefixo/extensão exatos;
+    // não libera o host para fetch/XHR nem qualquer outra origem.
+    if (ehImagemPublicaDeCatalogo(req)) {
       return;
     }
 

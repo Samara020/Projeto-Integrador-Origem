@@ -102,6 +102,8 @@ describe("metricas", () => {
       categoriasMaisVendidas: [],
       usuariosRecentes: [],
       atividadesRecentes: [],
+      usuariosCadastrados: [],
+      artesaosCadastrados: [],
     });
   });
 
@@ -124,6 +126,8 @@ describe("metricas", () => {
       categoriasMaisVendidas: [{ nome: "Cerâmica", percentual: 40 }],
       usuariosRecentes: [{ nome: "Maria Silva", papel: "ARTESAO" }],
       atividadesRecentes: ["Peça aprovada"],
+      usuariosCadastrados: [],
+      artesaosCadastrados: [],
     };
     respostaHttp(completas);
 

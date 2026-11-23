@@ -73,19 +73,26 @@ router.put(
   (req, res, next) => controller.atualizarEstoque(req, res).catch(next)
 );
 
-router.get(
-  "/admin/produtos/pendentes",
+// Validação administrativa reaproveitada em dois prefixos:
+// - legado: /produtos/admin/produtos/... (mantido)
+// - contrato: /admin/produtos/... (montado em routes/index.ts)
+export const validacaoAdminRouter = Router();
+
+validacaoAdminRouter.get(
+  "/pendentes",
   autenticar,
   adminApenas,
   (req, res, next) => controller.listarPendentes(req, res).catch(next)
 );
 
-router.put(
-  "/admin/produtos/:id/validacao",
+validacaoAdminRouter.put(
+  "/:id/validacao",
   autenticar,
   adminApenas,
   (req, res, next) => controller.validar(req, res).catch(next)
 );
+
+router.use("/admin/produtos", validacaoAdminRouter);
 
 router.post("/:id/personalizacoes", autenticar, compradorApenas,
   validarCorpo(z.object({ cor: z.string().max(100).optional(), tamanho: z.string().max(100).optional(), inscricao: z.string().max(200).optional(), detalhes: z.string().max(5000).optional(), mensagem: z.string().max(5000) })),

@@ -33,6 +33,8 @@ export const adminService = {
       denunciasPendentes: dados.denunciasPendentes ?? 0,
       vendasPorRegiao: dados.vendasPorRegiao ?? [], categoriasMaisVendidas: dados.categoriasMaisVendidas ?? [],
       usuariosRecentes: dados.usuariosRecentes ?? [], atividadesRecentes: dados.atividadesRecentes ?? [],
+      usuariosCadastrados: dados.usuariosCadastrados ?? [],
+      artesaosCadastrados: dados.artesaosCadastrados ?? [],
     };
   },
   async pecasPendentes(status?: StatusValidacao, sinal?: AbortSignal): Promise<RespostaPecasPendentes> {
