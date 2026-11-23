@@ -79,6 +79,11 @@ function FormularioNovaPeca({
   const { criarPeca, salvarRascunho, salvando, erro: erroDeAcao } = useAcoesArtesao();
 
   const [form, setForm] = useState<NovoProduto>(inicial);
+  const [pesoTexto, setPesoTexto] = useState(inicial.peso > 0 ? String(inicial.peso) : "");
+  const [precoTexto, setPrecoTexto] = useState(inicial.preco > 0 ? String(inicial.preco) : "");
+  const [estoqueTexto, setEstoqueTexto] = useState(
+    inicial.estoque > 0 ? String(inicial.estoque) : "1",
+  );
   const [erros, setErros] = useState<Erros>({});
   const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
   const arquivoFotos = useRef<HTMLInputElement>(null);
@@ -86,6 +91,21 @@ function FormularioNovaPeca({
   function mudar(campo: keyof NovoProduto, valor: NovoProduto[keyof NovoProduto]) {
     setForm((atual) => ({ ...atual, [campo]: valor }));
     setErros((atual) => ({ ...atual, [campo]: undefined }));
+  }
+
+  function atualizarDecimal(
+    campo: "peso" | "preco",
+    definirTexto: (valor: string) => void,
+    bruto: string,
+  ) {
+    definirTexto(bruto);
+    mudar(campo, numero(bruto));
+  }
+
+  function atualizarEstoque(bruto: string) {
+    setEstoqueTexto(bruto);
+    const inteiro = Number.parseInt(bruto, 10);
+    mudar("estoque", Number.isFinite(inteiro) && inteiro >= 0 ? inteiro : 0);
   }
 
   function montar(): NovoProduto {
@@ -281,6 +301,7 @@ function FormularioNovaPeca({
               <Selecao
                 id="categoria"
                 rotulo="Categoria"
+                vazio={categorias.length === 0 ? "Carregando..." : "Escolha a categoria"}
                 value={form.categoria}
                 opcoes={categorias.map((nome) => ({ id: nome, nome }))}
                 onChange={(evento) => mudar("categoria", evento.target.value)}
@@ -299,6 +320,7 @@ function FormularioNovaPeca({
               <Selecao
                 id="tecnica"
                 rotulo="Técnica artesanal"
+                vazio={tecnicas.length === 0 ? "Carregando..." : "Escolha a técnica"}
                 value={form.tecnica}
                 opcoes={tecnicas.map((nome) => ({ id: nome, nome }))}
                 onChange={(evento) => mudar("tecnica", evento.target.value)}
@@ -325,10 +347,10 @@ function FormularioNovaPeca({
                 rotulo="Peso (kg)"
                 type="number"
                 min={0}
-                step={0.1}
+                step="0.01"
                 inputMode="decimal"
-                value={form.peso || ""}
-                onChange={(evento) => mudar("peso", numero(evento.target.value))}
+                value={pesoTexto}
+                onChange={(evento) => atualizarDecimal("peso", setPesoTexto, evento.target.value)}
                 erro={erros.peso}
                 placeholder="1,2"
               />
@@ -342,10 +364,10 @@ function FormularioNovaPeca({
                 rotulo="Preço (R$)"
                 type="number"
                 min={0}
-                step={0.01}
+                step="0.01"
                 inputMode="decimal"
-                value={form.preco || ""}
-                onChange={(evento) => mudar("preco", numero(evento.target.value))}
+                value={precoTexto}
+                onChange={(evento) => atualizarDecimal("preco", setPrecoTexto, evento.target.value)}
                 erro={erros.preco}
                 dica={form.preco > 0 ? `Aparece como ${formatarMoeda(form.preco)}.` : undefined}
               />
@@ -356,9 +378,9 @@ function FormularioNovaPeca({
                 min={0}
                 step={1}
                 inputMode="numeric"
-                value={form.modalidadeProducao === "PECA_UNICA" ? 1 : form.estoque || ""}
+                value={form.modalidadeProducao === "PECA_UNICA" ? "1" : estoqueTexto}
                 disabled={form.modalidadeProducao === "PECA_UNICA"}
-                onChange={(evento) => mudar("estoque", Number(evento.target.value))}
+                onChange={(evento) => atualizarEstoque(evento.target.value)}
                 erro={erros.estoque}
               />
             </div>
