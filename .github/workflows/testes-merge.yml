@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 20
     env:
       POSTGRES_PASSWORD: ci-temporary-password
+      # Valor descartável usado apenas para interpolar o Compose no build/smoke test.
+      JWT_SECRET: segredo-ci-build
     steps:
       - uses: actions/checkout@v7
       - name: Build (compose)
