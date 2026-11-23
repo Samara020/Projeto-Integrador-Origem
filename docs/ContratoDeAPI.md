@@ -610,6 +610,7 @@ Lista o histórico de pedidos realizados pelo comprador autenticado.
   "pedidos": [
     {
       "id": "ped_501",
+      "numeroSequencial": 3,
       "status": "PAGO",
       "valorFrete": 18.00,
       "valorTotal": 398.00,
@@ -631,6 +632,12 @@ Lista o histórico de pedidos realizados pelo comprador autenticado.
 > Lacuna acordada para a tela de histórico e acompanhamento: cada pedido deve
 > trazer os itens comprados (`produtoId`, `nome`, `imagemPrincipal`,
 > `quantidade` e `precoUnitario`).
+>
+> `numeroSequencial` é a posição do pedido no histórico daquele comprador. O
+> backend conta os pedidos anteriores do mesmo comprador por data e, em caso de
+> empate, por id, incluindo cancelados. Não depende da página atual nem de
+> filtros. O `id` continua sendo a chave global usada em links, detalhes e
+> verificações de ownership.
 
 #### GET /artesao/pedidos
 Lista os pedidos recebidos contendo peças do artesão autenticado.

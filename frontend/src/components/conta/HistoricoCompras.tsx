@@ -10,7 +10,7 @@ import { EstadoErro } from "@/components/ui/EstadoErro";
 import { EstadoVazio } from "@/components/ui/EstadoVazio";
 import { Foto } from "@/components/ui/Foto";
 import { usePedidos } from "@/hooks/usePedidos";
-import { formatarData, formatarMoeda, plural } from "@/lib/formato";
+import { formatarData, formatarMoeda, plural, rotuloPedido } from "@/lib/formato";
 import type { PedidoResumo, StatusPedido } from "@/types";
 
 const ROTULOS_STATUS: Record<StatusPedido, string> = {
@@ -20,6 +20,13 @@ const ROTULOS_STATUS: Record<StatusPedido, string> = {
   ENTREGUE: "Entregue",
   CANCELADO: "Cancelado",
 };
+
+export function historicoParaCsv(pedidos: PedidoResumo[]): string {
+  const conteudo = pedidos
+    .map((pedido) => `${rotuloPedido(pedido.numeroSequencial)};${formatarData(pedido.criadoEm)};${ROTULOS_STATUS[pedido.status]};${formatarMoeda(pedido.valorTotal)}`)
+    .join("\n");
+  return `Seu pedido;Data;Status;Total\n${conteudo}`;
+}
 
 function CartaoCarregando() {
   return (
@@ -46,7 +53,7 @@ function PedidoCard({ pedido }: { pedido: PedidoResumo }) {
     <article className="flex flex-col gap-3 rounded-raio border border-borda bg-superficie p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <p className="break-all text-legenda font-bold text-terracota">PEDIDO #{pedido.id}</p>
+          <p className="break-all text-legenda font-bold text-terracota">{rotuloPedido(pedido.numeroSequencial)}</p>
           <p className="text-apoio text-tinta-3">{formatarData(pedido.criadoEm)}</p>
         </div>
         <span className="rounded-full bg-superficie-2 px-3 py-1 text-legenda font-bold text-tinta-2">
@@ -90,10 +97,7 @@ export function HistoricoCompras() {
 
   function baixarHistorico() {
     if (!pedidos.dados) return;
-    const conteudo = pedidos.dados.pedidos
-      .map((pedido) => `${pedido.id};${formatarData(pedido.criadoEm)};${ROTULOS_STATUS[pedido.status]};${formatarMoeda(pedido.valorTotal)}`)
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([`Pedido;Data;Status;Total\n${conteudo}`], { type: "text/csv;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([historicoParaCsv(pedidos.dados.pedidos)], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = "historico-de-compras-origem.csv";

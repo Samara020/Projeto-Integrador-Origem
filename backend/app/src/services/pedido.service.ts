@@ -115,9 +115,13 @@ export const pedidoService = {
 
   async listarPorUsuario(usuarioId: string) {
     const pedidos = await pedidoRepository.listarPorUsuario(usuarioId);
+    const sequenciais = await Promise.all(
+      pedidos.map((p: any) => pedidoRepository.contarAtePedidoPorUsuario(usuarioId, p)),
+    );
     return {
-      pedidos: pedidos.map((p: any) => ({
+      pedidos: pedidos.map((p: any, indice: number) => ({
         id: p.id,
+        numeroSequencial: sequenciais[indice],
         status: p.status,
         valorFrete: valorFreteDe(p),
         valorTotal: totalPedidoDe(p),

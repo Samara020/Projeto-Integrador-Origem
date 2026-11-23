@@ -96,12 +96,27 @@ describe("TC06 - pedidosService", () => {
     });
   });
 
-  test("listar consulta GET /comprador/pedidos", async () => {
-    const resposta = { pedidos: [{ id: "ped_000001", status: "AGUARDANDO_PAGAMENTO", valorTotal: 408, criadoEm: "2026-11-20T10:00:00.000Z", itens: ITENS }] };
+  test("listar consulta GET /comprador/pedidos e preserva o número sequencial do comprador", async () => {
+    const resposta = { pedidos: [{ id: "15", numeroSequencial: 3, status: "AGUARDANDO_PAGAMENTO", valorTotal: 408, criadoEm: "2026-11-20T10:00:00.000Z", itens: ITENS }] };
     mockedHttp.mockResolvedValue(resposta);
 
-    await expect(pedidosService.listar()).resolves.toEqual(resposta);
+    const resultado = await pedidosService.listar();
+
+    expect(resultado.pedidos[0]).toMatchObject({ id: "15", numeroSequencial: 3 });
     expect(mockedHttp).toHaveBeenCalledWith("/comprador/pedidos");
+  });
+
+  test.each([
+    ["ausente", {}],
+    ["zero", { numeroSequencial: 0 }],
+    ["inválido", { numeroSequencial: "abc" }],
+  ])("listar omite o sequencial %s em vez de mostrar zero ou o id global", async (_descricao, campo) => {
+    mockedHttp.mockResolvedValue({ pedidos: [{ id: "ped_000001", ...campo, status: "PAGO", valorTotal: 408, criadoEm: "2026-11-20T10:00:00.000Z", itens: ITENS }] });
+
+    const resultado = await pedidosService.listar();
+
+    expect(resultado.pedidos[0]).not.toHaveProperty("numeroSequencial");
+    expect(resultado.pedidos[0].id).toBe("ped_000001");
   });
 });
 
