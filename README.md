@@ -604,7 +604,8 @@ Os componentes são executados separadamente para demonstrar os conceitos de con
   - `frontend/src/lib/http.ts`: cliente HTTP Axios centralizado (`NEXT_PUBLIC_API_URL`, envio automático do cabeçalho `Authorization: Bearer <JWT>`).
   - `backend/app/src/lib/modulo-ia.ts` e `backend/app/src/services/recomendacao.service.ts`: chamada HTTP `POST /recommendations` ao `modulo-ia` com cabeçalho `X-API-Key`, timeout de `2.000 ms` e *fallback* automático para o algoritmo *baseline* sobre o PostgreSQL (`X-Recomendacao-Fonte: ia` ou `baseline`).
   - `modulo-ia/app/service.py`: endpoints BentoML `POST /recommendations` e `POST /recommendations/batch`.
-  - `backend/app/src/repositories/` e `backend/app/src/lib/prisma.ts`: persistência transacional no PostgreSQL (`FOR UPDATE`, idempotência `RN38`).
+  - **Persistência e concorrência no PostgreSQL:** `backend/app/src/lib/prisma.ts` apenas inicializa e reutiliza o cliente `PrismaClient`. Os bloqueios de linha com `FOR UPDATE`, dentro de transações, estão em `backend/app/src/repositories/carrinho.repository.ts` (`adicionarItemComTrava`, `removerItemComTrava`, `atualizarQuantidadeComTrava`), `backend/app/src/repositories/pedido.repository.ts` (`criarCheckout`, `atualizarStatus`) e `backend/app/src/repositories/pagamento.repository.ts` (`registrarPagamento`). A idempotência de pagamento é tratada por `pagamentoRepository.buscarPorChaveIdempotencia` e `pagamentoRepository.registrarPagamento`, com unicidade de `chaveIdempotencia` definida em `backend/app/prisma/schema.prisma` (`Pagamento.chaveIdempotencia`). Outras operações transacionais incluem `backend/app/src/repositories/produto.repository.ts` (`criar`, `atualizar`, `excluirFisicamente`, `atualizarEstoqueEPausa`), `backend/app/src/repositories/recuperacao.repository.ts` (`consumir`) e `backend/app/src/repositories/tentativa-login.repository.ts` (`registrarFalha`).
+  - **Consultas SQL de sessão:** `backend/app/src/lib/revogacao-token.ts` usa consultas parametrizadas em `tokenFoiRevogado`, `obterVersaoSessaoUsuario` e `sessaoUsuarioInvalidada`; `invalidarSessoesUsuario` atualiza a versão da sessão com SQL parametrizado.
   - `backend/backend/Origem.Concorrencia/Program.cs`, `FilaPedidos.cs` e `ProcessadorPedidos.cs`: demonstração independente em .NET 10 com fila `Channel` e `BackgroundService`.
 - **Processamento sequencial e paralelo:**
   - `modulo-ia/app/recommendation.py`:
@@ -617,7 +618,7 @@ Os componentes são executados separadamente para demonstrar os conceitos de con
 
 ### 7. Metodologia do benchmark, resultados e interpretação
 
-- **Metodologia (`docs/metodologia-benchmark.md`):** medições com `time.perf_counter()`, `2` aquecimentos descartados + `7` repetições cronometradas por configuração (**`147` amostras brutas** em [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv)), avaliando latência (mediana, média ± desvio padrão), *throughput* (`prod/s`), *speedup* (`T_seq / T_par`) e redução percentual em Windows 11 (`Intel Core i5-1135G7 @ 2.40GHz`, 4 núcleos físicos / 8 CPUs lógicas, `15,80 GB` RAM, Python `3.14.7`).
+- **Metodologia (`docs/metodologia-benchmark.md`):** medições com `time.perf_counter()`, `2` aquecimentos descartados + `7` repetições cronometradas por configuração (**`147` amostras brutas** em [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv)). O script calcula mediana, média e mínimo por configuração; o desvio padrão é calculado externamente a partir das amostras brutas de cada configuração. Também são avaliados *throughput* (`prod/s`), *speedup* (`T_seq / T_par`) e redução percentual em Windows 11 (`Intel Core i5-1135G7 @ 2.40GHz`, 4 núcleos físicos / 8 CPUs lógicas, `15,80 GB` RAM, Python `3.14.7`).
 - **Resultados — Pré-cálculo de recomendações em lote (`POST /recommendations/batch`, catálogo de `1.000` peças, top-5 por produto):**
 
 | Lote | Sequencial (Mediana) | Paralelo `thread` (`w=4`, GIL) | Paralelo `process` (`w=2`) | Paralelo `process` (`w=4`) | Throughput (`seq` → `process w=4`) | Ganho (`process w=4`) |
@@ -658,7 +659,8 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:3001/recommendations/batch
 docker build --target test --progress=plain ./modulo-ia
 
 # 5. Reproduzir o benchmark sequencial x paralelo (atualiza docs/benchmark_amostras_brutas.csv)
-cd modulo-ia && python -m benchmark_parallel
+cd modulo-ia
+python -m benchmark_parallel
 ```
 
 

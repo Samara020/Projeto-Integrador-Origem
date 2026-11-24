@@ -9,7 +9,7 @@ Definir um procedimento documentado e reproduzível de avaliação de desempenho
 - **Implementado nas suítes do repositório**:
   - **Estruturas de dados (`aed/src/benchmark.cpp` e `backend/app/src/aed/benchmarks/analise-complexidade.ts`)**: tempo de execução/duração de inserção, busca (linear, binária, tabela hash, árvore binária de busca), enfileiramento/desenfileiramento e empilhamento/desempilhamento por volume.
   - **Serviço de IA — desempenho geral (`modulo-ia/tests/test_performance.py`)**: tempo de execução das recomendações (`time.perf_counter()`), cálculo do **percentil P95** (com critério de referência `<= 2s` no teste) e confirmação do volume processado (`10.000` candidatos).
-  - **Serviço de IA — paralelismo sequencial vs. paralelo (`modulo-ia/benchmark_parallel.py`)**: **latência** (mediana, média e desvio padrão em `ms`), **throughput** (`produtos/s` no pré-cálculo em lote e `candidatos/s` no ranqueamento unitário), **variação/redução percentual** e **ganho relativo de paralelismo**:
+  - **Serviço de IA — paralelismo sequencial vs. paralelo (`modulo-ia/benchmark_parallel.py`)**: o script coleta **latência** com `time.perf_counter()` e calcula mediana, média e mínimo; o desvio padrão é calculado externamente a partir das amostras brutas de cada configuração em `docs/benchmark_amostras_brutas.csv`. O *throughput* (`produtos/s` no pré-cálculo em lote e `candidatos/s` no ranqueamento unitário) é derivado externamente a partir do volume e da mediana, enquanto o script calcula variação/redução percentual e ganho relativo de paralelismo:
 
 $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 
@@ -47,7 +47,7 @@ $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 
 ## 6. Número de Repetições e Aquecimento (Warm-up)
 - **Estado atual nas suítes**:
-  - `modulo-ia/benchmark_parallel.py`: **2 execuções de aquecimento** (*warm-up*) descartadas + **7 repetições cronometradas** por configuração (`147` amostras brutas no CSV), consolidando mediana, média, desvio padrão, throughput e speedup.
+  - `modulo-ia/benchmark_parallel.py`: **2 execuções de aquecimento** (*warm-up*) descartadas + **7 repetições cronometradas** por configuração (`147` amostras brutas no CSV). O script calcula internamente mediana, média e mínimo, e grava no CSV as amostras, a mediana e a média. O desvio padrão apresentado nos relatórios é calculado externamente a partir das sete amostras brutas de cada configuração. O script também calcula speedup e variação/redução percentual; o throughput dos relatórios é derivado externamente da mediana.
   - `e2e/cypress/e2e/desempenho.cy.js` (TC09): **10 medições** por operação (calcula média e máximo).
   - `modulo-ia/tests/test_performance.py`: **20 execuções** de recomendação (calcula P95).
   - `aed/src/benchmark.cpp` e `backend/app/src/aed/benchmarks/analise-complexidade.ts`: não possuem laço multi-repetição nem estatística consolidada entre rodadas no código atual.
@@ -71,7 +71,8 @@ $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
     npm --prefix backend/app run aed:benchmark
 
 ### Benchmark de paralelismo da IA (gera `docs/benchmark_amostras_brutas.csv`)
-    cd modulo-ia && python -m benchmark_parallel
+    cd modulo-ia
+    python -m benchmark_parallel
 
 ### Benchmark de desempenho da IA (no ambiente Python ou Docker do `modulo-ia`)
     docker build --target test --progress=plain ./modulo-ia
