@@ -620,3 +620,4 @@ https://youtu.be/3yaYGo2tlas
 - Nicolas
 - Samara
 - Sérgio
+Documento detalhado da arquitetura distribuida: [docs/arquitetura/diagrama-arquitetura-distribuida.md](docs/arquitetura/diagrama-arquitetura-distribuida.md)
