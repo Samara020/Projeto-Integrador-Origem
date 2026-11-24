@@ -1,0 +1,102 @@
+name: Testes smoke (caminho crítico)
+
+# Roda só os Testes End-to-End marcados com @smoke: login, vitrine, carrinho, compra com
+# Pix e cadastro de peça. É a conferência rápida do caminho crítico, sem os níveis Unitário,
+# backend e API. A regressão completa continua em testes.yml.
+# Disparo manual: aba Actions > Testes smoke (caminho crítico) > Run workflow.
+# Na máquina: npm run test:e2e:smoke (com o runtime descartável em :3200/:4200 de pé).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke do caminho crítico
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: origem_db
+          POSTGRES_USER: origem_user
+          POSTGRES_PASSWORD: ci-temporary-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U origem_user -d origem_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://origem_user:ci-temporary-password@localhost:5432/origem_db?schema=public
+      JWT_SECRET: segredo-ci-origem-testes
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_BASE_URL: http://localhost:3200
+      AUTO_SETUP_DB: "true"
+      ADMIN_INVITE_CODE: origem-admin-2026
+      CYPRESS_BASE_URL: http://localhost:3200
+      CYPRESS_API_URL: http://localhost:4200
+      TEST_DATABASE_NAME: origem_e2e_ci
+      # O módulo de IA não sobe aqui: o backend cai no fallback das recomendações.
+      RECOMENDACAO_API_URL: http://localhost:3001
+      RECOMENDACAO_API_KEY: origem-mockup-key
+      E2E_BROWSER: chrome
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/app/package-lock.json
+            e2e/package-lock.json
+
+      - name: Cache do binário do Cypress
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+      - name: Instalar dependências
+        run: |
+          npm ci --prefix frontend
+          npm ci --prefix backend/app
+          npm ci --prefix e2e
+          npm --prefix e2e exec -- cypress verify
+
+      - name: Gerar Prisma Client e compilar backend
+        working-directory: backend/app
+        run: |
+          npm run prisma:generate
+          npm run build
+
+      - name: Preparar runtime descartável do E2E (:3200/:4200)
+        run: bash .github/scripts/preparar-runtime-e2e.sh
+
+      - name: Testes smoke (@smoke)
+        run: |
+          echo "## Smoke do caminho crítico" >> "$GITHUB_STEP_SUMMARY"
+          npm run test:e2e:smoke
+
+      - name: Guardar relatórios, logs, prints e vídeos
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorios-smoke
+          path: |
+            relatorios/
+            e2e/cypress/screenshots/
+            e2e/cypress/videos/
+          if-no-files-found: warn
+          retention-days: 14

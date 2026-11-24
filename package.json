@@ -4,7 +4,13 @@
   "description": "Regressão da TAS do Origem: um comando por nível de teste.",
   "scripts": {
     "test:unit": "node scripts/testes.mjs unit",
+    "test:backend": "node scripts/testes.mjs backend",
     "test:api": "node scripts/testes.mjs api",
-    "test:e2e": "node scripts/testes.mjs e2e"
+    "test:e2e": "node scripts/testes.mjs e2e --sem-tag @flaky",
+    "test:e2e:smoke": "node scripts/testes.mjs e2e --tag @smoke",
+    "test:quarentena": "node scripts/testes.mjs quarentena",
+    "test:politica": "node .github/scripts/verificar-quarentena.mjs",
+    "test:metricas": "node scripts/metricas.mjs",
+    "test:automacao": "node --test .github/scripts/automacao.test.mjs .github/scripts/politica.test.mjs"
   }
 }

@@ -70,7 +70,7 @@ describe("TC19 / Card 18 Item 8 · adição e remoção de produto no carrinho",
     );
   });
 
-  it("adiciona pela página da peça e remove na tela do carrinho", () => {
+  it("adiciona pela página da peça e remove na tela do carrinho @smoke", () => {
     adicionarPelaTela(produto);
 
     cy.get('a[aria-label="Carrinho com 1 item"]').click();
@@ -98,7 +98,7 @@ describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistênci
     );
   });
 
-  it("comprador logado cota frete, compra com Pix e acompanha o pedido pago no histórico", () => {
+  it("comprador logado cota frete, compra com Pix e acompanha o pedido pago no histórico @smoke", () => {
     const apiUrl = getApiUrl();
     cy.intercept("POST", `${apiUrl}/envios/cotacao`).as("cotacao");
     cy.visitarComo("COMPRADOR", `/produto/${produto.id}`);

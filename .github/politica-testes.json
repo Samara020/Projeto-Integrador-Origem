@@ -1,0 +1,13 @@
+{
+  "descricao": "Limites da política de manutenção da TAS (docs/tas.md). Lidos por scripts/metricas.mjs para pintar o semáforo do relatório de métricas.",
+  "limiteDeTempoSegundos": {
+    "unit": 60,
+    "backend": 180,
+    "api": 120,
+    "e2e": 300
+  },
+  "maximoDeIgnorados": 0,
+  "taxaMinimaDeSucessoDaEsteira": 80,
+  "diasDaJanelaDaEsteira": 7,
+  "diasMaximosEmQuarentena": 15
+}

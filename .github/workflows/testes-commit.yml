@@ -16,4 +16,5 @@ jobs:
     name: Regressão completa
     permissions:
       contents: read
+      actions: read
     uses: ./.github/workflows/testes.yml

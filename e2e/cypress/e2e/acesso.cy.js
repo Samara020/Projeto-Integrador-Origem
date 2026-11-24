@@ -36,7 +36,7 @@ function entrar(email, senha) {
 }
 
 describe("TC01 · login com dados válidos leva cada perfil à sua área", () => {
-  it("comprador entra e volta para a vitrine com a conta no cabeçalho", () => {
+  it("comprador entra e volta para a vitrine com a conta no cabeçalho @smoke", () => {
     cy.registrarUsuario("COMPRADOR", { nome: "Joana Teste" }).then((conta) => {
       entrar(conta.email, conta.senha);
 
@@ -111,7 +111,7 @@ describe("TC14 · comprador não abre área de administrador", () => {
     cy.contains("O pulso do marketplace").should("not.exist");
   });
 
-  it("visitante sem conta em /painel/admin é mandado para o login", () => {
+  it("visitante sem conta em /painel/admin é mandado para o login @smoke", () => {
     cy.visit("/painel/admin");
 
     cy.location("pathname").should("eq", "/entrar");
