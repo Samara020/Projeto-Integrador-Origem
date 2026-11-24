@@ -1,0 +1,87 @@
+================================================================================
+EVIDÊNCIAS FUNCIONAIS — PROCESSAMENTO PARALELO E TESTES (modulo-ia)
+Data: 2026-11-24 | Branch: feat/unidade2-paralelismo-benchmarks
+Ambiente: Windows 11 (10.0.26300-SP0) | Intel Core i5-1135G7 @ 2.40GHz (4c/8t) | 15,80 GB RAM | Python 3.14.7
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUÇÃO REAL DA TAREFA PARALELA (rank_batch_recommendations_parallel, w=4, ProcessPoolExecutor)
+--------------------------------------------------------------------------------
+Catalogo carregado: 14 produtos | Referencias disponiveis: 12
+Equivalencia exata (sequencial == paralelo ProcessPoolExecutor w=4): True
+Amostra prd_201: [{"product_id": "prd_213", "score": 1.0, "reason": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região."}, {"product_id": "prd_202", "score": 0.8, "reason": "Recomendado por mesma categoria, mesma técnica artesanal."}, {"product_id": "prd_207", "score": 0.5, "reason": "Recomendado por mesma categoria."}]
+Amostra prd_202: [{"product_id": "prd_201", "score": 0.8, "reason": "Recomendado por mesma categoria, mesma técnica artesanal."}, {"product_id": "prd_213", "score": 0.8, "reason": "Recomendado por mesma categoria, mesma técnica artesanal."}, {"product_id": "prd_207", "score": 0.7, "reason": "Recomendado por mesma categoria, mesma região."}]
+
+--------------------------------------------------------------------------------
+2. SAÍDA REAL DO BENCHMARK SEQUENCIAL x PARALELO (cd modulo-ia && python -m benchmark_parallel)
+   Amostras brutas: docs/benchmark_amostras_brutas.csv (147 registros)
+--------------------------------------------------------------------------------
+Ambiente: Windows 11 | Python 3.14.7 | Timestamp UTC: 2026-11-24T17:42:54.896057+00:00
+
+=== Cenario 1: Ranqueamento unitario (rank_candidates vs thread) ===
+Tamanho=100 | Sequencial: mediana=0.402 ms (media=0.470 ms)
+  -> Paralelo (thread, w=2): mediana=0.535 ms | Speedup=0.75x | Variacao=-33.04% | Reducao=0.00%
+  -> Paralelo (thread, w=4): mediana=0.542 ms | Speedup=0.74x | Variacao=-34.91% | Reducao=0.00%
+Tamanho=1000 | Sequencial: mediana=4.826 ms (media=4.694 ms)
+  -> Paralelo (thread, w=2): mediana=5.507 ms | Speedup=0.88x | Variacao=-14.10% | Reducao=0.00%
+  -> Paralelo (thread, w=4): mediana=4.339 ms | Speedup=1.11x | Variacao=+10.09% | Reducao=10.09%
+Tamanho=5000 | Sequencial: mediana=25.007 ms (media=25.127 ms)
+  -> Paralelo (thread, w=2): mediana=20.331 ms | Speedup=1.23x | Variacao=+18.70% | Reducao=18.70%
+  -> Paralelo (thread, w=4): mediana=21.503 ms | Speedup=1.16x | Variacao=+14.01% | Reducao=14.01%
+
+=== Cenario 2: Pre-calculo de recomendacoes em lote (catalogo=1000, ProcessPoolExecutor) ===
+Lote=200 produtos (x 1000 catalogo) | Sequencial: mediana=1319.69 ms (media=1301.45 ms)
+  -> Paralelo (thread, w=4):  mediana=1725.39 ms | Speedup=0.76x | Variacao=-30.74% | Reducao=0.00%
+  -> Paralelo (process, w=2): mediana=575.15 ms | Speedup=2.29x | Variacao=+56.42% | Reducao=56.42%
+  -> Paralelo (process, w=4): mediana=364.08 ms | Speedup=3.62x | Variacao=+72.41% | Reducao=72.41%
+Lote=500 produtos (x 1000 catalogo) | Sequencial: mediana=3498.87 ms (media=3432.82 ms)
+  -> Paralelo (thread, w=4):  mediana=4464.93 ms | Speedup=0.78x | Variacao=-27.61% | Reducao=0.00%
+  -> Paralelo (process, w=2): mediana=2353.21 ms | Speedup=1.49x | Variacao=+32.74% | Reducao=32.74%
+  -> Paralelo (process, w=4): mediana=1067.06 ms | Speedup=3.28x | Variacao=+69.50% | Reducao=69.50%
+Lote=1000 produtos (x 1000 catalogo) | Sequencial: mediana=6292.55 ms (media=6284.68 ms)
+  -> Paralelo (thread, w=4):  mediana=8792.48 ms | Speedup=0.72x | Variacao=-39.73% | Reducao=0.00%
+  -> Paralelo (process, w=2): mediana=4830.20 ms | Speedup=1.30x | Variacao=+23.24% | Reducao=23.24%
+  -> Paralelo (process, w=4): mediana=2259.25 ms | Speedup=2.79x | Variacao=+64.10% | Reducao=64.10%
+
+--------------------------------------------------------------------------------
+3. SUÍTE AUTOMATIZADA COMPLETA NO CONTAINER DOCKER (modulo-ia / pytest)
+   Comando: docker run --rm --entrypoint /venv/bin/python $(docker build -q --target test ./modulo-ia) -m pytest tests -v -W ignore --no-header
+--------------------------------------------------------------------------------
+============================= test session starts ==============================
+collecting ... collected 33 items
+
+tests/test_api.py::test_recomendacoes_http PASSED                        [  3%]
+tests/test_api.py::test_recomendacoes_sem_autenticacao PASSED            [  6%]
+tests/test_api.py::test_recomendacoes_com_chave_invalida PASSED          [  9%]
+tests/test_api.py::test_recomendacoes_com_limite_invalido PASSED         [ 12%]
+tests/test_api.py::test_recomendacoes_produto_inexistente PASSED         [ 15%]
+tests/test_api.py::test_recomendacoes_http_por_filtro_sem_categoria[filtros0-esperados0-Recomendado por mesma técnica artesanal.] PASSED [ 18%]
+tests/test_api.py::test_recomendacoes_http_por_filtro_sem_categoria[filtros1-esperados1-Recomendado por mesma região.] PASSED [ 21%]
+tests/test_api.py::test_recomendacoes_http_com_catalogo_dinamico PASSED  [ 24%]
+tests/test_api.py::test_recomendacoes_batch_http PASSED                  [ 27%]
+tests/test_api.py::test_recomendacoes_batch_sem_autenticacao PASSED      [ 30%]
+tests/test_parallel_equivalence.py::test_sequential_and_parallel_return_identical_ranking PASSED [ 33%]
+tests/test_parallel_equivalence.py::test_parallel_handles_empty_candidates PASSED [ 36%]
+tests/test_parallel_equivalence.py::test_batch_sequential_and_parallel_return_identical_recommendations PASSED [ 39%]
+tests/test_parallel_equivalence.py::test_select_candidates_and_batch_integrate_parallel_path PASSED [ 42%]
+tests/test_performance.py::test_desempenho_com_10000_produtos PASSED     [ 45%]
+tests/test_recommendation.py::test_exclui_produto_de_referencia PASSED   [ 48%]
+tests/test_recommendation.py::test_exclui_produtos_indisponiveis PASSED  [ 51%]
+tests/test_recommendation.py::test_calcula_score_com_tres_atributos PASSED [ 54%]
+tests/test_recommendation.py::test_ordena_por_score PASSED               [ 57%]
+tests/test_recommendation.py::test_fallback_reduz_criterios PASSED       [ 60%]
+tests/test_recommendation.py::test_retorna_lista_vazia_quando_nao_ha_candidatos PASSED [ 63%]
+tests/test_recommendation.py::test_recomenda_por_filtros_sem_categoria[contexto0-esperados0] PASSED [ 66%]
+tests/test_recommendation.py::test_recomenda_por_filtros_sem_categoria[contexto1-esperados1] PASSED [ 69%]
+tests/test_recommendation.py::test_recomenda_por_filtros_sem_categoria[contexto2-esperados2] PASSED [ 72%]
+tests/test_recommendation.py::test_filtros_sem_categoria_respeitam_limite_e_exclusao_da_referencia PASSED [ 75%]
+tests/test_recommendation.py::test_nao_recomenda_pecas_sem_relacao_com_os_filtros[contexto0] PASSED [ 78%]
+tests/test_recommendation.py::test_nao_recomenda_pecas_sem_relacao_com_os_filtros[contexto1] PASSED [ 81%]
+tests/test_recommendation.py::test_nao_recomenda_pecas_sem_relacao_com_os_filtros[contexto2] PASSED [ 84%]
+tests/test_recommendation.py::test_nao_recomenda_pecas_sem_relacao_com_os_filtros[contexto3] PASSED [ 87%]
+tests/test_recommendation.py::test_seleciona_candidatos_a_partir_de_catalogo_dinamico PASSED [ 90%]
+tests/test_service.py::test_service_pode_ser_importado PASSED            [ 93%]
+tests/test_service.py::test_configuracao_de_simulacao_503 PASSED         [ 96%]
+tests/test_service.py::test_configuracao_de_simulacao_500 PASSED         [100%]
+
+============================== 33 passed in 5.72s ==============================
