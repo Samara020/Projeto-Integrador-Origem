@@ -519,7 +519,7 @@ Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `c
 
 ### 1. Módulos existentes no repositório e suas responsabilidades
 
-A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços:
+A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços.
 
 - **Frontend Web (`frontend/`):** aplicação em Next.js 16, React 19 e TypeScript responsável pela interface do marketplace, incluindo vitrine, catálogo, busca, detalhes dos produtos, carrinho, checkout, painel do artesão, painel administrativo e suporte. Não acessa diretamente o banco de dados; consome o backend por meio do cliente HTTP centralizado (`frontend/src/lib/http.ts`).
 - **Backend Principal (`backend/app/`):** API em Node.js, Express, TypeScript e Prisma ORM responsável pelas regras de negócio centrais, autenticação e autorização (JWT/RBAC), gestão de usuários, artesãos, produtos, estoque, pedidos, checkout e integração com o serviço de recomendação.
@@ -535,7 +535,9 @@ A solução reutiliza os componentes existentes no repositório, mantendo a sepa
 | **Frontend Web (`frontend/`)** | **Backend Principal (`backend/app/`)** | HTTP/REST com JSON, via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`) | Autenticação, consulta de catálogo e produtos, carrinho, checkout, pedidos e painéis. |
 | **Backend Principal (`backend/app/`)** | **Serviço de IA (`modulo-ia/`)** | HTTP/REST com JSON, utilizando `X-API-Key` | Solicitação de recomendações de produtos. Em caso de falha ou indisponibilidade, o backend utiliza o mecanismo de fallback para sugestões locais. |
 | **Backend Principal (`backend/app/`)** | **PostgreSQL (`database/` / Prisma)** | Protocolo nativo PostgreSQL sobre TCP, por meio do Prisma ORM | Persistência relacional e operações transacionais de domínio, como catálogo, pedidos e estoque. |
-| **Cliente externo da demonstração** | **API do Módulo de Concorrência (`.NET 10`)** | HTTP/REST para acesso à API e `Channel` para enfileiramento interno em memória | Demonstrar o processamento concorrente e o controle de pedidos em fila, independentemente do fluxo principal do backend Node.js. |
+| **Cliente externo da demonstração** | **API do Módulo de Concorrência (.NET 10)** | HTTP/REST | Envio de solicitações para demonstrar o processamento concorrente. |
+| **API do Módulo de Concorrência (.NET 10)** | **Fila `Channel`** | Enfileiramento assíncrono em memória | Recebimento e armazenamento temporário das solicitações para processamento. |
+| **Fila `Channel`** | **`BackgroundService`** | Leitura assíncrona da fila | Consumo e processamento das solicitações em segundo plano. |
 
 ### 3. Diagrama da Arquitetura Distribuída
 
@@ -555,14 +557,20 @@ flowchart LR
         AI["Python / BentoML<br/>Recomendação de produtos"]
     end
 
-    subgraph Concorrencia["Demonstração independente"]
-        CONC["API C# / .NET 10<br/>Channel"]
+    subgraph Concorrencia["Demonstração independente - C# / .NET 10"]
+        API["API ASP.NET Core<br/>Program.cs"]
+        Fila[["Channel<br/>Fila limitada em memória<br/>100 mensagens"]]
+        Worker["BackgroundService<br/>ProcessadorPedidos.cs"]
     end
 
-    FE -->|"HTTP/REST · JSON"| BE
-    BE -->|"Prisma ORM · PostgreSQL/TCP"| DB
-    BE -->|"HTTP/REST · POST /recommendations"| AI
-    CLI -->|"HTTP/REST"| CONC
+    FE -->|"HTTP/REST - JSON"| BE
+    BE -->|"Prisma ORM / PostgreSQL TCP"| DB
+    BE -->|"HTTP/REST - POST /recommendations<br/>X-API-Key + timeout"| AI
+    AI -->|"JSON ou falha / timeout<br/>fallback baseline local"| BE
+
+    CLI -->|"HTTP/REST"| API
+    API -->|"Enfileiramento assíncrono"| Fila
+    Fila -->|"Leitura assíncrona"| Worker
 ```
 
 O diagrama representa os mecanismos de comunicação entre os componentes. O módulo de concorrência em C# aparece separado do núcleo do Origem porque constitui uma demonstração independente, sem integração obrigatória com o backend principal.
@@ -576,6 +584,26 @@ O diagrama representa os mecanismos de comunicação entre os componentes. O mó
 - **Por que o módulo C#/.NET é mantido separado como demonstração de concorrência:** o módulo `Origem.Concorrencia`, desenvolvido em C# e .NET 10, demonstra concorrência e enfileiramento de pedidos por meio de `Channel`. Sua execução independente permite demonstrar os conceitos da disciplina sem acoplá-lo ao backend Node.js ou ao fluxo principal de checkout em produção.
 
 - **Por que não houve fragmentação desnecessária em microsserviços:** para o porte e o escopo acadêmico do Projeto Origem, dividir o domínio principal em múltiplos microsserviços ou adicionar brokers externos aumentaria a complexidade operacional, de implantação e de depuração sem benefício proporcional. A arquitetura adotada preserva a modularidade do backend principal e separa apenas os componentes que possuem responsabilidades e necessidades tecnológicas específicas.
+
+### 5. Limites da Demonstração de Concorrência
+
+O módulo `Origem.Concorrencia` é uma demonstração independente do checkout principal.
+
+- A API ASP.NET Core recebe as solicitações HTTP.
+- A fila `Channel` realiza o enfileiramento em memória, com capacidade limitada.
+- O `BackgroundService` consome e processa os itens de forma assíncrona.
+- A fila, os pedidos e o estoque demonstrativo são mantidos em memória.
+- O módulo não utiliza o PostgreSQL do marketplace para persistência.
+- O módulo não substitui nem integra automaticamente o checkout do backend Express.
+
+Os componentes são executados separadamente para demonstrar os conceitos de concorrência, processamento assíncrono e desacoplamento.
+
+### 6. Documento detalhado
+
+O diagrama e as responsabilidades dos componentes também estão documentados em:
+
+[`docs/arquitetura/diagrama-arquitetura-distribuida.md`](docs/arquitetura/diagrama-arquitetura-distribuida.md)
+
 
 ## Figma
 
@@ -620,4 +648,3 @@ https://youtu.be/3yaYGo2tlas
 - Nicolas
 - Samara
 - Sérgio
-Documento detalhado da arquitetura distribuida: [docs/arquitetura/diagrama-arquitetura-distribuida.md](docs/arquitetura/diagrama-arquitetura-distribuida.md)
