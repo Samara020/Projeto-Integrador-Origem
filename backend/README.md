@@ -10,7 +10,7 @@ Na raiz do repositório:
 dotnet run --project .\backend\backend\Origem.Concorrencia\Origem.Concorrencia.csproj -- --urls http://localhost:5000
 ```
 
-Para usar o checkout do site, copie `frontend/.env.example` para `frontend/.env.local` se ainda não existir, e reinicie `npm run dev`. O produto `prd_201` exige que `NEXT_PUBLIC_CONCORRENCIA_API_URL` aponte para a API. Use dois navegadores ou perfis separados, pois o carrinho fica no `localStorage`.
+Esta API funciona como demonstração independente na porta `5000` (com estado e fila em memória via `Channel` e `BackgroundService`, sem persistência no PostgreSQL e sem integração comprovada no código do `frontend`). Para testar a simulação diretamente via HTTP/script, suba a API conforme o comando acima.
 
 ## Fluxo
 

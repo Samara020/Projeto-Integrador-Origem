@@ -4,9 +4,9 @@ import time
 import bentoml
 from pydantic import BaseModel
 
-from app.catalog import find_product
+from app.catalog import find_product, load_catalog
 from app.config import DEFAULT_LIMIT, MAX_LIMIT, get_api_key
-from app.fallback import select_candidates
+from app.fallback import select_candidates, select_candidates_batch
 
 
 class CatalogItem(BaseModel):
@@ -23,6 +23,12 @@ class RecommendationRequest(BaseModel):
     category: str | None = None
     technique: str | None = None
     region: str | None = None
+    limit: int = DEFAULT_LIMIT
+    catalog: list[CatalogItem] | None = None
+
+
+class BatchRecommendationRequest(BaseModel):
+    product_ids: list[str] | None = None
     limit: int = DEFAULT_LIMIT
     catalog: list[CatalogItem] | None = None
 
@@ -228,4 +234,57 @@ class RecommendationService:
 
         return {
             "recommendations": recommendations
+        }
+
+    @bentoml.api(
+        route="/recommendations/batch",
+        input_spec=BatchRecommendationRequest,
+    )
+    def recommendations_batch(
+        self,
+        ctx: bentoml.Context,
+        **params,
+    ) -> dict:
+        request = BatchRecommendationRequest(**params)
+        start_time = time.perf_counter()
+
+        erro = validar_disponibilidade(ctx)
+        if erro is not None:
+            return erro
+
+        erro = validar_autenticacao(ctx)
+        if erro is not None:
+            return erro
+
+        if request.limit < 1 or request.limit > MAX_LIMIT:
+            return error_response(
+                ctx,
+                400,
+                "INVALID_LIMIT",
+                "O limite deve estar entre 1 e 20.",
+            )
+
+        catalog = (
+            [item.model_dump() for item in request.catalog]
+            if request.catalog is not None
+            else load_catalog()
+        )
+
+        if request.product_ids:
+            ids_set = {normalizar_texto(pid) for pid in request.product_ids if normalizar_texto(pid)}
+            references = [item for item in catalog if item.get("product_id") in ids_set]
+        else:
+            references = [item for item in catalog if item.get("available", True)]
+
+        recommendations_by_product = select_candidates_batch(
+            references=references,
+            catalog=catalog,
+            limit=request.limit,
+        )
+
+        registrar_desempenho(recommendations_by_product, start_time)
+
+        return {
+            "total_products": len(recommendations_by_product),
+            "recommendations_by_product": recommendations_by_product,
         }

@@ -5,6 +5,8 @@ Esta pasta reúne a documentação da arquitetura de software identificada no re
 ## Documentos
 
 - [Arquitetura atual](arquitetura-atual.md): visão geral dos componentes e tecnologias.
+- [Arquitetura distribuída](arquitetura-distribuida.md): organização em serviços, diagrama distribuído (portas, protocolos, autenticação e fallback) e justificativa da separação de cada módulo.
+- [Diagrama da arquitetura distribuída](diagrama-arquitetura-distribuida.md): visão complementar destacando os serviços, a fila em memória (`Channel`) e o `BackgroundService` da demonstração .NET.
 - [Fluxo de comunicação](fluxo-comunicacao.md): comunicação entre frontend, backend, banco de dados e serviços auxiliares.
 - [Diagrama de arquitetura](diagrama-arquitetura.mmd): representação dos principais componentes.
 - [Persistência com Prisma](persistencia-prisma.mmd): representação exclusiva do acesso e da persistência de dados.

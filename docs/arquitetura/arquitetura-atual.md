@@ -90,7 +90,7 @@ A implementação utiliza:
 
 O estado demonstrativo é mantido em memória e não possui persistência no banco de dados. A demonstração possui endpoints próprios, como `/demo/compras`.
 
-O frontend utiliza a variável `NEXT_PUBLIC_CONCORRENCIA_API_URL` para acessar essa API no fluxo específico do produto demonstrativo `prd_201`.
+A API é acionada diretamente por cliente HTTP externo (como o script `backend/testar-demo.ps1`) no fluxo demonstrativo do produto `prd_201`, sem integração no código de `frontend/src/`.
 
 Esse módulo deve ser considerado uma demonstração independente, e não parte comprovada do backend Express principal.
 

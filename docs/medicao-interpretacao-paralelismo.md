@@ -1,25 +1,26 @@
-﻿# Medição de Desempenho e Interpretação Técnica — Processamento Paralelo (`modulo-ia`)
+# Interpretação dos Resultados e Justificativa das Decisões Técnicas — `modulo-ia`
 
-## 1. Cenário e metodologia de medição
-- **Tarefa avaliada:** ranqueamento de produtos candidatos (`rank_candidates` sequencial vs. `rank_candidates_parallel` paralelo) em `modulo-ia/app/recommendation.py`.
-- **Script utilizado:** `modulo-ia/benchmark_parallel.py` (2 execuções de aquecimento + 7 repetições medidas via `time.perf_counter()`).
-- **Cargas testadas:** `100`, `1.000` e `5.000` produtos candidatos, com `ThreadPoolExecutor` (`workers = 2` e `workers = 4`).
+## 1. Síntese dos resultados obtidos
+Com base nas `147` medições registradas em `docs/benchmark_amostras_brutas.csv` e consolidadas em `docs/medicao-ganho-paralelismo.md` (`2` aquecimentos + `7` repetições por cenário):
 
-## 2. Resultados obtidos
+- **Pré-cálculo de recomendações em lote (`ProcessPoolExecutor`, catálogo de `1.000` peças):**
+  - `200` produtos: **1.319,69 ms → 364,08 ms** (*speedup* **`3,62x`**, redução de **`72,41%`** com `w=4`; **`2,29x`** / **`56,42%`** com `w=2`).
+  - `500` produtos: **3.498,87 ms → 1.067,06 ms** (*speedup* **`3,28x`**, redução de **`69,50%`** com `w=4`; **`1,49x`** / **`32,74%`** com `w=2`).
+  - `1.000` produtos: **6.292,55 ms → 2.259,25 ms** (*speedup* **`2,79x`**, redução de **`64,10%`** com `w=4`; **`1,30x`** / **`23,24%`** com `w=2`).
+- **Comparação direta `ThreadPoolExecutor` vs. `ProcessPoolExecutor` na mesma carga:**
+  - Usando `ThreadPoolExecutor` (`w=4`) no mesmo lote, o tempo **piorou** em todos os tamanhos (`0,72x` a `0,78x`, de `-27,61%` a `-39,73%`), comprovando na prática o gargalo do **GIL** em Python para trabalho CPU-bound.
+- **Ranqueamento unitário em listas pequenas (`100` candidatos):**
+  - O tempo sequencial já é submilissegundo (`0,402 ms`); paralelizar listas pequenas introduz *overhead* (`0,74x`–`0,75x`), o que justifica manter limiares mínimos configuráveis (`PARALLEL_MIN_ITEMS` e `PARALLEL_BATCH_MIN_REQUESTS`).
 
-| Candidatos | Sequencial (mediana) | Sequencial (média) | Paralelo `thread` (`w=2`, mediana) | Speedup (`w=2`) | Paralelo `thread` (`w=4`, mediana) | Speedup (`w=4`) |
-|---:|---:|---:|---:|---:|---:|---:|
-| **100** | 0,40 ms | 0,47 ms | 0,83 ms | 0,49x | 0,98 ms | 0,41x |
-| **1.000** | 3,96 ms | 3,94 ms | 4,96 ms | 0,80x | 5,28 ms | 0,75x |
-| **5.000** | 22,29 ms | 22,88 ms | 22,18 ms | 1,00x | 21,95 ms | 1,02x |
+## 2. Justificativa das decisões técnicas
 
-## 3. Interpretação dos resultados e justificativa das decisões técnicas
-
-1. **Overhead supera o ganho em cargas pequenas e médias (`100` e `1.000` itens):**
-   - O cálculo individual de compatibilidade (`calculate_score` e `build_reason`) é muito leve em memória. Para 100 e 1.000 candidatos, o custo de particionar a lista, agendar tarefas no `ThreadPoolExecutor` e consolidar os resultados supera o tempo economizado, resultando em *speedup* abaixo de `1,0x` (`0,41x` a `0,80x`).
-2. **Ponto de equilíbrio em volumes maiores (`5.000` itens):**
-   - A partir de 5.000 candidatos, o tempo paralelo empata ou supera marginalmente o sequencial (`1,00x` com 2 *workers* e `1,02x` com 4 *workers*). Isso justifica tecnicamente o parâmetro `min_items_for_parallel` na função `rank_candidates_parallel`, preservando a execução sequencial direta para o catálogo reduzido de demonstração do Origem.
-3. **Efeito do GIL em Python com `ThreadPoolExecutor`:**
-   - Como o ranqueamento é predominantemente CPU-bound (comparação normalizada de strings e soma ponderada), *threads* em Python disputam o GIL e não escalam linearmente em múltiplos núcleos.
-4. **Separação entre paralelismo de dados e concorrência de estado:**
-   - O ranqueamento em `modulo-ia` opera apenas em leitura sobre partições independentes, sem necessidade de bloqueios (`lock`), enquanto o controle de disputa de estoque e fila assíncrona permanece isolado em `backend/backend/Origem.Concorrencia/` (`lock` + `Channel` + `BackgroundService`).
+1. **Multiprocessamento (`ProcessPoolExecutor`) para escapar do GIL em trabalho CPU-bound:**
+   - O cálculo de afinidade (`calculate_score`, `build_reason` e ordenação) é processamento puro em CPU no interpretador Python. Trocar *threads* por múltiplos processos independentes libera o uso simultâneo de múltiplos núcleos físicos, gerando ganhos entre **`2,79x` e `3,62x`** com 4 workers.
+2. **Compartilhamento único do catálogo via `initializer` e pool reutilizado:**
+   - Carregar o catálogo uma única vez na inicialização de cada worker (`_init_batch_worker`) evita serializar (*pickle*) o catálogo inteiro a cada lote enviado por IPC. Trafegam entre processos apenas as fatias de produtos de referência e os resultados top-N, reduzindo drasticamente o custo de coordenação.
+3. **Limiares configuráveis para proteger cargas pequenas (`app/config.py`):**
+   - `select_candidates` (`app/fallback.py`) aciona `rank_candidates_parallel` apenas acima de `RECOMENDACAO_PARALLEL_MIN_ITEMS` (padrão `2000`), e `select_candidates_batch` aciona paralelismo acima de `RECOMENDACAO_PARALLEL_BATCH_MIN_REQUESTS` (padrão `16`). Assim, requisições pequenas do catálogo atual mantêm latência submilissegundo sem *overhead* desnecessário, enquanto cargas maiores e pré-cálculo em lote escalam em múltiplos núcleos.
+4. **Integração real no serviço e determinismo garantido:**
+   - Tanto `POST /recommendations` quanto `POST /recommendations/batch` (`app/service.py`) utilizam as rotinas paralelas de `app/fallback.py` / `app/recommendation.py`. A suíte `tests/test_parallel_equivalence.py` comprova que a saída paralela (`thread` e `process`) é bit a bit idêntica à sequencial (incluindo critério de desempate determinístico por `(-score, product_id)`).
+5. **Separação entre paralelismo de dados e concorrência de estado:**
+   - O paralelismo no `modulo-ia` opera em partições independentes somente-leitura (sem *locks* nem condição de corrida), enquanto a concorrência com escrita transacional no marketplace é tratada via `FOR UPDATE` no PostgreSQL (`backend/app`) e demonstrada com fila assíncrona (`Channel` + `BackgroundService`) em `backend/backend/Origem.Concorrencia/`.

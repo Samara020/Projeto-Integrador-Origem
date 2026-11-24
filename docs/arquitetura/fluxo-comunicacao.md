@@ -130,7 +130,7 @@ As antigas rotas Next.js em `frontend/src/app/api/` e os dados de `frontend/src/
 
 O endpoint `GET /produtos/recomendacoes` delega a `recomendacaoService.recomendar()` (`backend/app/src/services/recomendacao.service.ts`), que consulta o catálogo aprovado no PostgreSQL via `produtoRepository.catalogoParaRecomendacao()`.
 
-Quando `RECOMENDACAO_API_URL` está configurada, envia o catálogo real ao módulo BentoML (`POST /recommendations`, timeout de 2 s) e retorna o cabeçalho `X-Recomendacao-Fonte: ia`. Em caso de falha/timeout ou ausência de configuração, aplica o baseline local sobre o mesmo catálogo persistido no PostgreSQL (`X-Recomendacao-Fonte: fallback`).
+Quando `RECOMENDACAO_API_URL` está configurada, envia o catálogo real ao módulo BentoML (`POST /recommendations`, timeout de 2 s) e retorna o cabeçalho `X-Recomendacao-Fonte: ia`. Em caso de falha/timeout ou ausência de configuração, aplica o baseline local sobre o mesmo catálogo persistido no PostgreSQL (`X-Recomendacao-Fonte: baseline`).
 
 ## 6. Demonstração de concorrência
 
