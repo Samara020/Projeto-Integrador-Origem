@@ -139,7 +139,13 @@ describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistênci
         cy.visit("/conta");
         cy.hidratado();
         cy.contains("h1", "Compras realizadas").should("be.visible");
-        cy.contains(`PEDIDO #${idLimpo}`).should("be.visible");
+        // O histórico mostra o número do pedido na conta do comprador ("SEU PEDIDO #n"),
+        // não o id global. O cartão certo é o que leva ao detalhe deste id.
+        cy.get(`a[href="/conta/pedidos/${idLimpo}"]`)
+          .first()
+          .closest("article")
+          .contains(/^SEU PEDIDO #\d+$/)
+          .should("be.visible");
 
         cy.visit(`/conta/pedidos/${idLimpo}`);
         cy.hidratado();
@@ -289,7 +295,12 @@ describe("TC06 / TC13 / Card 18 Item 9 · finalização da compra e persistênci
           // 6. Histórico de pedidos no perfil
           cy.visit("/conta");
           cy.hidratado();
-          cy.contains(`PEDIDO #${idPedido}`).should("be.visible");
+          // Conta recém-criada: este é o primeiro pedido dela, qualquer que seja o id global.
+          cy.get(`a[href="/conta/pedidos/${idPedido}"]`)
+            .first()
+            .closest("article")
+            .contains(/^SEU PEDIDO #1$/)
+            .should("be.visible");
 
           cy.visit(`/conta/pedidos/${idPedido}`);
           cy.hidratado();
