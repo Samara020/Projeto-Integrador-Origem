@@ -94,19 +94,19 @@ A recomendação parte de um baseline simples, considerando características com
 
 ## Arquitetura
 
-O Origem prevê a integração dos seguintes componentes:
+O Origem integra os seguintes componentes implementados:
 
-* Frontend responsivo;
-* Backend e APIs;
-* Banco de dados;
-* Módulo de Inteligência Artificial;
-* Processamento assíncrono;
-* Autenticação;
-* Cache.
+* Frontend web responsivo (`frontend/`);
+* Backend principal e APIs REST (`backend/app/`);
+* Banco de dados relacional PostgreSQL (`database/`);
+* Módulo de Inteligência Artificial para recomendação (`modulo-ia/`);
+* Autenticação e autorização JWT/RBAC (`backend/app/src/middleware/auth.ts`);
+* Envio de e-mails de recuperação via SMTP sobre TCP/TLS com fallback em log (`backend/app/src/lib/email.ts`);
+* Demonstração independente de concorrência e processamento assíncrono em fila (`backend/backend/Origem.Concorrencia/`).
 
-A arquitetura planejada conecta os requisitos do sistema, o banco de dados, a aplicação web, a Inteligência Artificial e os mecanismos de concorrência e processamento assíncrono.
+> **Melhorias futuras (fora do escopo atual):** camada dedicada de cache distribuído e broker externo de mensageria.
 
-O estado atual implementa o frontend integrado ao backend Express e PostgreSQL via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`), além da API C# demonstrativa para a compra concorrente. O roteiro e os limites dessa demonstração estão em [`backend/README.md`](backend/README.md).
+O estado atual implementa o frontend integrado ao backend Express e PostgreSQL via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`), o serviço de recomendação em Python/BentoML (`http://localhost:3001`) consumido pelo backend com fallback local, além da API C# demonstrativa para compra concorrente (`http://localhost:5000`). O roteiro e os limites dessa demonstração estão em [`backend/README.md`](backend/README.md).
 
 ## Fluxo principal
 
@@ -507,7 +507,7 @@ O deploy do frontend é feito pela Vercel, ligada ao repositório pela integraç
 - **Multi-stage no frontend (deps → build → runtime):** a imagem final leva só o `.next/standalone`, sem código-fonte nem devDependencies. Imagem menor, menos superfície de ataque, roda como usuário `node` (sem root).
 - **Multi-stage no módulo de IA (deps → test → runtime):** o pytest roda dentro do build; se falhar, a imagem não é gerada. A imagem final não leva a pasta `tests/`.
 - **`NEXT_PUBLIC_*` como build args:** o Next grava essas variáveis no bundle no build; variáveis de servidor (`RECOMENDACAO_API_URL`) ficam como env de runtime.
-- **Healthchecks + `depends_on: service_healthy`:** evita o frontend subir antes da IA e quebrar a recomendação.
+- **Healthchecks + `depends_on: service_healthy`:** evita o backend subir antes do PostgreSQL estar saudável e evita o frontend subir antes do backend responder ao healthcheck.
 - **Vercel só para o frontend:** o módulo de IA (Python/BentoML) não roda como container na Vercel, então ele sobe localmente com `docker compose up`. A Vercel publica apenas o frontend via integração Git.
 - **`concurrency` no `testes-merge.yml`:** dois merges seguidos não fazem o job `imagens` rodar em paralelo.
 
@@ -521,59 +521,66 @@ Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `c
 
 A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços.
 
-- **Frontend Web (`frontend/`):** aplicação em Next.js 16, React 19 e TypeScript responsável pela interface do marketplace, incluindo vitrine, catálogo, busca, detalhes dos produtos, carrinho, checkout, painel do artesão, painel administrativo e suporte. Não acessa diretamente o banco de dados; consome o backend por meio do cliente HTTP centralizado (`frontend/src/lib/http.ts`).
-- **Backend Principal (`backend/app/`):** API em Node.js, Express, TypeScript e Prisma ORM responsável pelas regras de negócio centrais, autenticação e autorização (JWT/RBAC), gestão de usuários, artesãos, produtos, estoque, pedidos, checkout e integração com o serviço de recomendação.
-- **Serviço de Recomendação / IA (`modulo-ia/`):** serviço em Python e BentoML responsável pelo ranqueamento e recomendação de produtos, disponibilizado pelo endpoint `POST /recommendations` e consumido pela rota `GET /produtos/recomendacoes` do backend quando `RECOMENDACAO_API_URL` está configurado.
-- **Módulo de Concorrência e Fila (`backend/backend/Origem.Concorrencia/`):** implementação em C# e .NET 10 voltada à demonstração de concorrência e processamento de pedidos em fila, utilizando `Channel`. É mantida separadamente do backend principal e não integra o fluxo de checkout em produção.
-- **Banco de Dados Relacional (`database/` e `backend/app/prisma/`):** PostgreSQL como base de dados transacional principal para usuários, artesãos, produtos, estoque e pedidos, acessada pelo backend por meio do Prisma ORM.
+- **Frontend Web (`frontend/`):** aplicação em Next.js 16, React 19 e TypeScript responsável pela interface do marketplace, incluindo vitrine, catálogo, busca, detalhes dos produtos, carrinho, checkout, painel do artesão, painel administrativo e suporte. Não acessa diretamente o banco de dados nem o módulo de IA; consome exclusivamente o backend por meio do cliente HTTP centralizado (`frontend/src/lib/http.ts`).
+- **Backend Principal (`backend/app/`):** API em Node.js, Express, TypeScript e Prisma ORM responsável pelas regras de negócio centrais, autenticação e autorização (JWT/RBAC), gestão de usuários, artesãos, produtos, estoque, pedidos, checkout/pagamentos (com `Idempotency-Key`), integração com o serviço de recomendação (incluindo cálculo local do *fallback baseline* sobre o PostgreSQL com cabeçalho `X-Recomendacao-Fonte: baseline`) e envio de e-mails de recuperação via SMTP nativo (`net`/`tls`) com fallback em log.
+- **Serviço de Recomendação / IA (`modulo-ia/`):** serviço em Python 3.13 e BentoML responsável pelo cálculo de afinidade, ranqueamento e recomendação de produtos, disponibilizado em `POST /recommendations` para consumo do backend (`GET /produtos/recomendacoes` quando `RECOMENDACAO_API_URL` está configurado) e `POST /recommendations/batch` para pré-cálculo paralelo em lote (`ProcessPoolExecutor`) em testes e benchmarks.
+- **Módulo de Concorrência e Fila (`backend/backend/Origem.Concorrencia/`):** implementação em C# e .NET 10 voltada à demonstração de concorrência (`lock` e idempotência por `tentativaId` em `EstoqueDemonstracao`) e processamento assíncrono de notificações de pedidos em fila (`Channel` limitado a 100 itens em `FilaPedidos.cs` + `BackgroundService` em `ProcessadorPedidos.cs`). É mantida separadamente do backend principal e acionada por cliente externo (`backend/testar-demo.ps1`), sem integrar o fluxo de checkout em produção.
+- **Banco de Dados Relacional (`database/` e `backend/app/prisma/`):** PostgreSQL 17 como base de dados transacional principal para usuários, artesãos, produtos, estoque e pedidos, acessada pelo backend por meio do Prisma ORM com transações ACID e travas `SELECT ... FOR UPDATE`.
+- **Servidor SMTP externo (opcional):** integração de saída a partir de `backend/app/src/lib/email.ts` via sockets TCP/TLS nativos (`net`/`tls`) para envio de e-mails de recuperação de senha; quando `SMTP_HOST` não está definido, aplica fallback seguro em log local.
 - **Módulos de apoio (`aed/` e `e2e/`):** incluem análise de estruturas de dados e algoritmos, benchmarks em C++17 e TypeScript e testes automatizados ponta a ponta com Cypress. Não fazem parte do fluxo de requisições de produção.
 
 ### 2. Componentes que se comunicam e mecanismos utilizados
 
 | Origem | Destino | Mecanismo de comunicação | Finalidade |
 |---|---|---|---|
-| **Frontend Web (`frontend/`)** | **Backend Principal (`backend/app/`)** | HTTP/REST com JSON, via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`) | Autenticação, consulta de catálogo e produtos, carrinho, checkout, pedidos e painéis. |
-| **Backend Principal (`backend/app/`)** | **Serviço de IA (`modulo-ia/`)** | HTTP/REST com JSON, utilizando `X-API-Key` | Solicitação de recomendações de produtos. Em caso de falha ou indisponibilidade, o backend utiliza o mecanismo de fallback para sugestões locais. |
-| **Backend Principal (`backend/app/`)** | **PostgreSQL (`database/` / Prisma)** | Protocolo nativo PostgreSQL sobre TCP, por meio do Prisma ORM | Persistência relacional e operações transacionais de domínio, como catálogo, pedidos e estoque. |
-| **Cliente externo da demonstração** | **API do Módulo de Concorrência (.NET 10)** | HTTP/REST | Envio de solicitações para demonstrar o processamento concorrente. |
-| **API do Módulo de Concorrência (.NET 10)** | **Fila `Channel`** | Enfileiramento assíncrono em memória | Recebimento e armazenamento temporário das solicitações para processamento. |
-| **Fila `Channel`** | **`BackgroundService`** | Leitura assíncrona da fila | Consumo e processamento das solicitações em segundo plano. |
+| **Frontend Web (`frontend/`)** | **Backend Principal (`backend/app/`)** | HTTP/REST com JSON (Axios), via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`), `Authorization: Bearer JWT` e `Idempotency-Key` (pagamentos) | Autenticação, consulta de catálogo, produtos e recomendações, carrinho, checkout, pedidos e painéis. |
+| **Backend Principal (`backend/app/`)** | **PostgreSQL (`database/` / Prisma)** | Protocolo nativo PostgreSQL sobre TCP, por meio do Prisma ORM (`$transaction` + `FOR UPDATE`) | Persistência relacional ACID, operações transacionais de domínio (catálogo, pedidos, estoque, pagamentos) e base do *fallback baseline* de recomendações. |
+| **Backend Principal (`backend/app/`)** | **Serviço de IA (`modulo-ia/`)** | HTTP/REST com JSON (`POST /recommendations`), cabeçalho `X-API-Key` e timeout de `2s` | Solicitação de recomendações ranqueadas (`X-Recomendacao-Fonte: ia`). Em falha ou timeout, o próprio Backend calcula o *baseline* local sobre o PostgreSQL (`X-Recomendacao-Fonte: baseline`). |
+| **Backend Principal (`backend/app/`)** | **Servidor SMTP externo** | SMTP sobre sockets nativos `net`/`tls` (`email.ts`, timeout `10s`) | Envio de e-mail de recuperação de senha (com fallback seguro em log local quando `SMTP_HOST` não está configurado). |
+| **Cliente externo (`backend/testar-demo.ps1`)** | **API do Módulo de Concorrência (.NET 10)** | HTTP/REST com JSON (`POST /demo/compras`, `GET /demo/mensagens/:id`) | Disparo concorrente de compras simuladas e consulta do estado de processamento na demonstração isolada (`:5000`). |
+| **API do Módulo de Concorrência (.NET 10)** | **Fila `Channel` (`FilaPedidos.cs`)** | Enfileiramento assíncrono e leitura de estado em memória | Registro temporário de até 100 mensagens de pedido após validação sob `lock` em `EstoqueDemonstracao`. |
+| **Fila `Channel` (`FilaPedidos.cs`)** | **`BackgroundService` (`ProcessadorPedidos.cs`)** | Leitura assíncrona da fila (`ReadAllAsync`) | Consumo e processamento assíncrono das notificações simuladas em segundo plano. |
 
 ### 3. Diagrama da Arquitetura Distribuída
 
 ```mermaid
 flowchart LR
     subgraph Clientes["Clientes"]
-        FE["Frontend Web<br/>Next.js 16 / React 19 / TypeScript"]
-        CLI["Cliente externo<br/>da demonstração"]
+        FE["Frontend Web (:3000)<br/>Next.js 16 / React 19 / TypeScript<br/>Responsabilidade: interface de vitrine, catálogo,<br/>carrinho, checkout, conta e painéis (artesão/admin)"]
+        CLI["Cliente externo da demonstração<br/>Script HTTP (backend/testar-demo.ps1)<br/>Responsabilidade: disparo concorrente de compras<br/>e verificação de idempotência/fila"]
     end
 
-    subgraph Origem["Núcleo do Origem"]
-        BE["Backend principal<br/>Node.js / Express / Prisma"]
-        DB[("PostgreSQL")]
+    subgraph Origem["Núcleo do Origem (Rede Docker Compose)"]
+        BE["Backend Principal (:4000)<br/>Node.js / Express / TypeScript / Prisma<br/>Responsabilidade: regras de negócio, Auth JWT/RBAC,<br/>catálogo, pedidos, estoque, pagamentos e cálculo do<br/>fallback baseline local (X-Recomendacao-Fonte: baseline)"]
+        DB[("PostgreSQL 17 (:5432 / host :5433)<br/>Responsabilidade: persistência transacional ACID,<br/>integridade relacional e travas SELECT ... FOR UPDATE")]
     end
 
-    subgraph IA["Serviço independente de IA"]
-        AI["Python / BentoML<br/>Recomendação de produtos"]
+    subgraph IA["Serviço independente de IA (Rede Docker Compose)"]
+        AI["Módulo de IA (:3001)<br/>Python 3.13 / BentoML / ProcessPoolExecutor<br/>Responsabilidade: cálculo de score de afinidade,<br/>ranqueamento e recomendação de produtos"]
     end
 
-    subgraph Concorrencia["Demonstração independente - C# / .NET 10"]
-        API["API ASP.NET Core<br/>Program.cs"]
-        Fila[["Channel<br/>Fila limitada em memória<br/>100 mensagens"]]
-        Worker["BackgroundService<br/>ProcessadorPedidos.cs"]
+    subgraph Externos["Integrações externas opcionais"]
+        SMTP["Servidor SMTP externo<br/>Responsabilidade: entrega de e-mails de recuperação<br/>de senha (ou fallback seguro em log local)"]
     end
 
-    FE -->|"HTTP/REST - JSON"| BE
-    BE -->|"Prisma ORM / PostgreSQL TCP"| DB
-    BE -->|"HTTP/REST - POST /recommendations<br/>X-API-Key + timeout"| AI
-    AI -->|"JSON ou falha / timeout<br/>fallback baseline local"| BE
+    subgraph Concorrencia["Demonstração independente - C# / .NET 10 (:5000)"]
+        API["API ASP.NET Core (Program.cs)<br/>Responsabilidade: recepção HTTP, controle de estoque<br/>em memória sob lock e idempotência por tentativaId"]
+        Fila[["Channel (FilaPedidos.cs)<br/>Responsabilidade: fila assíncrona limitada em memória<br/>(100 mensagens) e rastreamento de estado"]]
+        Worker["BackgroundService (ProcessadorPedidos.cs)<br/>Responsabilidade: consumo e processamento assíncrono<br/>das notificações de pedidos em segundo plano"]
+    end
 
-    CLI -->|"HTTP/REST"| API
-    API -->|"Enfileiramento assíncrono"| Fila
-    Fila -->|"Leitura assíncrona"| Worker
+    FE -->|"HTTP/REST - JSON (Axios)<br/>Authorization: Bearer JWT<br/>Idempotency-Key (pagamentos)"| BE
+    BE -->|"Prisma ORM / PostgreSQL TCP<br/>Transações ACID + FOR UPDATE"| DB
+    BE -->|"HTTP/REST - POST /recommendations<br/>X-API-Key + timeout 2s"| AI
+    AI -.->|"JSON (200 OK) ou erro/timeout<br/>(em falha, BE aplica baseline sobre o PostgreSQL)"| BE
+    BE -.->|"TCP/TLS SMTP (net/tls - timeout 10s)<br/>Recuperação de senha (fallback em log)"| SMTP
+
+    CLI -->|"HTTP/REST - JSON<br/>POST /demo/compras · GET /demo/mensagens/:id"| API
+    API -->|"Enfileiramento assíncrono em memória"| Fila
+    Fila -->|"Leitura assíncrona (ReadAllAsync)"| Worker
 ```
 
-O diagrama representa os mecanismos de comunicação entre os componentes. O módulo de concorrência em C# aparece separado do núcleo do Origem porque constitui uma demonstração independente, sem integração obrigatória com o backend principal.
+O diagrama explicita as responsabilidades, os protocolos e o sentido real da comunicação entre os componentes implementados. O módulo de concorrência em C# aparece separado do núcleo do Origem porque constitui uma demonstração independente acionada por cliente externo, sem integração com o frontend ou com o checkout em produção.
 
 ### 4. Justificativa Técnica da Separação Adotada
 
@@ -603,7 +610,8 @@ Os componentes são executados separadamente para demonstrar os conceitos de con
 - **Comunicação entre módulos/serviços:**
   - `frontend/src/lib/http.ts`: cliente HTTP Axios centralizado (`NEXT_PUBLIC_API_URL`, envio automático do cabeçalho `Authorization: Bearer <JWT>`).
   - `backend/app/src/lib/modulo-ia.ts` e `backend/app/src/services/recomendacao.service.ts`: chamada HTTP `POST /recommendations` ao `modulo-ia` com cabeçalho `X-API-Key`, timeout de `2.000 ms` e *fallback* automático para o algoritmo *baseline* sobre o PostgreSQL (`X-Recomendacao-Fonte: ia` ou `baseline`).
-  - `modulo-ia/app/service.py`: endpoints BentoML `POST /recommendations` e `POST /recommendations/batch`.
+  - `modulo-ia/app/service.py`: endpoints BentoML `POST /recommendations` (consumido pelo backend) e `POST /recommendations/batch` (pré-cálculo paralelo em lote usado em testes e benchmarks).
+  - `backend/app/src/lib/email.ts`: envio de e-mail de recuperação de senha via SMTP sobre sockets nativos `net`/`tls` (timeout `10s`) com fallback seguro em log local.
   - `backend/app/src/repositories/` e `backend/app/src/lib/prisma.ts`: persistência transacional no PostgreSQL (`FOR UPDATE`, idempotência `RN38`).
   - `backend/backend/Origem.Concorrencia/Program.cs`, `FilaPedidos.cs` e `ProcessadorPedidos.cs`: demonstração independente em .NET 10 com fila `Channel` e `BackgroundService`.
 - **Processamento sequencial e paralelo:**

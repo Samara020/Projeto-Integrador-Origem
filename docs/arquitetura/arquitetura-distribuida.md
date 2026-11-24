@@ -12,10 +12,11 @@ O **Origem** é organizado em **4 serviços principais orquestrados via Docker C
 | Módulo / Serviço | Diretório | Runtime / Stack | Porta (Container / Host) | Responsabilidade Principal |
 |---|---|---|---|---|
 | **Frontend Web** | `frontend/` | Next.js 16 + React 19 + TypeScript | `3000` / `3000` | Interface de vitrine, catálogo, carrinho, checkout, conta do comprador, painel do artesão e painel administrativo; consumo HTTP centralizado em `src/lib/http.ts`. |
-| **Backend Principal (API REST)** | `backend/app/` | Node.js 24 + Express + TypeScript + Prisma ORM | `4000` / `4000` | Regras de negócio, autenticação JWT + revogação persistente, controle de acesso por papel (RBAC), transações atômicas de pedido/estoque/pagamento, orquestração das recomendações e persistência. |
-| **Módulo de IA (Recomendações)** | `modulo-ia/` | Python 3.13 + BentoML + Pydantic | `3001` / `3001` | Serviço especialista de cálculo de afinidade e ranqueamento de recomendações (unitário e pré-cálculo em lote paralelo com `ProcessPoolExecutor`). |
-| **Banco de Dados Relacional** | `database/sql/` | PostgreSQL 17 | `5432` / `5433` | Persistência durável, integridade referencial, gatilhos/regras SQL (`01`–`08`), travas de linha (`FOR UPDATE`) e idempotência transacional. |
-| **Módulo de Concorrência *(demonstrativo)*** | `backend/backend/Origem.Concorrencia/` | .NET 10 / ASP.NET Core | `5000` *(fora do `compose.yaml`)* | Serviço independente da Parte 1 demonstrando controle de concorrência em memória (`lock`), idempotência por `tentativaId` e fila assíncrona (`Channel` + `BackgroundService`). |
+| **Backend Principal (API REST)** | `backend/app/` | Node.js 24 + Express + TypeScript + Prisma ORM | `4000` / `4000` | Regras de negócio, autenticação JWT + revogação persistente, controle de acesso por papel (RBAC), transações atômicas de pedido/estoque/pagamento, orquestração das recomendações (com cálculo local do *fallback baseline* sobre o PostgreSQL) e persistência. |
+| **Módulo de IA (Recomendações)** | `modulo-ia/` | Python 3.13 + BentoML + Pydantic | `3001` / `3001` | Serviço especialista de cálculo de afinidade e ranqueamento de recomendações (`POST /recommendations` consumido pelo backend e `POST /recommendations/batch` paralelo com `ProcessPoolExecutor` para testes/benchmarks em lote). |
+| **Banco de Dados Relacional** | `database/sql/` | PostgreSQL 17 | `5432` / `5433` | Persistência durável, integridade referencial, gatilhos/regras SQL (`01`–`09`), travas de linha (`FOR UPDATE`) e idempotência transacional. |
+| **Servidor SMTP *(opcional)*** | `backend/app/src/lib/email.ts` | Sockets TCP/TLS nativos (`net`/`tls`) | `465` (TLS) / configurável | Entrega externa de e-mails de recuperação de senha (com fallback seguro em log local quando `SMTP_HOST` não está definido). |
+| **Módulo de Concorrência *(demonstrativo)*** | `backend/backend/Origem.Concorrencia/` | .NET 10 / ASP.NET Core | `5000` *(fora do `compose.yaml`)* | Serviço independente da Parte 1 acionado por cliente externo (`backend/testar-demo.ps1`), demonstrando controle de concorrência em memória (`lock`), idempotência por `tentativaId` e fila assíncrona (`Channel` + `BackgroundService`). |
 
 ---
 
@@ -23,44 +24,39 @@ O **Origem** é organizado em **4 serviços principais orquestrados via Docker C
 
 ```mermaid
 flowchart LR
-    USER["Usuário (Navegador Web)"]
-
-    subgraph DOCKER["Rede Docker Compose (origem_default)"]
-        direction LR
-
-        FRONT["Frontend Web\nNext.js / React / TS\n:3000"]
-
-        subgraph BACKEND_BOX["Backend Principal — Node.js / Express (:4000)"]
-            API["API REST\nroutes -> controllers -> services -> repositories"]
-        end
-
-        IA["Módulo de IA\nPython / BentoML\nProcessPoolExecutor\n:3001"]
-
-        DB[("PostgreSQL 17\norigem_db\n:5432 (host :5433)")]
+    subgraph Clientes["Clientes"]
+        FE["Frontend Web (:3000)<br/>Next.js 16 / React 19 / TypeScript<br/>Responsabilidade: interface de vitrine, catálogo,<br/>carrinho, checkout, conta e painéis (artesão/admin)"]
+        CLI["Cliente externo da demonstração<br/>Script HTTP (backend/testar-demo.ps1)<br/>Responsabilidade: disparo concorrente de compras<br/>e verificação de idempotência/fila"]
     end
 
-    SMTP["Servidor SMTP\n(ou fallback em log)"]
-    DEMO["Origem.Concorrencia\n.NET 10 / Channel + lock\n:5000 (Demonstrativo isolado)"]
+    subgraph Origem["Núcleo do Origem (Rede Docker Compose)"]
+        BE["Backend Principal (:4000)<br/>Node.js / Express / TypeScript / Prisma<br/>Responsabilidade: regras de negócio, Auth JWT/RBAC,<br/>catálogo, pedidos, estoque, pagamentos e cálculo do<br/>fallback baseline local (X-Recomendacao-Fonte: baseline)"]
+        DB[("PostgreSQL 17 (:5432 / host :5433)<br/>Responsabilidade: persistência transacional ACID,<br/>integridade relacional e travas SELECT ... FOR UPDATE")]
+    end
 
-    USER -->|"HTTPS / HTTP\nPáginas SSR + SPA"| FRONT
-    FRONT -->|"HTTP/REST (Axios)\nJSON + Authorization: Bearer JWT"| API
-    API -->|"TCP / SQL (Prisma Client)\nTransações + FOR UPDATE"| DB
-    API -->|"HTTP/REST POST /recommendations\nPOST /recommendations/batch\nX-API-Key + timeout 2s"| IA
-    IA -.->|"JSON ranqueado (X-Recomendacao-Fonte: ia)\nEm falha/timeout: fallback baseline no Postgres"| API
-    API -.->|"SMTP (timeout 10s)\nRecuperação de senha"| SMTP
-    FRONT -.->|"HTTP/REST opcional\nNEXT_PUBLIC_CONCORRENCIA_API_URL\nFluxo demonstrativo prd_201"| DEMO
+    subgraph IA["Serviço independente de IA (Rede Docker Compose)"]
+        AI["Módulo de IA (:3001)<br/>Python 3.13 / BentoML / ProcessPoolExecutor<br/>Responsabilidade: cálculo de score de afinidade,<br/>ranqueamento e recomendação de produtos"]
+    end
 
-    classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
-    classDef api fill:#dcfce7,stroke:#16a34a,color:#14532d
-    classDef ai fill:#f3e8ff,stroke:#9333ea,color:#581c87
-    classDef db fill:#fef3c7,stroke:#d97706,color:#78350f
-    classDef ext fill:#f3f4f6,stroke:#6b7280,color:#374151
+    subgraph Externos["Integrações externas opcionais"]
+        SMTP["Servidor SMTP externo<br/>Responsabilidade: entrega de e-mails de recuperação<br/>de senha (ou fallback seguro em log local)"]
+    end
 
-    class USER,FRONT client
-    class API api
-    class IA ai
-    class DB db
-    class SMTP,DEMO ext
+    subgraph Concorrencia["Demonstração independente - C# / .NET 10 (:5000)"]
+        API["API ASP.NET Core (Program.cs)<br/>Responsabilidade: recepção HTTP, controle de estoque<br/>em memória sob lock e idempotência por tentativaId"]
+        Fila[["Channel (FilaPedidos.cs)<br/>Responsabilidade: fila assíncrona limitada em memória<br/>(100 mensagens) e rastreamento de estado"]]
+        Worker["BackgroundService (ProcessadorPedidos.cs)<br/>Responsabilidade: consumo e processamento assíncrono<br/>das notificações de pedidos em segundo plano"]
+    end
+
+    FE -->|"HTTP/REST - JSON (Axios)<br/>Authorization: Bearer JWT<br/>Idempotency-Key (pagamentos)"| BE
+    BE -->|"Prisma ORM / PostgreSQL TCP<br/>Transações ACID + FOR UPDATE"| DB
+    BE -->|"HTTP/REST - POST /recommendations<br/>X-API-Key + timeout 2s"| AI
+    AI -.->|"JSON (200 OK) ou erro/timeout<br/>(em falha, BE aplica baseline sobre o PostgreSQL)"| BE
+    BE -.->|"TCP/TLS SMTP (net/tls - timeout 10s)<br/>Recuperação de senha (fallback em log)"| SMTP
+
+    CLI -->|"HTTP/REST - JSON<br/>POST /demo/compras · GET /demo/mensagens/:id"| API
+    API -->|"Enfileiramento assíncrono em memória"| Fila
+    Fila -->|"Leitura assíncrona (ReadAllAsync)"| Worker
 ```
 
 ---
@@ -70,10 +66,10 @@ flowchart LR
 | Origem → Destino | Protocolo / Formato | Autenticação / Segurança | Tratamento de Falhas e Resiliência | Arquivos de Referência |
 |---|---|---|---|---|
 | **Frontend → Backend** | HTTP/REST (`JSON`) via Axios | `Authorization: Bearer <JWT>` (sessão com versão monotônica `sv` e revogação persistida); CORS restrito a `CORS_ORIGIN`; Helmet | Erros padronizados `{ mensagem }`; sessão expirada redireciona para `/entrar`; `Idempotency-Key` em pagamentos (`RN38`); `429 + Retry-After` no login (`TC11`) | `frontend/src/lib/http.ts`, `backend/app/src/index.ts`, `docs/ContratoDeAPI.md` |
-| **Backend → Módulo de IA** | HTTP/REST (`JSON`): `POST /recommendations` e `POST /recommendations/batch` | Cabeçalho `X-API-Key` (`RECOMENDACAO_API_KEY`) | Timeout estrito de `2.000 ms` (`RECOMENDACAO_TIMEOUT_MS`); se o `modulo-ia` ficar indisponível ou expirar, o backend aciona automaticamente o algoritmo *baseline* sobre o PostgreSQL (`X-Recomendacao-Fonte: baseline`) sem indisponibilizar a vitrine | `backend/app/src/lib/modulo-ia.ts`, `backend/app/src/services/recomendacao.service.ts`, `modulo-ia/app/service.py` |
+| **Backend → Módulo de IA** | HTTP/REST (`JSON`): `POST /recommendations` *(obs.: `POST /recommendations/batch` é usado apenas em testes e benchmarks de lote)* | Cabeçalho `X-API-Key` (`RECOMENDACAO_API_KEY`) | Timeout estrito de `2.000 ms` (`RECOMENDACAO_TIMEOUT_MS`); se o `modulo-ia` retornar erro ou expirar, o próprio Backend calcula o algoritmo *baseline* sobre o PostgreSQL (`X-Recomendacao-Fonte: baseline`) sem indisponibilizar a vitrine | `backend/app/src/lib/modulo-ia.ts`, `backend/app/src/services/recomendacao.service.ts`, `modulo-ia/app/service.py` |
 | **Backend → PostgreSQL** | TCP / protocolo PostgreSQL via Prisma ORM | Credenciais via `DATABASE_URL` (`.env`) | Transações ACID com `SELECT ... FOR UPDATE` em carrinho e pedidos; decremento condicional de estoque; índice único em `chave_idempotencia`; healthcheck `/health` (`SELECT 1` → `503` se indisponível) | `backend/app/src/lib/prisma.ts`, `backend/app/src/repositories/`, `database/sql/` |
-| **Backend → SMTP** | SMTP (`nodemailer`) | Variáveis `SMTP_*` opcionais | Timeout de `10 s`; quando `SMTP_HOST` não está configurado em desenvolvimento, faz fallback seguro para log sem expor token na resposta HTTP | `backend/app/src/lib/email.ts`, `backend/app/src/services/auth.service.ts` |
-| **Frontend → `Origem.Concorrencia`** *(demonstrativo)* | HTTP/REST (`JSON`): `POST /demo/compras`, `GET /demo/mensagens/:id` | Isolado para o produto demonstrativo `prd_201` | Fila assíncrona em memória (`Channel<MensagemPedido>`, capacidade 100) consumida por `BackgroundService`; retorna `503` em fila cheia e `409` em estoque esgotado ou `tentativaId` conflitante | `backend/backend/Origem.Concorrencia/Program.cs`, `docs/arquitetura/adr/ADR-003-modulo-concorrencia.md` |
+| **Backend → SMTP** | SMTP sobre sockets nativos `net`/`tls` (`email.ts`) | Variáveis `SMTP_*` opcionais (`AUTH LOGIN` quando `SMTP_USER`/`SMTP_PASS` definidos) | Timeout de `10 s`; quando `SMTP_HOST` não está configurado em desenvolvimento, faz fallback seguro para log sem expor token na resposta HTTP | `backend/app/src/lib/email.ts`, `backend/app/src/services/auth.service.ts` |
+| **Cliente externo (`testar-demo.ps1`) → `Origem.Concorrencia`** *(demonstrativo)* | HTTP/REST (`JSON`): `POST /demo/compras`, `GET /demo/mensagens/:id`, `GET /demo/estoque` | Isolado para o produto demonstrativo `prd_201` (sem integração com o `frontend/`) | Exclusão mútua (`lock`) em `EstoqueDemonstracao` + fila assíncrona em memória (`Channel<MensagemPedido>`, capacidade 100 em `FilaPedidos.cs`) consumida por `BackgroundService` (`ProcessadorPedidos.cs`); retorna `503` em fila cheia e `409` em estoque esgotado ou `tentativaId` conflitante | `backend/testar-demo.ps1`, `backend/backend/Origem.Concorrencia/Program.cs`, `FilaPedidos.cs`, `ProcessadorPedidos.cs` |
 
 ---
 
