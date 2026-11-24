@@ -160,3 +160,32 @@ def test_recomendacoes_http_com_catalogo_dinamico():
     assert [item["product_id"] for item in recomendacoes] == ["2013", "2002"]
     assert recomendacoes[0]["score"] == 1.0
     assert recomendacoes[1]["score"] == 0.8
+
+
+def test_recomendacoes_batch_http():
+    response = requests.post(
+        f"{BASE_URL}/recommendations/batch",
+        headers={"X-API-Key": API_KEY},
+        json={"product_ids": ["prd_201", "prd_202"], "limit": 3},
+        timeout=5,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_products"] == 2
+    assert set(data["recommendations_by_product"].keys()) == {"prd_201", "prd_202"}
+    assert 0 < len(data["recommendations_by_product"]["prd_201"]) <= 3
+    assert all(
+        item["product_id"] != "prd_201"
+        for item in data["recommendations_by_product"]["prd_201"]
+    )
+
+
+def test_recomendacoes_batch_sem_autenticacao():
+    response = requests.post(
+        f"{BASE_URL}/recommendations/batch",
+        json={"limit": 3},
+        timeout=5,
+    )
+
+    assert response.status_code == 401
