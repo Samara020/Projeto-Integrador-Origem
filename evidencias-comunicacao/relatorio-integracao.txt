@@ -1,0 +1,18 @@
+
+> frontend@0.1.0 test:api
+> jest --config jest.api.config.mjs tests/api/recomendacoes-integracao.test.ts
+
+PASS api tests/api/recomendacoes-integracao.test.ts
+  integração real · Frontend (:3000 via FRONTEND_BASE_URL) + Backend (:4000) + PostgreSQL + Módulo de IA (:3001)
+    √ serviços integrados respondem saudáveis (backend, módulo de IA e páginas do frontend) (58 ms)
+    √ GET /produtos/recomendacoes?produtoId=2001 consulta a IA com catálogo real, expõe CORS e retorna apenas peças válidas disponíveis (50 ms)
+    √ GET /produtos/recomendacoes por filtro (técnica) sem produtoId retorna peças coerentes via IA (44 ms)
+    √ GET /produtos/recomendacoes por filtro (região) retorna peças da região via IA (20 ms)
+    √ retorna lista vazia quando não há candidatos elegíveis para o critério (RF-11) (21 ms)
+    √ retorna lista vazia sem erro 500 para produto de referência inexistente (25 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        0.734 s, estimated 1 s
+Ran all test suites matching tests/api/recomendacoes-integracao.test.ts.
