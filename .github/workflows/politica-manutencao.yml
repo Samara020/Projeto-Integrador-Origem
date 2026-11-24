@@ -1,0 +1,30 @@
+name: Política de manutenção
+
+# Verificações automáticas da política de manutenção da TAS (docs/tas.md):
+# nenhum .only esquecido, e todo teste pulado ou em quarentena (@flaky) cita uma issue aberta.
+# No PR e na main quem roda esta conferência é o job Quality Gate (testes-merge.yml).
+# Aqui ela roda toda segunda às 8h de Brasília (11h UTC), para pegar a quarentena
+# esquecida: issue fechada com o teste ainda pulado, sem nenhum commit novo.
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  quarentena:
+    name: Quarentena e testes pulados
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Conferir testes pulados e em quarentena
+        run: node .github/scripts/verificar-quarentena.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

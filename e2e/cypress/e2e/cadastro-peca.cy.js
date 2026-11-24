@@ -47,7 +47,7 @@ describe("TC12 · cadastro de produto sem campos obrigatórios", () => {
 });
 
 describe("TC02 · cadastro de produto com dados obrigatórios", () => {
-  it("artesão publica a peça e ela persiste no estoque do painel", () => {
+  it("artesão publica a peça e ela persiste no estoque do painel @smoke", () => {
     const nomeUnico = `Bordado E2E ${Date.now()}`;
     abrirCadastro();
 

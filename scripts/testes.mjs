@@ -1,9 +1,12 @@
-// Roda as suítes de um nível da TAS: node scripts/testes.mjs unit|api|e2e
+// Roda as suítes de um nível da TAS: node scripts/testes.mjs unit|backend|api|e2e|quarentena
+// No E2E, as tags do título filtram os casos (docs/tas.md): --tag @smoke roda só os
+// marcados e --sem-tag @flaky pula os marcados. O nível quarentena roda só os @flaky,
+// com novas tentativas e relatório próprio.
 // As suítes do nível rodam em sequência e uma falha não impede a próxima. O comando
 // sai com erro se qualquer suíte falhar. Os relatórios JUnit ficam em relatorios/;
 // no GitHub Actions, o resumo do nível também vai para $GITHUB_STEP_SUMMARY.
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +37,39 @@ function pytest(alvos, relatorio) {
   };
 }
 
+function opcao(nome) {
+  const indice = process.argv.indexOf(nome);
+  return indice > 0 ? process.argv[indice + 1] : undefined;
+}
+
+const PASTA_E2E = join(RAIZ, "e2e", "cypress", "e2e");
+
+// Specs do Cypress que citam a tag, no formato que o --spec espera (relativo a e2e/).
+function specsComTag(tag) {
+  return readdirSync(PASTA_E2E)
+    .filter((arquivo) => arquivo.endsWith(".cy.js") && readFileSync(join(PASTA_E2E, arquivo), "utf8").includes(tag))
+    .map((arquivo) => `cypress/e2e/${arquivo}`);
+}
+
+// Chrome por padrão, o mesmo do GitHub Actions. Outro: E2E_BROWSER=firefox ou o caminho do binário.
+// Com tag, só abre os specs que a citam; o filtro por caso fica em e2e/cypress/support/e2e.js.
+function cypress({ tag = opcao("--tag"), semTag = opcao("--sem-tag"), relatorio, tentativas = 0 } = {}) {
+  const expostos = [tag && `TAG=${tag}`, semTag && `SEM_TAG=${semTag}`].filter(Boolean).join(",");
+  const specs = tag ? specsComTag(tag) : [];
+  return {
+    comando: "npm",
+    args: [
+      "--prefix", "e2e", "run", "test", "--",
+      "--browser", process.env.E2E_BROWSER || "chrome",
+      ...(expostos ? ["--expose", expostos] : []),
+      ...(specs.length ? ["--spec", specs.join(",")] : []),
+      ...(tentativas ? ["--config", `retries=${tentativas}`] : []),
+      ...(relatorio ? ["--reporter-options", `mochaFile=../relatorios/${relatorio},includePending=true`] : []),
+    ],
+    semCasos: Boolean(tag) && !specs.length,
+  };
+}
+
 const NIVEIS = {
   unit: {
     titulo: "Testes Unitários",
@@ -43,7 +79,27 @@ const NIVEIS = {
         nome: "pytest · módulo de IA (lógica)",
         ...pytest(["modulo-ia/tests", "--ignore=modulo-ia/tests/test_api.py"], "unit-pytest.xml"),
       },
+      {
+        // Regra que libera imagem pública no bloqueio de rede do E2E (support/redeSegura.js).
+        nome: "node:test · guarda de rede do E2E",
+        comando: process.execPath,
+        args: [
+          "--test",
+          "--test-reporter=junit",
+          `--test-reporter-destination=${join(RELATORIOS, "unit-guarda.xml")}`,
+          "--test-reporter=spec",
+          "--test-reporter-destination=stdout",
+          "e2e/cypress/support/redeSegura.test.js",
+        ],
+        relatorio: "unit-guarda.xml",
+      },
     ],
+  },
+  // Suíte própria do backend: Jest + Supertest contra Postgres. Os testes apagam as tabelas,
+  // então exigem banco exclusivo em DATABASE_URL_TEST (backend/app/tests/env.ts).
+  backend: {
+    titulo: "Testes do backend",
+    suites: [{ nome: "Jest · backend (banco exclusivo)", ...npm("backend/app", "test"), relatorio: "backend-jest.xml" }],
   },
   api: {
     titulo: "Testes de API",
@@ -54,14 +110,17 @@ const NIVEIS = {
   },
   e2e: {
     titulo: "Testes End-to-End (E2E)",
+    suites: [{ nome: "Cypress", ...cypress(), relatorio: /^e2e-.+\.xml$/, avisos: "e2e-avisos.txt" }],
+  },
+  // Testes instáveis em quarentena (@flaky): rodam à parte, com 2 novas tentativas e relatório
+  // próprio. A esteira não reprova por eles (continue-on-error no workflow).
+  quarentena: {
+    titulo: "Quarentena (@flaky)",
     suites: [
       {
-        nome: "Cypress",
-        // Chrome por padrão, o mesmo do GitHub Actions. Outro: E2E_BROWSER=firefox ou o caminho do binário.
-        comando: "npm",
-        args: ["--prefix", "e2e", "run", "test", "--", "--browser", process.env.E2E_BROWSER || "chrome"],
-        relatorio: /^e2e-.+\.xml$/,
-        avisos: "e2e-avisos.txt",
+        nome: "Cypress · @flaky",
+        ...cypress({ tag: "@flaky", semTag: undefined, relatorio: "quarentena-[hash].xml", tentativas: 2 }),
+        relatorio: /^quarentena-.+\.xml$/,
       },
     ],
   },
@@ -76,16 +135,22 @@ function relatoriosDe(padrao) {
 
 // Soma os <testsuite> dos JUnit de Jest, pytest e Cypress. <testsuites> não entra.
 // O JUnit do Cypress não tem o atributo skipped: ali o ignorado é a tag <skipped/> do caso.
+// O JUnit do node:test não tem <testsuite> para teste solto: ali contam as tags <testcase>.
 function contar(arquivos) {
   const total = { casos: 0, falhas: 0, ignorados: 0 };
   for (const arquivo of arquivos) {
     const xml = readFileSync(arquivo, "utf8");
+    const suites = [...xml.matchAll(/<testsuite\b([^>]*)>/g)];
     let ignoradosPorAtributo = 0;
-    for (const [, atributos] of xml.matchAll(/<testsuite\b([^>]*)>/g)) {
+    for (const [, atributos] of suites) {
       const valor = (nome) => Number(atributos.match(new RegExp(`\\b${nome}="(\\d+)"`))?.[1] ?? 0);
       total.casos += valor("tests");
       total.falhas += valor("failures") + valor("errors");
       ignoradosPorAtributo += valor("skipped");
+    }
+    if (!suites.length) {
+      total.casos += (xml.match(/<testcase\b/g) ?? []).length;
+      total.falhas += (xml.match(/<(?:failure|error)\b/g) ?? []).length;
     }
     total.ignorados += Math.max(ignoradosPorAtributo, (xml.match(/<skipped\b/g) ?? []).length);
   }
@@ -123,7 +188,8 @@ function casosQueFalharam(arquivos) {
   return casos;
 }
 
-const nivel = NIVEIS[process.argv[2]];
+const chaveDoNivel = process.argv[2];
+const nivel = NIVEIS[chaveDoNivel];
 if (!nivel) {
   console.error(`Uso: node scripts/testes.mjs ${Object.keys(NIVEIS).join("|")}`);
   process.exit(2);
@@ -136,6 +202,13 @@ for (const suite of nivel.suites) {
   for (const antigo of relatoriosDe(suite.relatorio)) rmSync(antigo);
   if (suite.avisos) rmSync(join(RELATORIOS, suite.avisos), { force: true });
   console.log(`\n=== ${nivel.titulo} · ${suite.nome} ===\n`);
+
+  // Tag sem nenhum teste marcado (ex.: quarentena vazia): não abre o navegador à toa.
+  if (suite.semCasos) {
+    console.log("Nenhum teste marcado com a tag. Nada a rodar.");
+    resultados.push({ nome: suite.nome, passou: true, segundos: 0, contagem: { casos: 0, falhas: 0, ignorados: 0 }, falhas: [], avisos: 0 });
+    continue;
+  }
 
   const inicio = Date.now();
   const execucao = spawnSync(suite.comando, suite.args, {
@@ -161,6 +234,16 @@ for (const suite of nivel.suites) {
 }
 
 const falhou = resultados.some((r) => !r.passou);
+
+// Tempo de relógio do nível, para o relatório de métricas (scripts/metricas.mjs) comparar com o limite.
+const TEMPOS = join(RELATORIOS, "tempos.json");
+const tempos = existsSync(TEMPOS) ? JSON.parse(readFileSync(TEMPOS, "utf8")) : {};
+tempos[chaveDoNivel] = {
+  segundos: Number(resultados.reduce((soma, r) => soma + r.segundos, 0).toFixed(1)),
+  passou: !falhou,
+  filtro: [opcao("--tag") && `só ${opcao("--tag")}`, opcao("--sem-tag") && `sem ${opcao("--sem-tag")}`].filter(Boolean).join(", ") || null,
+};
+writeFileSync(TEMPOS, `${JSON.stringify(tempos, null, 2)}\n`);
 const numero = (valor) => (valor === undefined ? "?" : String(valor));
 const linhas = resultados.map(({ nome, passou, segundos, contagem }) =>
   [
