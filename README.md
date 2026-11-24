@@ -515,6 +515,68 @@ O deploy do frontend é feito pela Vercel, ligada ao repositório pela integraç
 
 Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `compose.yaml`, do job de deploy e do esqueleto do `docs/TDD.md` e desta seção. O grupo revisou, testou localmente e ajustou. A seção de jornada e lições do TDD foi escrita pelo grupo.
 
+## Arquitetura Distribuída — Projeto Origem (FCCPD / Unidade 2)
+
+### 1. Módulos existentes no repositório e suas responsabilidades
+
+A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços:
+
+- **Frontend Web (`frontend/`):** aplicação em Next.js 16, React 19 e TypeScript responsável pela interface do marketplace, incluindo vitrine, catálogo, busca, detalhes dos produtos, carrinho, checkout, painel do artesão, painel administrativo e suporte. Não acessa diretamente o banco de dados; consome o backend por meio do cliente HTTP centralizado (`frontend/src/lib/http.ts`).
+- **Backend Principal (`backend/app/`):** API em Node.js, Express, TypeScript e Prisma ORM responsável pelas regras de negócio centrais, autenticação e autorização (JWT/RBAC), gestão de usuários, artesãos, produtos, estoque, pedidos, checkout e integração com o serviço de recomendação.
+- **Serviço de Recomendação / IA (`modulo-ia/`):** serviço em Python e BentoML responsável pelo ranqueamento e recomendação de produtos, disponibilizado pelo endpoint `POST /recommendations` e consumido pela rota `GET /produtos/recomendacoes` do backend quando `RECOMENDACAO_API_URL` está configurado.
+- **Módulo de Concorrência e Fila (`backend/backend/Origem.Concorrencia/`):** implementação em C# e .NET 10 voltada à demonstração de concorrência e processamento de pedidos em fila, utilizando `Channel`. É mantida separadamente do backend principal e não integra o fluxo de checkout em produção.
+- **Banco de Dados Relacional (`database/` e `backend/app/prisma/`):** PostgreSQL como base de dados transacional principal para usuários, artesãos, produtos, estoque e pedidos, acessada pelo backend por meio do Prisma ORM.
+- **Módulos de apoio (`aed/` e `e2e/`):** incluem análise de estruturas de dados e algoritmos, benchmarks em C++17 e TypeScript e testes automatizados ponta a ponta com Cypress. Não fazem parte do fluxo de requisições de produção.
+
+### 2. Componentes que se comunicam e mecanismos utilizados
+
+| Origem | Destino | Mecanismo de comunicação | Finalidade |
+|---|---|---|---|
+| **Frontend Web (`frontend/`)** | **Backend Principal (`backend/app/`)** | HTTP/REST com JSON, via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`) | Autenticação, consulta de catálogo e produtos, carrinho, checkout, pedidos e painéis. |
+| **Backend Principal (`backend/app/`)** | **Serviço de IA (`modulo-ia/`)** | HTTP/REST com JSON, utilizando `X-API-Key` | Solicitação de recomendações de produtos. Em caso de falha ou indisponibilidade, o backend utiliza o mecanismo de fallback para sugestões locais. |
+| **Backend Principal (`backend/app/`)** | **PostgreSQL (`database/` / Prisma)** | Protocolo nativo PostgreSQL sobre TCP, por meio do Prisma ORM | Persistência relacional e operações transacionais de domínio, como catálogo, pedidos e estoque. |
+| **Cliente externo da demonstração** | **API do Módulo de Concorrência (`.NET 10`)** | HTTP/REST para acesso à API e `Channel` para enfileiramento interno em memória | Demonstrar o processamento concorrente e o controle de pedidos em fila, independentemente do fluxo principal do backend Node.js. |
+
+### 3. Diagrama da Arquitetura Distribuída
+
+```mermaid
+flowchart LR
+    subgraph Clientes["Clientes"]
+        FE["Frontend Web<br/>Next.js 16 / React 19 / TypeScript"]
+        CLI["Cliente externo<br/>da demonstração"]
+    end
+
+    subgraph Origem["Núcleo do Origem"]
+        BE["Backend principal<br/>Node.js / Express / Prisma"]
+        DB[("PostgreSQL")]
+    end
+
+    subgraph IA["Serviço independente de IA"]
+        AI["Python / BentoML<br/>Recomendação de produtos"]
+    end
+
+    subgraph Concorrencia["Demonstração independente"]
+        CONC["API C# / .NET 10<br/>Channel"]
+    end
+
+    FE -->|"HTTP/REST · JSON"| BE
+    BE -->|"Prisma ORM · PostgreSQL/TCP"| DB
+    BE -->|"HTTP/REST · POST /recommendations"| AI
+    CLI -->|"HTTP/REST"| CONC
+```
+
+O diagrama representa os mecanismos de comunicação entre os componentes. O módulo de concorrência em C# aparece separado do núcleo do Origem porque constitui uma demonstração independente, sem integração obrigatória com o backend principal.
+
+### 4. Justificativa Técnica da Separação Adotada
+
+- **Por que o backend principal permanece como monólito modular:** concentrar usuários, artesãos, catálogo, estoque, pedidos e checkout em um único backend organizado modularmente (`Node.js` + `Express` + `Prisma` sobre `PostgreSQL`) mantém a consistência transacional (ACID) de operações críticas, como controle de estoque e pedidos. Essa organização evita introduzir transações distribuídas (Sagas) e latência adicional de rede entre funcionalidades fortemente relacionadas.
+
+- **Por que o serviço de IA é separado e se comunica por HTTP/REST:** isolar o módulo de recomendação (`Python` + `BentoML`) em um serviço próprio evita acoplar o processamento numérico e heurístico ao event loop do Node.js. Essa separação permite evolução e execução independentes do ecossistema Python e possibilita o uso de sugestões locais como fallback quando o serviço de IA estiver indisponível.
+
+- **Por que o módulo C#/.NET é mantido separado como demonstração de concorrência:** o módulo `Origem.Concorrencia`, desenvolvido em C# e .NET 10, demonstra concorrência e enfileiramento de pedidos por meio de `Channel`. Sua execução independente permite demonstrar os conceitos da disciplina sem acoplá-lo ao backend Node.js ou ao fluxo principal de checkout em produção.
+
+- **Por que não houve fragmentação desnecessária em microsserviços:** para o porte e o escopo acadêmico do Projeto Origem, dividir o domínio principal em múltiplos microsserviços ou adicionar brokers externos aumentaria a complexidade operacional, de implantação e de depuração sem benefício proporcional. A arquitetura adotada preserva a modularidade do backend principal e separa apenas os componentes que possuem responsabilidades e necessidades tecnológicas específicas.
+
 ## Figma
 
 https://www.figma.com/design/NffaSqV403jDgTUersPLO6/Origem?node-id=0-1&p=f&t=TA3HZzhVrlpQHL3w-0
