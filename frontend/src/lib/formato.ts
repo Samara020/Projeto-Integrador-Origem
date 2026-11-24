@@ -28,6 +28,15 @@ export function formatarInteiro(valor: number): string {
   return inteiro.format(valor);
 }
 
+export function numeroSequencialValido(valor?: number): number | undefined {
+  return typeof valor === "number" && Number.isInteger(valor) && valor > 0 ? valor : undefined;
+}
+
+export function rotuloPedido(numeroSequencial?: number): string {
+  const numero = numeroSequencialValido(numeroSequencial);
+  return numero === undefined ? "SEU PEDIDO" : `SEU PEDIDO #${numero}`;
+}
+
 export function formatarPeso(valor?: number | string | null): string {
   if (valor === undefined || valor === null || valor === "") return "";
   const num = typeof valor === "number" ? valor : Number(String(valor).replace(",", "."));
