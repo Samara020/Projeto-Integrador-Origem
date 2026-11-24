@@ -102,7 +102,8 @@ flowchart LR
 ---
 
 ## 5. Documentos Relacionados
-- [Arquitetura atual](arquitetura-atual.md) e [Fluxo de comunicação](fluxo-comunicacao.md)
+- [Arquitetura atual](arquitetura-atual.md), [Diagrama da arquitetura distribuída](diagrama-arquitetura-distribuida.md) e [Fluxo de comunicação](fluxo-comunicacao.md)
 - [Diagrama de fluxo em camadas](diagrama-arquitetura.mmd) e [Persistência com Prisma](persistencia-prisma.mmd)
+- [Evidências funcionais de comunicação](../evidencias-comunicacao-modulos.md)
 - [ADR-001 (Persistência)](adr/ADR-001-persistencia-e-prisma.md), [ADR-003 (Módulo de concorrência)](adr/ADR-003-modulo-concorrencia.md), [ADR-005 (Cliente-servidor / monólito modular)](adr/adr-005-adotar-arquitetura-cliente-servidor-com-monolito-modular-em-camadas-para-proteger-a-integridade-das-operacoes.md) e [ADR-009 (Idempotência e transações)](adr/adr-009-adotar-chaves-de-idempotencia-e-transacoes-atomicas-no-checkout-e-pagamento.md)
-- [Medição de ganho do paralelismo](../medicao-ganho-paralelismo.md) e [Interpretação dos resultados](../medicao-interpretacao-paralelismo.md)
+- [Medição de ganho do paralelismo](../medicao-ganho-paralelismo.md), [Interpretação dos resultados](../medicao-interpretacao-paralelismo.md) e [Relatório consolidado de decisões técnicas](../relatorio-interpretacao-decisoes-tecnicas.md)
