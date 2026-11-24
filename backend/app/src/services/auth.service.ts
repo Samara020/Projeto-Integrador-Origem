@@ -169,9 +169,10 @@ export const authService = {
     }
     const emailNormalizado = dados.email.trim().toLowerCase();
     const usuario = await usuarioRepository.buscarPorEmail(emailNormalizado);
+    // Só o servidor descartável de teste devolve o token no corpo (docs/ContratoDeAPI.md).
+    // Rodar sob o Jest não basta: o teste de regressão de segurança exige o corpo sem segredo.
     const servidorTesteIsolado =
-      process.env.NODE_ENV === "test" &&
-      (process.env.ORIGEM_TEST_SERVER === "1" || process.env.JEST_WORKER_ID !== undefined);
+      process.env.NODE_ENV === "test" && process.env.ORIGEM_TEST_SERVER === "1";
 
     let tokenRecuperacao: string | undefined;
     if (usuario) {
