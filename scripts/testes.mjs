@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { avisoDeNavegador, navegadorDoE2E } from "./navegador-e2e.mjs";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const RELATORIOS = join(RAIZ, "relatorios");
@@ -56,11 +57,13 @@ function specsComTag(tag) {
 function cypress({ tag = opcao("--tag"), semTag = opcao("--sem-tag"), relatorio, tentativas = 0 } = {}) {
   const expostos = [tag && `TAG=${tag}`, semTag && `SEM_TAG=${semTag}`].filter(Boolean).join(",");
   const specs = tag ? specsComTag(tag) : [];
+  const navegador = navegadorDoE2E();
   return {
     comando: "npm",
+    avisoDeNavegador: avisoDeNavegador(navegador),
     args: [
       "--prefix", "e2e", "run", "test", "--",
-      "--browser", process.env.E2E_BROWSER || "chrome",
+      "--browser", navegador,
       ...(expostos ? ["--expose", expostos] : []),
       ...(specs.length ? ["--spec", specs.join(",")] : []),
       ...(tentativas ? ["--config", `retries=${tentativas}`] : []),
@@ -210,6 +213,8 @@ for (const suite of nivel.suites) {
     continue;
   }
 
+  if (suite.avisoDeNavegador) console.log(`${suite.avisoDeNavegador}\n`);
+
   const inicio = Date.now();
   const execucao = spawnSync(suite.comando, suite.args, {
     cwd: RAIZ,
@@ -265,6 +270,9 @@ const avisos = resultados
   .filter((r) => r.avisos)
   .map((r) => `Avisos em ${r.nome}: ${r.avisos} erro(s) de hidratação do React, defeito do app que não reprova o caso. Detalhe em relatorios/${r.arquivoAvisos}.`);
 if (avisos.length) console.log(`${avisos.join("\n")}\n`);
+// Repetido depois do resumo: é onde quem rodou vai procurar o motivo de uma reprovação.
+const avisosDeNavegador = [...new Set(nivel.suites.filter((s) => !s.semCasos && s.avisoDeNavegador).map((s) => s.avisoDeNavegador))];
+if (avisosDeNavegador.length) console.log(`${avisosDeNavegador.join("\n")}\n`);
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(
