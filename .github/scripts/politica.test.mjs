@@ -21,6 +21,8 @@ import {
   situacaoGeral,
 } from "../../scripts/metricas.mjs";
 import { avisoDeNavegador, ehChrome, navegadorDoE2E } from "../../scripts/navegador-e2e.mjs";
+import { classificar, resumo as resumoDaInstabilidade } from "../../scripts/instabilidade.mjs";
+import { duplicacoes, verificarCriticos, verificarRastreabilidade } from "./gestao-testes.mjs";
 
 test("E2E usa o Chrome da esteira quando E2E_BROWSER não é informado", () => {
   assert.equal(navegadorDoE2E({}), "chrome");
@@ -131,7 +133,9 @@ const JUNIT = `<testsuites>
 test("métricas leem estado, tempo e arquivo de cada caso do JUnit", () => {
   const casos = lerCasos(JUNIT);
   assert.deepEqual(casos.map((caso) => caso.estado), ["passou", "ignorado", "falhou", "falhou"]);
-  assert.deepEqual(casos[2], { nome: "falha & avisa", arquivo: "b.cy.js", segundos: 2.25, estado: "falhou" });
+  assert.deepEqual(casos[2], { nome: "falha & avisa", arquivo: "b.cy.js", segundos: 2.25, estado: "falhou", erro: "esperava 200" });
+  assert.equal(casos[3].erro, "banco fora");
+  assert.equal("erro" in casos[0], false);
 });
 
 test("métricas leem o JUnit do node:test, que não tem testsuite", () => {
@@ -292,4 +296,67 @@ test("nível fora do escopo da execução não vira pendência nem impede o verd
   const semEscopo = situacaoGeral({ niveis: [nivelCom("verde"), { ...e2eFora, foraDoEscopo: false }], riscos: RISCOS_EM_DIA, esteira: ESTEIRA_ESTAVEL, politica: POLITICA });
   assert.equal(semEscopo.cor, "amarelo");
   assert.deepEqual(Object.keys(ESCOPOS), ["completo", "smoke", "nenhum"]);
+});
+
+const CRITICO = 'describe("TC06 · compra", () => {\n  it("paga com Pix @smoke", () => {});\n});';
+
+test("teste crítico: precisa existir, ter o identificador no título e não estar pulado", () => {
+  const criticos = [{ id: "TC06", arquivo: "compra.cy.js" }];
+  assert.deepEqual(verificarCriticos(criticos, { "compra.cy.js": CRITICO }), []);
+  assert.match(verificarCriticos(criticos, {})[0], /TC06: o arquivo crítico compra\.cy\.js não existe/);
+  assert.match(verificarCriticos(criticos, { "compra.cy.js": "// TC06 só em comentário\nit('outro', () => {});" })[0], /nenhum teste de compra\.cy\.js tem o identificador/);
+  const pulado = CRITICO.replace('it("paga', '// aguarda #12\n  it.skip("paga');
+  assert.match(verificarCriticos(criticos, { "compra.cy.js": pulado })[0], /compra\.cy\.js:3 \(pulado\): arquivo com teste crítico/);
+});
+
+test("teste @smoke não pode ir para a quarentena", () => {
+  const violacoes = verificarCriticos([], { "a.cy.js": 'it("login @smoke @flaky #9", () => {});' });
+  assert.deepEqual(violacoes, ["a.cy.js:1: teste @smoke não entra em quarentena (@flaky)."]);
+});
+
+test("rastreabilidade: todo arquivo de teste mapeado, e o mapa não aponta para o que não existe", () => {
+  const arquivos = { "a.test.ts": 'describe("TC01 · login", () => {});', "b.test.ts": 'it("soma", () => {});' };
+  const mapa = {
+    "a.test.ts": { tipo: "requisito", casos: ["TC01"], hu: ["HU-01"], origem: "título" },
+    "b.test.ts": { tipo: "detalhe técnico", motivo: "Função de apoio." },
+  };
+  assert.deepEqual(verificarRastreabilidade(mapa, arquivos), []);
+  assert.match(verificarRastreabilidade({ "a.test.ts": mapa["a.test.ts"] }, arquivos)[0], /b\.test\.ts: arquivo de teste fora da rastreabilidade/);
+  assert.match(verificarRastreabilidade({ ...mapa, "c.test.ts": mapa["b.test.ts"] }, arquivos)[0], /c\.test\.ts: está na rastreabilidade, mas o arquivo não existe/);
+  const erros = verificarRastreabilidade(
+    { "a.test.ts": { tipo: "requisito", casos: ["TC09"], hu: ["HU-1"] }, "b.test.ts": { tipo: "requisito", casos: [], hu: [] } },
+    arquivos,
+  );
+  assert.equal(erros.length, 3);
+  assert.match(erros.join("\n"), /história "HU-1" fora do formato/);
+  assert.match(erros.join("\n"), /o caso TC09 não aparece no título/);
+  assert.match(erros.join("\n"), /requisito sem história \(HU\) nem caso \(TC\)/);
+});
+
+test("duplicação candidata: acha trecho igual entre arquivos e ignora import e pontuação", () => {
+  const bloco = ["cy.visit('/entrar');", "cy.get('#email').type(email);", "cy.get('#senha').type(senha);", "cy.contains('Entrar').click();"].join("\n");
+  const arquivos = {
+    "a.cy.js": `import x from "y";\n${bloco}\n});`,
+    "b.cy.js": `import z from "w";\n\n${bloco}\n}`,
+    "c.cy.js": "cy.visit('/outra');",
+  };
+  assert.deepEqual(duplicacoes(arquivos, 4), [{ a: "a.cy.js", linhaA: 2, b: "b.cy.js", linhaB: 3, janelas: 1 }]);
+  assert.deepEqual(duplicacoes(arquivos, 5), []);
+});
+
+test("instabilidade: separa estável, intermitente e falha constante, sem esconder a falha", () => {
+  const caso = (nome, estado, erro) => ({ nome, arquivo: "a.cy.js", segundos: 1, estado, ...(erro ? { erro } : {}) });
+  const testes = classificar([
+    [caso("firme", "passou"), caso("oscila", "falhou", "timeout"), caso("quebrado", "falhou", "esperava 200"), caso("pulado", "ignorado")],
+    [caso("firme", "passou"), caso("oscila", "passou"), caso("quebrado", "falhou", "esperava 200")],
+    [caso("firme", "passou"), caso("oscila", "passou"), caso("quebrado", "falhou", "esperava 200")],
+  ]);
+  const porNome = Object.fromEntries(testes.map((teste) => [teste.nome, teste]));
+  assert.equal(porNome.firme.classe, "estável");
+  assert.equal(porNome.quebrado.classe, "falha constante");
+  assert.deepEqual([porNome.oscila.classe, porNome.oscila.tentativas, porNome.oscila.falhas, porNome.oscila.rodadasComFalha], ["intermitente", 3, 1, [1]]);
+  assert.deepEqual(porNome.oscila.erros, ["timeout"]);
+  assert.equal(porNome.pulado, undefined);
+  assert.match(resumoDaInstabilidade(testes, 3), /Estáveis: 1\. Intermitentes: 1\. Falha constante: 1\./);
+  assert.match(resumoDaInstabilidade(testes, 2), /menos de 3 rodadas/);
 });

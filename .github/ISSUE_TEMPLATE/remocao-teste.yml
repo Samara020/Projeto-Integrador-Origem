@@ -1,0 +1,85 @@
+name: Remoção de teste
+description: Propõe retirar ou desativar de vez um teste automatizado. Nenhum teste sai sem este registro e sem a aprovação de outra pessoa.
+title: "[remoção de teste] "
+labels: ["remocao-teste"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este formulário antes de apagar ou desativar de vez um teste do Origem.
+        Quarentena de teste instável não é remoção: use o formulário **Manutenção da automação de testes**.
+        Critérios em [`docs/tas.md`](../blob/main/docs/tas.md).
+
+  - type: input
+    id: teste
+    attributes:
+      label: Teste a remover
+      description: Arquivo e nome do teste. Se for um caso do plano, cite o identificador.
+      placeholder: "frontend/tests/unit/pedidos.test.ts: TC07 - pagamentosService"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: motivo
+    attributes:
+      label: Motivo
+      options:
+        - "A regra testada deixou de existir"
+        - "Outro teste cobre o mesmo comportamento"
+        - "O teste não consegue falhar: não verifica nada"
+        - "O custo de manter é maior que o valor (justificar)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: justificativa
+    attributes:
+      label: Justificativa
+      description: O que mudou e a evidência. Link do requisito alterado, do PR ou do teste que substitui.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cobertura
+    attributes:
+      label: Cobertura que continua existindo
+      description: Qual teste ou verificação manual passa a cobrir o comportamento. Se nada cobre, escreva isso.
+    validations:
+      required: true
+
+  - type: textarea
+    id: risco
+    attributes:
+      label: Risco assumido
+      description: O que pode passar despercebido depois da remoção.
+    validations:
+      required: true
+
+  - type: input
+    id: solicitante
+    attributes:
+      label: Quem pede
+      placeholder: "@usuario"
+    validations:
+      required: true
+
+  - type: input
+    id: aprovador
+    attributes:
+      label: Quem aprova
+      description: Outra pessoa, diferente de quem pede. A aprovação fica registrada em comentário nesta issue, antes do PR.
+      placeholder: "@usuario"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: O teste não está na lista de testes críticos de `.github/politica-testes.json`, ou a lista é alterada no mesmo PR com esta issue citada.
+          required: true
+        - label: A entrada do arquivo em `.github/rastreabilidade-testes.json` e o backlog do plano de testes serão atualizados no mesmo PR.
+          required: true
+        - label: O PR da remoção vai citar esta issue.
+          required: true

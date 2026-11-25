@@ -28,6 +28,10 @@ on:
         description: "Testes End-to-End que rodam: completo, smoke ou nenhum"
         type: string
         default: completo
+      artefato:
+        description: "Nome do artefato de relatórios (o diagnóstico de instabilidade usa um por rodada)"
+        type: string
+        default: relatorios-testes
 
 permissions:
   contents: read
@@ -237,7 +241,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: relatorios-testes
+          name: ${{ inputs.artefato || 'relatorios-testes' }}
           path: |
             relatorios/
             e2e/cypress/screenshots/

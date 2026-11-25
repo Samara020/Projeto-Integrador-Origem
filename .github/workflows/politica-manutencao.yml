@@ -28,3 +28,5 @@ jobs:
         run: node .github/scripts/verificar-quarentena.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Conferir testes críticos e rastreabilidade
+        run: node .github/scripts/gestao-testes.mjs

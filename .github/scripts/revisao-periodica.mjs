@@ -1,17 +1,20 @@
-// Abre a issue da revisão periódica da TAS (docs/tas.md) com os números atuais:
-// execuções dos últimos 15 dias, demandas de manutenção abertas e testes pulados ou em quarentena.
+// Abre a issue da revisão periódica da TAS (docs/tas.md) com os números atuais: execuções
+// da janela da política, demandas de manutenção abertas, testes pulados ou em quarentena,
+// duplicação candidata e os arquivos de teste há mais tempo sem alteração.
 // Uso no GitHub Actions: node .github/scripts/revisao-periodica.mjs
 // Para só ver o texto, sem abrir issue: node .github/scripts/revisao-periodica.mjs --rascunho
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { arquivosDeTeste, duplicacoes } from "./gestao-testes.mjs";
 import { analisar } from "./verificar-quarentena.mjs";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const REPO = process.env.GITHUB_REPOSITORY;
 const POLITICA = JSON.parse(readFileSync(join(RAIZ, ".github", "politica-testes.json"), "utf8"));
 const LABEL = "revisao-tas";
-const DIAS = 15;
+const DIAS = POLITICA.diasDaRevisao;
 const NIVEIS = {
   "Unitário · frontend (Jest)": "frontend/tests/unit",
   "API · frontend (Jest)": "frontend/tests/api",
@@ -92,11 +95,31 @@ async function demandas() {
   return linhas;
 }
 
+/** Pares de arquivos de teste com trechos repetidos, no máximo 10 linhas de tabela. */
+function duplicacaoCandidata() {
+  const achados = duplicacoes(arquivosDeTeste(), POLITICA.linhasDuplicadasParaAlerta);
+  return achados.slice(0, 10).map(({ a, linhaA, b, linhaB, janelas }) => `| \`${a}:${linhaA}\` | \`${b}:${linhaB}\` | ${janelas} |`);
+}
+
+/** Os 5 arquivos de teste há mais tempo sem commit. Precisa do histórico completo do git. */
+function maisAntigos() {
+  const datas = Object.keys(arquivosDeTeste()).flatMap((arquivo) => {
+    const saida = spawnSync("git", ["log", "-1", "--format=%cs", "--", arquivo], { cwd: RAIZ, encoding: "utf8" });
+    const data = saida.status === 0 ? saida.stdout.trim() : "";
+    return data ? [{ arquivo, data }] : [];
+  });
+  // Clone raso: todos os arquivos têm a mesma data e a lista não diz nada.
+  if (new Set(datas.map(({ data }) => data)).size < 2) return null;
+  return datas.sort((x, y) => x.data.localeCompare(y.data)).slice(0, 5).map(({ arquivo, data }) => `| \`${arquivo}\` | ${data.split("-").reverse().join("/")} |`);
+}
+
 async function main() {
   const rascunho = process.argv.includes("--rascunho") || !process.env.GITHUB_TOKEN || !REPO;
   const { linhas: tamanho, marcados } = suiteLocal();
   const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Recife" });
   const semDados = "| sem acesso à API do GitHub nesta execução | | | | |";
+  const duplicados = duplicacaoCandidata();
+  const antigos = maisAntigos();
 
   const corpo = [
     `Revisão periódica da automação de testes, conforme \`docs/tas.md\`. Números de ${hoje}.`,
@@ -127,15 +150,26 @@ async function main() {
       ? marcados.map(({ onde, tipo, issues }) => `- \`${onde}\`: ${tipo}, ${issues.map((n) => `#${n}`).join(", ")}`)
       : ["Nenhum."]),
     "",
+    `### Duplicação candidata (trechos de ${POLITICA.linhasDuplicadasParaAlerta} linhas ou mais iguais)`,
+    "",
+    ...(duplicados.length
+      ? ["| Primeira ocorrência | Repetida em | Janelas iguais |", "| --- | --- | ---: |", ...duplicados, "", "É candidata: a revisão decide se o trecho vira comando de apoio."]
+      : ["Nenhum trecho repetido entre arquivos de teste."]),
+    "",
+    "### Arquivos de teste há mais tempo sem alteração",
+    "",
+    ...(antigos ? ["| Arquivo | Último commit |", "| --- | --- |", ...antigos, "", "Idade não é defeito. É o ponto de partida para conferir se a regra testada ainda existe."] : ["Sem dados: o histórico do git não está completo nesta execução."]),
+    "",
     "### Roteiro da revisão",
     "",
-    "- [ ] **Instabilidade:** algum teste falhou e passou sem mudança de código? Abrir issue e pôr em quarentena (`@flaky`).",
-    `- [ ] **Quarentena:** cada teste acima ainda precisa estar pulado? Há mais de ${POLITICA.diasMaximosEmQuarentena} dias, corrigir ou propor remoção.`,
+    "- [ ] **Instabilidade:** algum teste falhou e passou sem mudança de código? Rodar o workflow `Diagnóstico de instabilidade`; se confirmar, abrir issue e pôr em quarentena (`@flaky`).",
+    `- [ ] **Quarentena:** cada teste acima ainda precisa estar pulado? Sai com ${POLITICA.execucoesVerdesParaSairDaQuarentena} execuções verdes seguidas. Há mais de ${POLITICA.diasMaximosEmQuarentena} dias, corrigir ou propor remoção.`,
     "- [ ] **Tempo de execução:** algum nível passou do limite de `.github/politica-testes.json`? Ver o relatório de métricas da última regressão (`relatorios/metricas.html` no artefato `relatorios-testes`).",
-    "- [ ] **Duplicação:** há passos repetidos nos testes que deveriam virar comando de apoio (`e2e/cypress/support`, `frontend/tests/unit/apoio.ts`)?",
-    "- [ ] **Rastreabilidade:** todo teste novo cita o caso do plano de testes (`TCxx`) no nome?",
+    "- [ ] **Duplicação:** algum trecho da tabela acima deveria virar comando de apoio (`e2e/cypress/support`, `frontend/tests/unit/apoio.ts`)?",
+    "- [ ] **Rastreabilidade:** as histórias com origem \"atribuição\" em `.github/rastreabilidade-testes.json` estão certas? Todo teste novo cita o caso do plano (`TCxx`) no nome?",
+    "- [ ] **Obsolescência:** algum arquivo da lista de mais antigos testa regra que mudou ou não existe mais?",
     "- [ ] **Demandas vencidas:** alguma issue de manutenção passou do prazo? Repriorizar ou trocar o responsável.",
-    "- [ ] **Remoção:** algum teste cobre regra que não existe mais? Abrir issue de remoção com justificativa e risco.",
+    "- [ ] **Remoção:** algum teste deve sair? Abrir pelo formulário **Remoção de teste**, com justificativa, aprovador e risco assumido.",
     "",
     "Feche esta issue com um comentário dizendo o que foi decidido em cada item.",
   ].join("\n");

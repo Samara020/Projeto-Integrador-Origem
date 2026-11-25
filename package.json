@@ -9,8 +9,9 @@
     "test:e2e": "node scripts/testes.mjs e2e --sem-tag @flaky",
     "test:e2e:smoke": "node scripts/testes.mjs e2e --tag @smoke",
     "test:quarentena": "node scripts/testes.mjs quarentena",
-    "test:politica": "node .github/scripts/verificar-quarentena.mjs",
+    "test:politica": "node .github/scripts/verificar-quarentena.mjs && node .github/scripts/gestao-testes.mjs",
     "test:metricas": "node scripts/metricas.mjs",
+    "test:instabilidade": "node scripts/instabilidade.mjs",
     "test:automacao": "node --test .github/scripts/automacao.test.mjs .github/scripts/politica.test.mjs"
   }
 }
