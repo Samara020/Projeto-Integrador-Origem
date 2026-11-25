@@ -17,4 +17,5 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: read
     uses: ./.github/workflows/testes.yml

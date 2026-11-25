@@ -14,6 +14,8 @@ permissions:
   contents: read
   # Leitura das execuções, para a taxa de sucesso da esteira no relatório de métricas.
   actions: read
+  # Leitura das issues falha:sut, para os defeitos em aberto nos relatórios.
+  issues: read
 
 jobs:
   regressao:
