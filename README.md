@@ -6,6 +6,8 @@
 **CESAR School, 4º Semestre, 2026.2**
 
 > **Avaliação de IA (AV2):** instruções de instalação, tabela de requisitos e casos de teste estão na seção [Módulo de IA](#módulo-de-ia-recomendação-de-produtos-av2).
+>
+> **FCCPD · Unidade 2 (Parte 2 — Arquitetura Distribuída, Paralelismo e Benchmarks):** diagrama, justificativa da separação, código paralelo, metodologia, resultados e evidências estão na seção [Arquitetura Distribuída — Projeto Origem (FCCPD / Unidade 2)](#arquitetura-distribuída--projeto-origem-fccpd--unidade-2).
 
 ## Sobre o projeto
 
@@ -643,10 +645,14 @@ Os componentes são executados separadamente para demonstrar os conceitos de con
 ### 8. Evidências funcionais e instruções de reprodução
 
 **Documentos e evidências vinculadas (rastreáveis ao commit `93628a1`):**
-- Arquitetura distribuída e justificativas: [`docs/arquitetura/arquitetura-distribuida.md`](docs/arquitetura/arquitetura-distribuida.md) e [`docs/arquitetura/diagrama-arquitetura-distribuida.md`](docs/arquitetura/diagrama-arquitetura-distribuida.md)
-- Evidências de comunicação, fallback e testes de API (`8/8`): [`docs/evidencias-comunicacao-modulos.md`](docs/evidencias-comunicacao-modulos.md), [`evidencias-comunicacao/logs-comunicacao.txt`](evidencias-comunicacao/logs-comunicacao.txt) e [`evidencias-comunicacao/relatorio-integracao.txt`](evidencias-comunicacao/relatorio-integracao.txt)
-- Evidências da execução paralela, `pytest` (`33/33`) e benchmark distribuído: [`evidencias-comunicacao/evidencias-paralelismo.txt`](evidencias-comunicacao/evidencias-paralelismo.txt)
-- Metodologia, amostras brutas e relatórios de desempenho: [`docs/metodologia-benchmark.md`](docs/metodologia-benchmark.md), [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv), [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv), [`scripts/benchmark-comunicacao.mjs`](scripts/benchmark-comunicacao.mjs), [`docs/medicao-ganho-paralelismo.md`](docs/medicao-ganho-paralelismo.md), [`docs/medicao-interpretacao-paralelismo.md`](docs/medicao-interpretacao-paralelismo.md) e [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](docs/relatorio-interpretacao-decisoes-tecnicas.md)
+- **Arquitetura distribuída e justificativas:** documento principal [`docs/arquitetura/arquitetura-distribuida.md`](docs/arquitetura/arquitetura-distribuida.md) *(resumo do diagrama em [`docs/arquitetura/diagrama-arquitetura-distribuida.md`](docs/arquitetura/diagrama-arquitetura-distribuida.md))*.
+- **Evidências de comunicação, fallback e testes de API (`8/8`):** relatório principal [`docs/evidencias-comunicacao-modulos.md`](docs/evidencias-comunicacao-modulos.md), logs em [`evidencias-comunicacao/logs-comunicacao.txt`](evidencias-comunicacao/logs-comunicacao.txt) e saída dos testes integrados em [`evidencias-comunicacao/relatorio-integracao.txt`](evidencias-comunicacao/relatorio-integracao.txt).
+- **Evidências da execução paralela, `pytest` (`33/33`) e benchmark distribuído:** [`evidencias-comunicacao/evidencias-paralelismo.txt`](evidencias-comunicacao/evidencias-paralelismo.txt).
+- **Metodologia, dados brutos e interpretação:**
+  - Metodologia: [`docs/metodologia-benchmark.md`](docs/metodologia-benchmark.md)
+  - Relatório consolidado de interpretação e decisões técnicas *(principal)*: [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](docs/relatorio-interpretacao-decisoes-tecnicas.md)
+  - Tabelas completas de medição: [`docs/medicao-ganho-paralelismo.md`](docs/medicao-ganho-paralelismo.md) *(síntese focada em paralelismo: [`docs/medicao-interpretacao-paralelismo.md`](docs/medicao-interpretacao-paralelismo.md))*
+  - Amostras brutas e scripts: [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv) (`147` amostras), [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv) (`90` amostras) e [`scripts/benchmark-comunicacao.mjs`](scripts/benchmark-comunicacao.mjs)
 
 **Como reproduzir:**
 ```powershell

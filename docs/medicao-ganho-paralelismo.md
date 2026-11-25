@@ -7,7 +7,7 @@
   - **SO:** Microsoft Windows 11 (`10.0.26300-SP0`, PowerShell)
   - **CPU:** `11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz` (`2419 MHz`, 4 núcleos físicos / 8 CPUs lógicas)
   - **Memória RAM:** `15,80 GB`
-  - **Runtimes:** Python `3.14.7` (reprodutível via `cd modulo-ia && python -m benchmark_parallel`), Node.js `v24.19.0` (reprodutível via `node scripts/benchmark-comunicacao.mjs`) e Docker Compose (`postgres:16`, `backend`, `modulo-ia` em `python:3.13-slim`).
+  - **Runtimes:** Python `3.14.7` (reprodutível via `cd modulo-ia && python -m benchmark_parallel`), Node.js `v24.19.0` (reprodutível via `node scripts/benchmark-comunicacao.mjs`) e Docker Compose (`postgres:17`, `backend`, `modulo-ia` em `python:3.13-slim`).
   - **Estado de carga:** execução local dedicada, sem outros benchmarks concorrentes.
 - **Métricas coletadas:** latência (mediana, média e desvio padrão em `ms`), **throughput** (`produtos/s` no lote e `candidatos/s` no ranqueamento unitário), *speedup* e redução percentual de tempo.
 - **Tarefas reais medidas do produto (`modulo-ia/app/recommendation.py`, integradas em `app/fallback.py` e `app/service.py`):**
