@@ -5,7 +5,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { analisar } from "./verificar-quarentena.mjs";
 import { planejar, resposta } from "./rotular-manutencao.mjs";
-import { lerCasos, piorCor, resumirEsteira, resumirNivel, semaforo } from "../../scripts/metricas.mjs";
+import {
+  caminhoCritico,
+  lerBacklog,
+  lerCasos,
+  piorCor,
+  recomendacao,
+  resumirDefeitos,
+  resumirEsteira,
+  resumirNivel,
+  resumirRiscos,
+  semaforo,
+  situacaoGeral,
+} from "../../scripts/metricas.mjs";
 import { avisoDeNavegador, ehChrome, navegadorDoE2E } from "../../scripts/navegador-e2e.mjs";
 
 test("E2E usa o Chrome da esteira quando E2E_BROWSER não é informado", () => {
@@ -167,4 +179,99 @@ test("taxa de sucesso da esteira conta só workflows de teste concluídos", () =
   assert.equal(resumo.taxaDeSucesso, 66.7);
   assert.deepEqual(resumo.linhas[0], { workflow: "Testes no merge na main", execucoes: 2, sucessos: 1, taxaDeSucesso: 50, minutosEmMedia: 5 });
   assert.equal(resumirEsteira([]).taxaDeSucesso, null);
+});
+
+const PLANO = [
+  "## 9. Backlog de automação priorizado",
+  "",
+  "| Ordem | ID do caso | HU | Nível | Risco | Custo | Frequência | Prioridade | Responsável | Status |",
+  "|---:|---|---|---|---:|---:|---:|---:|---|---|",
+  "| 1 | TC01 | HU-01 | Sistema | 3 | 1 | 3 | 9,0 | a definir | Automatizado (e2e/cypress/e2e/acesso.cy.js: TC01) |",
+  "| 2 | TC07 | HU-13 e HU-14 | Integração | 2 | 1 | 2 | 4,0 | a definir | Pendente (sem TC07 em título) |",
+  "| 3 | TC06 | HU-09 | Sistema | 3 | 2 | 3 | 4,5 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC06) |",
+  "",
+  "| Item | O que o Plano diz | Decisão |",
+  "|---|---|---|",
+  "| TC07 | Atualização do status | Corrigir |",
+].join("\n");
+
+test("backlog do plano: lê só a tabela com ID do caso e Status", () => {
+  const itens = lerBacklog(PLANO);
+  assert.deepEqual(itens.map((item) => [item.id, item.automatizado]), [["TC01", true], ["TC07", false], ["TC06", true]]);
+  assert.deepEqual(itens[1], { id: "TC07", hu: "HU-13 e HU-14", nivel: "Integração", risco: 2, automatizado: false, status: "Pendente (sem TC07 em título)" });
+  assert.deepEqual(lerBacklog("# Plano sem tabela de backlog"), []);
+});
+
+test("cobertura de riscos é automatizados sobre o total e lista os pendentes", () => {
+  const riscos = resumirRiscos(lerBacklog(PLANO));
+  assert.equal(riscos.total, 3);
+  assert.equal(riscos.automatizados, 2);
+  assert.equal(riscos.cobertura, 66.7);
+  assert.deepEqual(riscos.pendentes.map((item) => item.id), ["TC07"]);
+  assert.equal(resumirRiscos([]), null);
+});
+
+test("caminho crítico conta só os casos @smoke do E2E", () => {
+  const casos = [
+    { nome: "TC06 compra com Pix @smoke", estado: "passou" },
+    { nome: "TC19 carrinho @smoke", estado: "falhou" },
+    { nome: "TC13 duplo clique", estado: "falhou" },
+  ];
+  assert.deepEqual(caminhoCritico(casos), { total: 2, aprovados: 1, reprovados: ["TC19 carrinho"], ignorados: 0 });
+  assert.equal(caminhoCritico([{ nome: "sem tag", estado: "passou" }]), null);
+});
+
+const POLITICA = { coberturaMinimaDeRiscos: 100, taxaMinimaDeSucessoDaEsteira: 90, diasDaJanelaDaEsteira: 7 };
+const nivelCom = (cor, motivos = []) => ({ chave: "unit", titulo: "Unitário", sinal: { cor, motivos } });
+const RISCOS_EM_DIA = { total: 2, automatizados: 2, cobertura: 100, pendentes: [] };
+const ESTEIRA_ESTAVEL = { execucoes: 10, taxaDeSucesso: 95 };
+
+test("situação geral: verde só com tudo em dia e todos os dados presentes", () => {
+  const verde = situacaoGeral({ niveis: [nivelCom("verde")], riscos: RISCOS_EM_DIA, esteira: ESTEIRA_ESTAVEL, politica: POLITICA });
+  assert.equal(verde.cor, "verde");
+  assert.equal(verde.motivos.length, 1);
+  assert.equal(verde.simples.length, 1);
+});
+
+test("situação geral: caso reprovado é vermelho mesmo com outras pendências", () => {
+  const situacao = situacaoGeral({ niveis: [nivelCom("vermelho", ["2 caso(s) falharam"])], riscos: null, esteira: null, politica: POLITICA });
+  assert.equal(situacao.cor, "vermelho");
+  assert.deepEqual(situacao.motivos, ["Unitário: 2 caso(s) falharam."]);
+});
+
+test("situação geral: risco sem teste e esteira instável deixam amarelo, com o texto saindo dos dados", () => {
+  const riscos = resumirRiscos(lerBacklog(PLANO));
+  const situacao = situacaoGeral({ niveis: [nivelCom("verde")], riscos, esteira: { execucoes: 143, taxaDeSucesso: 62.2 }, politica: POLITICA });
+  assert.equal(situacao.cor, "amarelo");
+  assert.match(situacao.motivos[0], /66,7%.*1 caso\(s\).*TC07/);
+  assert.match(situacao.motivos[1], /62,2%.*mínimo de 90%/);
+  assert.match(situacao.simples[0], /^1 dos 3 casos planejados/);
+  assert.equal(situacao.motivos.length, situacao.simples.length);
+});
+
+test("situação geral: dado que não pôde ser lido aparece como sem dados e impede o verde", () => {
+  const situacao = situacaoGeral({ niveis: [nivelCom("verde")], riscos: null, esteira: null, politica: POLITICA });
+  assert.equal(situacao.cor, "amarelo");
+  assert.match(situacao.motivos[0], /Cobertura de riscos: sem dados/);
+  assert.match(situacao.motivos[1], /esteira: sem dados/);
+  assert.equal(situacaoGeral({ niveis: [nivelCom("sem-dados")], riscos: null, esteira: null, politica: POLITICA }).cor, "sem-dados");
+});
+
+test("recomendação de liberação acompanha a cor", () => {
+  assert.match(recomendacao("verde"), /^Liberar\.$/);
+  assert.match(recomendacao("amarelo"), /^Liberar com ressalvas/);
+  assert.match(recomendacao("vermelho"), /^Não liberar/);
+  assert.match(recomendacao("sem-dados"), /^Sem dados/);
+});
+
+test("defeitos abertos: ignora PRs e lê a prioridade da label", () => {
+  const resumo = resumirDefeitos([
+    { number: 12, title: "Frete some do total", html_url: "u12", labels: [{ name: "falha:sut" }, { name: "prioridade:alta" }] },
+    { number: 9, title: "Sem prioridade", html_url: "u9", labels: [{ name: "falha:sut" }] },
+    { number: 40, title: "PR", html_url: "u40", labels: [{ name: "falha:sut" }], pull_request: {} },
+  ]);
+  assert.equal(resumo.total, 2);
+  assert.equal(resumo.altas, 1);
+  assert.deepEqual(resumo.itens[0], { numero: 12, titulo: "Frete some do total", url: "u12", prioridade: "alta" });
+  assert.equal(resumo.itens[1].prioridade, null);
 });

@@ -52,10 +52,47 @@ As tags ficam no título do teste E2E e são lidas por `e2e/cypress/support/e2e.
 | Comando | O que faz |
 |---|---|
 | `npm run test:politica` | Reprova se houver `.only` esquecido, ou teste pulado ou `@flaky` sem citar uma issue. Com `GITHUB_TOKEN` e `GITHUB_REPOSITORY`, a issue citada precisa estar aberta. |
-| `npm run test:metricas` | Lê os JUnit de `relatorios/` e gera `relatorios/metricas.html` e `relatorios/metricas.json`. |
+| `npm run test:metricas` | Lê os JUnit de `relatorios/` e o backlog do plano e gera os relatórios técnico e de negócio. |
 | `npm run test:automacao` | Testes da própria automação: gate, emissor de issue, conferência da política, rotulagem e métricas. |
 
-O relatório de métricas mostra, por nível: casos, aprovados, falhas, ignorados, taxa de aprovação e tempo, com um semáforo. Verde: sem falha e dentro dos limites. Amarelo: tempo ou ignorados acima do limite. Vermelho: caso reprovado. Também lista os casos reprovados, os testes pulados ou em quarentena, os 10 casos mais lentos e, no GitHub Actions, a taxa de sucesso da esteira nos últimos 7 dias. Os limites ficam em [`.github/politica-testes.json`](../.github/politica-testes.json). O relatório só informa: não aprova nem reprova a esteira.
+A cada execução da regressão, `npm run test:metricas` gera dois relatórios e um arquivo de dados, guardados no artefato `relatorios-testes`:
+
+| Arquivo | Para quem | O que mostra |
+|---|---|---|
+| `relatorios/metricas.html` | Equipe de desenvolvimento | Resultado por nível, casos reprovados, cobertura de riscos com os casos pendentes, testes pulados, os 10 casos mais lentos, esteira por workflow e defeitos abertos. |
+| `relatorios/negocio.html` | Quem decide sem ser técnico | Situação, recomendação de liberação, cinco indicadores em linguagem simples, casos planejados sem verificação automática e defeitos conhecidos. |
+| `relatorios/metricas.json` | Outra ferramenta | Os mesmos números. |
+
+Nenhum número nem texto de diagnóstico é fixo no código: tudo sai dos JUnit de `relatorios/`, do backlog de [`docs/testes/plano-de-testes.md`](testes/plano-de-testes.md) e da API do GitHub. Os limites ficam em [`.github/politica-testes.json`](../.github/politica-testes.json). Os relatórios só informam: não aprovam nem reprovam a esteira.
+
+Situação geral dos dois relatórios:
+
+- **Vermelho:** algum nível tem caso reprovado. Recomendação: não liberar.
+- **Amarelo:** nada reprovou, mas há tempo ou casos ignorados acima do limite, caso do backlog sem teste automatizado, esteira abaixo de 90% de sucesso em 7 dias ou dado que não pôde ser lido. Recomendação: liberar com ressalvas.
+- **Verde:** nada reprovou, 100% dos casos do backlog automatizados, esteira em 90% ou mais e todos os dados presentes. Recomendação: liberar.
+
+Dado ausente aparece como "sem dados" e impede o verde. É o caso da máquina de desenvolvimento, que roda sem acesso à API do GitHub.
+
+#### Métricas selecionadas e descartadas
+
+Critério: a métrica precisa apoiar uma decisão de alguém. Sem decisão associada, foi descartada.
+
+| Métrica | Decisão | Justificativa |
+|---|---|---|
+| Taxa de aprovação por nível | Selecionada | Diz na hora se a mudança pode ser mesclada e em que nível está o problema. |
+| Casos reprovados, com nível e arquivo | Selecionada | É por onde começa a triagem da política de manutenção. |
+| Cobertura de riscos do backlog | Selecionada | Liga o resultado ao plano de testes: mostra quais casos planejados ainda dependem de conferência manual. |
+| Caminho crítico (`@smoke`) aprovado | Selecionada | Responde à pergunta de negócio "dá para comprar e vender?". |
+| Taxa de sucesso da esteira em 7 dias | Selecionada | Separa falha pontual de instabilidade. Abaixo de 90% a equipe investiga antes de confiar no verde. |
+| Tempo por nível contra o limite | Selecionada | Protege o objetivo de resposta rápida a cada push. Estouro pede otimização ou divisão da suíte. |
+| Testes pulados ou em quarentena | Selecionada | Teste desligado é cobertura que sumiu. A política exige issue aberta para cada um. |
+| Os 10 casos mais lentos | Selecionada | Indica onde otimizar quando o tempo do nível se aproxima do limite. |
+| Defeitos do sistema em aberto (`falha:sut`), por prioridade | Selecionada | É o risco que o negócio assume ao liberar. |
+| Cobertura de código | Adiada | A esteira ainda não gera o relatório. Entra quando a medição existir; os relatórios já dizem "não medida". |
+| Densidade de defeitos por mil linhas | Descartada | Projeto pequeno e em mudança rápida: o número oscila sem indicar decisão. |
+| Tempo médio de reparo | Descartada | O histórico de demandas tem poucos dias. A média de tão poucos casos não é confiável. |
+| Número total de testes | Descartada como indicador | Crescer o número não diz se o risco está coberto. O total aparece só como contexto. |
+| Taxa de falha por autor | Descartada | Não apoia decisão técnica e incentiva a esconder falha. |
 
 ### Gatilhos publicados
 
