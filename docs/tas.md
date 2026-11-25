@@ -391,6 +391,14 @@ Em 24/11, na máquina de desenvolvimento, antes da primeira execução na esteir
 - Nas duas execuções E2E, 3 casos que conferem aviso flutuante (toast) reprovaram no Electron sem tela, que não desenha o aviso; um deles não tem tag. A máquina não tem Chrome, o navegador da esteira.
 - Os mesmos 3 casos (TC19, TC12 e TC02) foram refeitos à mão em um navegador com tela, no runtime descartável `:3200`/`:4200`: o aviso apareceu nos três, com opacidade 1 e dentro da área visível, e as demais conferências de cada caso bateram (carrinho esvaziado, 10 mensagens de campo obrigatório, peça gravada no estoque com SKU, 5 unidades e situação Ativo). Conferência manual não substitui a execução no Chrome da esteira.
 
+Em 25/11, na esteira, no commit `e68aae4` da `main`:
+
+- [Execução 45614828999](https://github.com/Samara020/Projeto-Integrador-Origem/actions/runs/45614828999), push na `main` depois do último merge: regressão completa e Quality Gate aprovados.
+- [Execução 45643702513](https://github.com/Samara020/Projeto-Integrador-Origem/actions/runs/45643702513), regressão agendada: 578 casos aprovados em 578 (246 unitários, 200 do backend, 90 de API e 42 E2E), nenhum ignorado. Caminho crítico: 3 de 3. O cron das 5h UTC disparou às 15h18 UTC, o atraso descrito em "Quando cada teste roda".
+- Relatório de métricas da mesma execução: situação amarela, pelos dois motivos explicados na limitação 10 do [plano de testes](testes/plano-de-testes.md).
+- [Execução 45614849195](https://github.com/Samara020/Projeto-Integrador-Origem/actions/runs/45614849195), diagnóstico de instabilidade: 3 rodadas no mesmo commit, 578 testes estáveis, nenhum intermitente.
+- [PR #38](https://github.com/Samara020/Projeto-Integrador-Origem/pull/38), teste quebrado de propósito: check `Quality Gate` reprovado e merge bloqueado pela regra da `main`.
+
 Contagens pertencem a essas execuções, não são percentuais de cobertura nem garantias sobre SHAs futuros.
 
 ## 4. Próximos passos

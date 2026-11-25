@@ -83,7 +83,7 @@ Os primeiros casos escolhidos são os de prioridade mais alta do backlog da seç
 | Manual: execução diferente entre pessoas | Médio | Alta | Os 24 casos foram divididos entre 5 pessoas em 09/11. A automação fixa passos, dados e resultado esperado. |
 | Manual: resultado sem evidência reconferível | Médio | Média | A esteira guarda XML, logs, prints e vídeos por 14 dias no artefato `relatorios-testes`. |
 | Manual: caso aprovado por quem escreveu o código | Médio | Média | O Quality Gate decide o merge pelo resultado da esteira, não pela palavra do autor. |
-| Automatizado: teste instável | Alto | Média | Quarentena `@flaky` com issue obrigatória e sem nova tentativa fora dela. A taxa de sucesso da esteira em 7 dias estava em 49,1%: a causa precisa ser separada entre defeito e instabilidade. |
+| Automatizado: teste instável | Alto | Média | Quarentena `@flaky` com issue obrigatória e sem nova tentativa fora dela. A taxa de sucesso da esteira em 7 dias estava em 49,1% em 24/11 e em 65,2% em 25/11. A separação foi feita: as falhas são de antes de 24/11, não de teste instável (ver a limitação 10). |
 | Automatizado: resultado esperado copiado do próprio sistema | Alto | Média | O esperado vem do critério de aceite, citado literalmente na seção 7. Caso sem critério é marcado como suposição. |
 | Automatizado: dublê que não representa o produto implantado | Alto | Alta | Já aconteceu: testes ficaram desatualizados na troca da Fake API pela API real (issues #6, #7 e #8). Mitigação: `frontend/tests/api/` e o E2E usam backend e PostgreSQL reais. Revisão manual confirma o que os dublês dos testes de componente assumem. |
 | Automatizado: massa de dados compartilhada entre casos | Médio | Média | O E2E cria usuário e peça próprios a cada caso, em banco descartável (`origem_e2e_ci`). O backend usa banco exclusivo (`origem_backend_ci`). |
@@ -309,8 +309,9 @@ As lacunas técnicas da API, que não são casos do Plano de Testes, estão em [
 4. O critério "Automatizado" olha o identificador no título. Ele não mede se o teste cobre todos os passos do caso do Plano 1.4.
 5. Aceite, aparência e usabilidade ficam manuais.
 6. Pagamento e transporte reais não são testados; só a simulação e a fronteira.
-7. Não há medição de cobertura de código (fase 3).
+7. A cobertura de código é medida só nos testes Jest do frontend e do backend. Na [execução 45643702513](https://github.com/Samara020/Projeto-Integrador-Origem/actions/runs/45643702513): frontend com 25,99% das linhas e 30,52% dos ramos; backend com 79,64% e 66,74%. O módulo de IA (pytest) e o E2E não têm medição. Os mínimos de `.github/politica-testes.json` são o valor medido com folga, não uma meta de qualidade.
 8. Na máquina de desenvolvimento usada neste levantamento não há Chrome nem o ambiente Python do módulo de IA. O E2E e o pytest só são prova quando rodam na esteira.
 9. Os testes C++ de `aed/tests/` estão fora do fluxo.
+10. O relatório de métricas fica amarelo por dois motivos, os dois conhecidos. O primeiro é o TC24, pendente até a equipe decidir a issue #39. O segundo é a taxa de sucesso da esteira, 65,2% na janela de 7 dias, abaixo do mínimo de 90%. Levantamento de 25/11 pela API do GitHub, 162 execuções contadas de 18 a 25/11: de 18 a 23/11 foram 28 sucessos em 82 (34,1%); em 24 e 25/11 foram 78 em 80 (97,5%), e as 2 falhas são do PR #38, quebrado de propósito para provar o bloqueio do merge. O diagnóstico de instabilidade ([execução 45614849195](https://github.com/Samara020/Projeto-Integrador-Origem/actions/runs/45614849195)) rodou a suíte 3 vezes no mesmo commit e classificou os 578 testes como estáveis. A taxa só volta a 90% quando os dias 18 a 23/11 saírem da janela de 7 dias, o que acontece em 01/12, se não houver falha nova. A causa de cada falha de 18 a 23/11 não foi conferida execução por execução.
 
 **Verificação:** cada item sem teste ou sem medição tem o motivo ao lado.
