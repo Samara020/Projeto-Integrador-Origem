@@ -84,6 +84,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node .github/scripts/verificar-quarentena.mjs
+      # Testes críticos presentes e ativos, e todo arquivo de teste na rastreabilidade.
+      - name: Conferir testes críticos e rastreabilidade
+        run: node .github/scripts/gestao-testes.mjs
       # Regra do repositório (AGENTS.md): vulnerabilidade alta bloqueia o merge.
       - name: Auditar dependências
         run: |

@@ -39,17 +39,20 @@ function texto(atributo) {
     .replace(/&amp;/g, "&");
 }
 
-/** Casos de um JUnit XML (Jest, pytest, Cypress ou node:test): nome, arquivo, segundos e estado. */
+/** Casos de um JUnit XML (Jest, pytest, Cypress ou node:test): nome, arquivo, segundos, estado e, na falha, a primeira linha do erro. */
 export function lerCasos(xml) {
   const casos = [];
   for (const [, atributos, corpo] of xml.matchAll(/<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g)) {
     const atributo = (nome) => texto(atributos.match(new RegExp(`\\b${nome}="([^"]*)"`))?.[1]);
     const estado = /<(?:failure|error)\b/.test(corpo ?? "") ? "falhou" : /<skipped\b/.test(corpo ?? "") ? "ignorado" : "passou";
+    const falha = (corpo ?? "").match(/<(?:failure|error)\b([^>]*)>([\s\S]*?)(?:<\/(?:failure|error)>|$)/);
+    const mensagem = falha ? texto(falha[1].match(/\bmessage="([^"]*)"/)?.[1]) || texto(falha[2].replace(/<!\[CDATA\[|\]\]>/g, "")) : "";
     casos.push({
       nome: atributo("name"),
       arquivo: atributo("file") || atributo("classname"),
       segundos: Number(atributo("time")) || 0,
       estado,
+      ...(estado === "falhou" ? { erro: mensagem.trim().split("\n")[0] } : {}),
     });
   }
   return casos;

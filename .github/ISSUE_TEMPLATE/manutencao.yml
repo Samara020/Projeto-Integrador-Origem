@@ -112,9 +112,18 @@ body:
         - "Abrir bug para o sistema"
         - "Corrigir o ambiente ou a pipeline"
         - "Pôr em quarentena (@flaky) até corrigir"
-        - "Propor remoção do teste (justificar abaixo)"
+        - "Propor remoção do teste (abrir também o formulário Remoção de teste)"
     validations:
       required: true
+
+  - type: input
+    id: saida
+    attributes:
+      label: Critério de saída da quarentena
+      description: "Só para quarentena. O padrão da política é 10 execuções verdes seguidas na etapa de quarentena, depois da correção."
+      placeholder: "10 execuções verdes seguidas"
+    validations:
+      required: false
 
   - type: textarea
     id: justificativa

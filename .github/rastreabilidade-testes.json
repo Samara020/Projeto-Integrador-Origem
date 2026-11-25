@@ -1,0 +1,547 @@
+{
+  "descricao": "Rastreabilidade dos testes do Origem (docs/tas.md): cada arquivo de teste aponta para as histórias (HU) e os casos (TC) que verifica, ou é marcado como detalhe técnico. Conferido por .github/scripts/gestao-testes.mjs. origem \"título\": histórias lidas dos identificadores nos títulos dos testes. origem \"atribuição\": histórias atribuídas pelo assunto do arquivo, a confirmar pela equipe.",
+  "arquivos": {
+    "frontend/tests/api/admin.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-16"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/api/auth.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC01",
+        "TC08",
+        "TC11"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-14",
+        "HU-16"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/api/catalogo.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC09"
+      ],
+      "hu": [],
+      "origem": "título"
+    },
+    "frontend/tests/api/fluxos-criticos.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC11"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-02",
+        "HU-03",
+        "HU-08",
+        "HU-10",
+        "HU-11",
+        "HU-12",
+        "HU-14",
+        "HU-20",
+        "HU-21"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/api/fluxos-integrados.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-07",
+        "HU-08",
+        "HU-09",
+        "HU-10",
+        "HU-13",
+        "HU-18",
+        "HU-19",
+        "HU-22",
+        "HU-24"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/api/modulo-ia.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/api/produtos.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC03",
+        "TC05"
+      ],
+      "hu": [
+        "HU-03",
+        "HU-04",
+        "HU-05",
+        "HU-06",
+        "HU-11",
+        "HU-12"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/api/recomendacoes-integracao.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/api/recomendacoes.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/admin.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-03",
+        "HU-16",
+        "HU-21"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/auth.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-01"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/carrinho.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC04"
+      ],
+      "hu": [
+        "HU-08"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/dashboard-admin-def04.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-16"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/dashboard-admin.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-16"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/destino.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC01",
+        "TC08"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-14",
+        "HU-16"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/estados-e-sessao.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-01",
+        "HU-08",
+        "HU-09"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/estoque-artesao.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-12"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/guarda-papel.test.tsx": {
+      "tipo": "requisito",
+      "casos": [
+        "TC08"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-14",
+        "HU-16"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/historico-compras.test.tsx": {
+      "tipo": "requisito",
+      "casos": [
+        "TC22"
+      ],
+      "hu": [
+        "HU-13",
+        "HU-14"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/nova-peca-artesao.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-02"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/painel-artesao.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC02",
+        "TC12"
+      ],
+      "hu": [
+        "HU-02"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/pedidos.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC06",
+        "TC07"
+      ],
+      "hu": [
+        "HU-09",
+        "HU-10",
+        "HU-11",
+        "HU-13",
+        "HU-14"
+      ],
+      "origem": "título"
+    },
+    "frontend/tests/unit/produtos.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-04",
+        "HU-05",
+        "HU-06",
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/recomendacoes.test.tsx": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/services-integracao.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-02",
+        "HU-07",
+        "HU-19"
+      ],
+      "origem": "atribuição"
+    },
+    "frontend/tests/unit/validacao.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC01",
+        "TC06",
+        "TC11"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-09",
+        "HU-10",
+        "HU-11"
+      ],
+      "origem": "título"
+    },
+    "backend/app/tests/admin-def04.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-16"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/aed-buscas.test.ts": {
+      "tipo": "detalhe técnico",
+      "motivo": "Algoritmos de busca da disciplina de estruturas de dados, sem história no backlog."
+    },
+    "backend/app/tests/aed-estruturas.test.ts": {
+      "tipo": "detalhe técnico",
+      "motivo": "Estruturas de dados da disciplina de estruturas de dados, sem história no backlog."
+    },
+    "backend/app/tests/artesaos.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-07"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/auth-permissoes.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-01"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/auth.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC11"
+      ],
+      "hu": [
+        "HU-01"
+      ],
+      "origem": "título"
+    },
+    "backend/app/tests/bloqueios-contrato.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC17",
+        "TC23"
+      ],
+      "hu": [
+        "HU-03",
+        "HU-15"
+      ],
+      "origem": "título"
+    },
+    "backend/app/tests/integracao-persistencia.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-01",
+        "HU-07",
+        "HU-09",
+        "HU-10",
+        "HU-16",
+        "HU-22",
+        "HU-24"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/pagamento-auth.unit.test.ts": {
+      "tipo": "requisito",
+      "casos": [
+        "TC11"
+      ],
+      "hu": [
+        "HU-01"
+      ],
+      "origem": "título"
+    },
+    "backend/app/tests/pedido-repository.unit.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-13"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/pedido-service.unit.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-09",
+        "HU-13",
+        "HU-14"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/pedidos.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-09",
+        "HU-10",
+        "HU-11",
+        "HU-12",
+        "HU-13",
+        "HU-14"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/produto-service.unit.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-03",
+        "HU-06"
+      ],
+      "origem": "título"
+    },
+    "backend/app/tests/produtos-posse.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-02"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/produtos.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-02",
+        "HU-03",
+        "HU-04"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/recomendacoes.unit.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "backend/app/tests/seguranca-regressao.test.ts": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-01",
+        "HU-14"
+      ],
+      "origem": "atribuição"
+    },
+    "e2e/cypress/e2e/acesso.cy.js": {
+      "tipo": "requisito",
+      "casos": [
+        "TC01",
+        "TC08",
+        "TC11",
+        "TC14",
+        "TC17"
+      ],
+      "hu": [
+        "HU-01",
+        "HU-03",
+        "HU-14",
+        "HU-16"
+      ],
+      "origem": "título"
+    },
+    "e2e/cypress/e2e/cadastro-peca.cy.js": {
+      "tipo": "requisito",
+      "casos": [
+        "TC02",
+        "TC12"
+      ],
+      "hu": [
+        "HU-02"
+      ],
+      "origem": "título"
+    },
+    "e2e/cypress/e2e/compra.cy.js": {
+      "tipo": "requisito",
+      "casos": [
+        "TC05",
+        "TC06",
+        "TC13",
+        "TC19",
+        "TC20"
+      ],
+      "hu": [
+        "HU-08",
+        "HU-09",
+        "HU-10",
+        "HU-11",
+        "HU-12"
+      ],
+      "origem": "título"
+    },
+    "e2e/cypress/e2e/desempenho.cy.js": {
+      "tipo": "requisito",
+      "casos": [
+        "TC09"
+      ],
+      "hu": [],
+      "origem": "título"
+    },
+    "e2e/cypress/e2e/vitrine.cy.js": {
+      "tipo": "requisito",
+      "casos": [
+        "TC03",
+        "TC05",
+        "TC18"
+      ],
+      "hu": [
+        "HU-03",
+        "HU-04",
+        "HU-05",
+        "HU-06",
+        "HU-07",
+        "HU-11",
+        "HU-12"
+      ],
+      "origem": "título"
+    },
+    "modulo-ia/tests/test_api.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests/test_parallel_equivalence.py": {
+      "tipo": "detalhe técnico",
+      "motivo": "Equivalência entre a execução sequencial e a paralela do módulo de IA."
+    },
+    "modulo-ia/tests/test_performance.py": {
+      "tipo": "detalhe técnico",
+      "motivo": "Medição de desempenho interno do módulo de IA."
+    },
+    "modulo-ia/tests/test_recommendation.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests/test_service.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "e2e/cypress/support/redeSegura.test.js": {
+      "tipo": "detalhe técnico",
+      "motivo": "Guarda de rede da própria automação End-to-End."
+    }
+  }
+}

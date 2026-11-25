@@ -1,0 +1,83 @@
+name: Diagnóstico de instabilidade
+
+# Roda a mesma suíte várias vezes no mesmo commit e classifica cada teste: estável,
+# intermitente ou falha constante (docs/tas.md). É sob demanda: use quando um teste falhou
+# e passou sem mudança de código, antes de decidir pela quarentena (@flaky).
+# Falha seguida de sucesso continua contada como falha; nada é repetido até passar.
+# Disparo manual: aba Actions > Diagnóstico de instabilidade > Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      rodadas:
+        description: "Quantas vezes rodar"
+        type: choice
+        options:
+          - "3"
+          - "5"
+        default: "3"
+      e2e:
+        description: "Testes End-to-End que rodam em cada rodada"
+        type: choice
+        options:
+          - completo
+          - smoke
+          - nenhum
+        default: completo
+
+permissions:
+  contents: read
+
+jobs:
+  preparar:
+    name: Montar as rodadas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      lista: ${{ steps.lista.outputs.lista }}
+    steps:
+      - id: lista
+        run: echo "lista=$(seq 1 "${{ inputs.rodadas }}" | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  rodada:
+    name: Rodada ${{ matrix.rodada }}
+    needs: preparar
+    strategy:
+      # Uma rodada reprovada não cancela as outras: a diferença entre elas é o que se quer ver.
+      fail-fast: false
+      matrix:
+        rodada: ${{ fromJSON(needs.preparar.outputs.lista) }}
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+    uses: ./.github/workflows/testes.yml
+    with:
+      e2e: ${{ inputs.e2e }}
+      artefato: relatorios-rodada-${{ matrix.rodada }}
+
+  classificar:
+    name: Classificar os testes
+    needs: rodada
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Baixar os relatórios de cada rodada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "${{ github.run_id }}" --pattern 'relatorios-rodada-*' --dir rodadas
+      - name: Classificar
+        run: node scripts/instabilidade.mjs rodadas
+      - name: Guardar o diagnóstico
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostico-instabilidade
+          path: relatorios/instabilidade.json
+          retention-days: 14

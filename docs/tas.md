@@ -52,7 +52,8 @@ As tags ficam no título do teste E2E e são lidas por `e2e/cypress/support/e2e.
 
 | Comando | O que faz |
 |---|---|
-| `npm run test:politica` | Reprova se houver `.only` esquecido, ou teste pulado ou `@flaky` sem citar uma issue. Com `GITHUB_TOKEN` e `GITHUB_REPOSITORY`, a issue citada precisa estar aberta. |
+| `npm run test:politica` | Reprova se houver `.only` esquecido, teste pulado ou `@flaky` sem citar uma issue (com `GITHUB_TOKEN` e `GITHUB_REPOSITORY`, a issue precisa estar aberta), teste crítico ausente ou desligado, ou arquivo de teste fora da rastreabilidade. |
+| `npm run test:instabilidade -- <pasta>` | Classifica cada teste a partir de várias rodadas: estável, intermitente ou falha constante. |
 | `npm run test:metricas` | Lê os JUnit de `relatorios/` e o backlog do plano e gera os relatórios técnico e de negócio. |
 | `npm run test:automacao` | Testes da própria automação: gate, emissor de issue, conferência da política, rotulagem e métricas. |
 
@@ -105,8 +106,9 @@ O núcleo é [`testes.yml`](../.github/workflows/testes.yml), reutilizável. Os 
 | A cada PR para a `main` | `testes-merge.yml` | O mesmo, mais os 3 E2E `@smoke`, build e smoke Docker e o Quality Gate. | Decide se o merge é permitido. |
 | A cada merge (push na `main`) | `testes-merge.yml` | Regressão completa, com todos os E2E, build Docker e Quality Gate. | Prova que a junção dos PRs não quebrou nada. Falha abre issue. |
 | Diariamente, previsto para 2h de Brasília | `testes-agendados.yml` | Regressão completa. | Pega o que o smoke não cobre e falha de ambiente. Falha abre issue. |
-| Segunda, previsto para 8h de Brasília | `politica-manutencao.yml` | Conferência de testes pulados e em quarentena. | Pega quarentena esquecida. |
-| Dias 1 e 15, previsto para 9h de Brasília | `revisao-periodica.yml` | Abre a issue de revisão com os números da suíte. | Revisão de gestão. |
+| Segunda, previsto para 8h de Brasília | `politica-manutencao.yml` | Conferência de testes pulados, quarentena, testes críticos e rastreabilidade. | Pega quarentena esquecida. |
+| Segunda, previsto para 9h de Brasília | `revisao-periodica.yml` | Abre a issue de revisão com os números da suíte, duplicação candidata e testes mais antigos. | Revisão de gestão. |
+| Sob demanda | `diagnostico-instabilidade.yml` | A mesma suíte 3 ou 5 vezes no mesmo commit, com a classificação de cada teste. | Confirmar instabilidade antes da quarentena. |
 | Sob demanda | `testes.yml` e `testes-smoke.yml` | Regressão com o E2E escolhido, ou só o smoke. | Validar antes de entrega ou apresentação. |
 | Issue aberta ou editada | `rotular-manutencao.yml` | Aplica as labels do formulário de manutenção. | Triagem. |
 
@@ -172,6 +174,8 @@ O que reprova o gate:
 - qualquer caso reprovado em Unitário, backend, API ou nos E2E que rodaram;
 - cobertura de código abaixo do mínimo de [`.github/politica-testes.json`](../.github/politica-testes.json): o próprio Jest reprova o nível;
 - `.only` esquecido, ou teste pulado ou `@flaky` sem issue aberta;
+- teste crítico ausente, sem o identificador no título ou em arquivo com teste pulado;
+- arquivo de teste fora de `.github/rastreabilidade-testes.json`;
 - vulnerabilidade de severidade alta em alguma das quatro pastas com `package.json` (`npm audit --audit-level=high`);
 - erro de sintaxe em workflow (`actionlint`);
 - falha de preparação, compilação, build Docker ou smoke test dos containers.
@@ -193,10 +197,10 @@ O ruleset exige zero aprovações humanas. Exigir uma aprovação de outra pesso
 
 | Pacote | Linhas em 25/11 | Mínimo | Ramos em 25/11 | Mínimo |
 |---|---:|---:|---:|---:|
-| frontend (testes unitários) | 25,99% | 20% | 30,56% | 25% |
-| backend | 79,64% | 75% | 67,1% | 65% |
+| frontend (testes unitários) | 25,99% | 20% | 30,52% | 25% |
+| backend | 79,64% | 75% | 66,74% | 60% |
 
-Regra do mínimo: o valor medido, arredondado para baixo de 5 em 5, com pelo menos 2 pontos de folga. A folga evita que um PR pequeno de outra pessoa seja barrado por décimos. O mínimo é um piso contra queda, não uma meta. A cobertura do frontend é baixa porque só os testes unitários são medidos: telas e componentes são exercitados pelo E2E, que não entra na conta.
+Valores medidos na esteira, na execução 45610161971. Os ramos do backend variam alguns décimos entre execuções (na máquina de desenvolvimento deram 67,1%), porque há caminhos que dependem de concorrência. Regra do mínimo: o valor medido na esteira, arredondado para baixo de 5 em 5, com pelo menos 2 pontos de folga. A folga evita que um PR pequeno de outra pessoa seja barrado por décimos. O mínimo é um piso contra queda, não uma meta. A cobertura do frontend é baixa porque só os testes unitários são medidos: telas e componentes são exercitados pelo E2E, que não entra na conta.
 
 A quarentena e os relatórios de métricas não reprovam. A emissão de issue ocorre depois e não é dependência do gate. O gate não reverte commits já integrados.
 
@@ -281,28 +285,63 @@ Prazo estourado: a demanda sobe um nível de prioridade e entra na pauta do pró
 | Na dúvida, `falha:sut` | Na execução manual de 09/11, 9 dos 24 casos reprovaram e 6 ficaram bloqueados. Em 24/11 havia 5 issues `falha:sut` abertas (#8 a #12). Defeito real é o caso comum aqui. |
 | Alta em 1 dia útil | A `main` exige o check `Quality Gate` em modo strict. Com uma regressão na `main`, todo PR atualizado herda a falha e fica bloqueado para os 8 integrantes. |
 | Média em 3 dias úteis | A regressão agendada roda uma vez por dia. Três dias dão três execuções para separar falha constante de falha intermitente. |
-| Baixa até a próxima revisão | A revisão acontece nos dias 1 e 15. Nenhuma demanda baixa fica mais de 15 dias sem ser olhada. |
-| Quarentena de no máximo 15 dias | É o mesmo ciclo da revisão: todo teste em quarentena passa por pelo menos uma revisão antes de vencer. |
+| Baixa até a próxima revisão | A revisão acontece toda segunda. Nenhuma demanda baixa fica mais de 7 dias sem ser olhada. |
+| Quarentena de no máximo 15 dias | São duas revisões semanais: todo teste em quarentena é olhado duas vezes antes de vencer. |
+| Saída da quarentena com 10 execuções verdes seguidas | A regressão completa roda pelo menos uma vez por dia e a cada merge. Dez execuções cabem no prazo de 15 dias e são mais do que uma passagem por sorte. |
+| Revisão semanal | A esteira teve mais de 140 execuções em 7 dias. Em duas semanas o volume de falhas a olhar ficaria grande demais para uma revisão. |
+| Teste crítico protegido pelo gate | Os casos de risco alto do backlog e os `@smoke` não podem sumir nem ser desligados sem alguém perceber. |
 | `@smoke` não entra em quarentena | Os 3 casos `@smoke` são todo o E2E que roda no PR: login, compra com Pix e cadastro de peça. Em quarentena, deixariam de barrar o merge. |
 | Nova tentativa só na quarentena | A regressão usa `retries: 0`. Nova tentativa na regressão faria teste intermitente passar por estável. |
 | Issue automática só na `main` e na agendada | Falha em PR é da própria mudança e já bloqueia o merge. Abrir issue para ela geraria ruído. |
 | Triagem pelo autor do push | Quem enviou a mudança tem o contexto, e a esteira identifica o commit. |
 | Fechar só depois de execução verde | Sem a execução, "corrigido" é suposição. |
 
-### Instabilidade, quarentena e remoção
+### Instabilidade e quarentena
 
-Para pôr um teste em quarentena:
+Uma falha isolada não confirma instabilidade. Para confirmar:
 
-1. Abrir a issue pelo formulário, com "O teste é instável?" em "Sim".
+1. Rodar o workflow `diagnostico-instabilidade.yml`, que executa a mesma suíte 3 ou 5 vezes no mesmo commit.
+2. Ler a classificação de [`scripts/instabilidade.mjs`](../scripts/instabilidade.mjs): **estável** (passou sempre), **falha constante** (falhou sempre: é defeito, não vai para a quarentena) ou **intermitente** (passou e falhou sem mudança de código).
+3. O diagnóstico registra, por teste, as tentativas, as falhas, as rodadas em que falhou, o erro e a duração. Falha seguida de sucesso continua contada como falha.
+
+Para pôr um teste intermitente em quarentena:
+
+1. Abrir a issue pelo formulário de manutenção, com "O teste é instável?" em "Sim", o responsável, a evidência do diagnóstico e o critério de saída.
 2. Acrescentar `@flaky #<número da issue>` ao título do teste.
-3. O teste sai da regressão e passa a rodar na etapa de quarentena, com novas tentativas.
-4. Corrigida a causa, tirar a tag no mesmo PR da correção e fechar a issue.
+3. O teste sai da regressão e passa a rodar na etapa de quarentena, com 2 novas tentativas. Todas as tentativas ficam no relatório `relatorios/quarentena-*.xml`.
+4. Critério de saída padrão: 10 execuções verdes seguidas na etapa de quarentena, depois da correção. Aí a tag sai no mesmo PR da correção e a issue é fechada.
 
-Issue fechada com o teste ainda marcado reprova a conferência da política. Uma falha isolada não confirma instabilidade: é preciso o mesmo commit passar e falhar. A exclusão de um teste deve explicar a cobertura substituta e passar por outra pessoa na revisão do PR.
+Regras que a esteira confere: issue fechada com o teste ainda marcado reprova a conferência; teste `@smoke` não pode receber `@flaky`; arquivo com teste crítico não pode ter teste pulado nem em quarentena. Nova tentativa só existe dentro da quarentena.
+
+### Testes críticos
+
+A lista `testesCriticos` de [`.github/politica-testes.json`](../.github/politica-testes.json) tem 9 casos: os de risco alto do backlog que já estão automatizados e os três `@smoke`. Para cada um, [`.github/scripts/gestao-testes.mjs`](../.github/scripts/gestao-testes.mjs) exige que o arquivo exista, que o identificador apareça no título de um teste e que o arquivo não tenha teste pulado. Teste novo em fluxo crítico entra na lista no mesmo PR.
+
+### Rastreabilidade
+
+[`.github/rastreabilidade-testes.json`](../.github/rastreabilidade-testes.json) liga cada arquivo de teste às histórias (HU) e aos casos (TC) que verifica, ou o marca como detalhe técnico, com o motivo. A conferência reprova arquivo de teste novo que não entrou no mapa, e entrada que aponta para arquivo ou caso que não existe.
+
+Em 25/11 são 54 arquivos: 20 com as histórias lidas dos identificadores nos títulos (`origem: "título"`), 29 com as histórias atribuídas pelo assunto do arquivo (`origem: "atribuição"`) e 5 detalhes técnicos. As atribuições são proposta: a equipe confirma na revisão periódica.
+
+### Remoção de teste
+
+Nenhum teste é apagado ou desativado de vez sem o formulário **Remoção de teste** ([`.github/ISSUE_TEMPLATE/remocao-teste.yml`](../.github/ISSUE_TEMPLATE/remocao-teste.yml)). Ele exige:
+
+1. o motivo: a regra deixou de existir, outro teste cobre o mesmo, o teste não consegue falhar ou o custo de manter supera o valor;
+2. a justificativa, com evidência;
+3. a cobertura que continua existindo;
+4. o risco assumido;
+5. quem pede e quem aprova, que precisam ser pessoas diferentes. A aprovação fica em comentário na issue, antes do PR.
+
+O PR da remoção cita a issue e atualiza, junto, a rastreabilidade, o backlog do plano e, se for o caso, a lista de testes críticos. Sem isso a conferência da gestão reprova.
 
 ### Revisão periódica
 
-O workflow `revisao-periodica.yml` abre, nos dias 1 e 15, uma issue com o tamanho da suíte, as execuções dos últimos 15 dias, as demandas abertas, os testes pulados ou em quarentena e o roteiro: instabilidade, quarentena, tempo de execução, duplicação, rastreabilidade, demandas vencidas e remoção. Os limites de `.github/politica-testes.json` são propostas a confirmar com a equipe.
+O workflow `revisao-periodica.yml` abre, toda segunda, uma issue com o tamanho da suíte, as execuções dos últimos 7 dias, as demandas abertas, os testes pulados ou em quarentena, a duplicação candidata entre arquivos de teste e os arquivos há mais tempo sem alteração. Se a revisão anterior ainda estiver aberta, ele comenta nela em vez de abrir outra. O roteiro cobre instabilidade, quarentena, tempo de execução, duplicação, rastreabilidade, obsolescência, demandas vencidas e remoção. O triador da semana registra, ao fechar, a ação, o dono e o prazo de cada item.
+
+A revisão só lista achados com ação proposta: ela não aprova nem remove nada sozinha. A cada sprint, a mesma revisão é feita com os donos dos requisitos, para conferir obsolescência e a ligação com as histórias.
+
+Os limites de `.github/politica-testes.json` são propostas a confirmar com a equipe.
 
 ### Demonstração: a issue #30 do início ao fim
 
@@ -318,7 +357,7 @@ Situação real, de 24 e 25/11/2026.
 
 O que a demonstração não cobre: a causa dentro do Electron foi deduzida, não medida. O aviso flutuante só fica visível quando o navegador desenha quadros de animação, e isso foi observado em um navegador com tela parado, não no Electron.
 
-**Ainda não existe:** diagnóstico automático de instabilidade (rodar a suíte várias vezes e classificar cada teste), lista de testes críticos protegidos contra remoção, rastreabilidade teste para história de usuário validada por arquivo e escala do rodízio de triagem.
+**Ainda não existe:** escala do rodízio de triagem.
 
 ## 3. Evidências e evolução
 
@@ -345,6 +384,6 @@ Contagens pertencem a essas execuções, não são percentuais de cobertura nem 
 
 1. Confirmar com a equipe os critérios de quarentena, revisão, prazos e limites de `.github/politica-testes.json`.
 2. Pedir à dona do repositório a exigência de uma aprovação humana no ruleset da `main`.
-3. Criar o diagnóstico de instabilidade e a lista de testes críticos.
+3. Confirmar com a equipe as histórias com origem "atribuição" na rastreabilidade.
 4. Avaliar a entrada dos testes C++ de `aed/tests/` no fluxo obrigatório.
 5. Manter mudanças de produto e respectivas expectativas dos testes no mesmo PR, sem enfraquecer verificações para mascarar falhas.

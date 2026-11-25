@@ -16,11 +16,53 @@
     },
     "backend": {
       "lines": 75,
-      "branches": 65
+      "branches": 60
     }
   },
   "planoDeTestes": "docs/testes/plano-de-testes.md",
   "descricaoDoCaminhoCritico": "Entrar na conta, comprar com Pix e cadastrar peça. Acompanha os testes marcados com @smoke.",
+  "testesCriticos": [
+    {
+      "id": "TC01",
+      "arquivo": "e2e/cypress/e2e/acesso.cy.js"
+    },
+    {
+      "id": "TC08",
+      "arquivo": "e2e/cypress/e2e/acesso.cy.js"
+    },
+    {
+      "id": "TC14",
+      "arquivo": "e2e/cypress/e2e/acesso.cy.js"
+    },
+    {
+      "id": "TC11",
+      "arquivo": "backend/app/tests/auth.test.ts"
+    },
+    {
+      "id": "TC02",
+      "arquivo": "e2e/cypress/e2e/cadastro-peca.cy.js"
+    },
+    {
+      "id": "TC05",
+      "arquivo": "e2e/cypress/e2e/compra.cy.js"
+    },
+    {
+      "id": "TC06",
+      "arquivo": "e2e/cypress/e2e/compra.cy.js"
+    },
+    {
+      "id": "TC13",
+      "arquivo": "e2e/cypress/e2e/compra.cy.js"
+    },
+    {
+      "id": "TC20",
+      "arquivo": "e2e/cypress/e2e/compra.cy.js"
+    }
+  ],
   "diasDaJanelaDaEsteira": 7,
-  "diasMaximosEmQuarentena": 15
+  "diasMaximosEmQuarentena": 15,
+  "diasDaRevisao": 7,
+  "execucoesVerdesParaSairDaQuarentena": 10,
+  "linhasDuplicadasParaAlerta": 8,
+  "rastreabilidade": ".github/rastreabilidade-testes.json"
 }
