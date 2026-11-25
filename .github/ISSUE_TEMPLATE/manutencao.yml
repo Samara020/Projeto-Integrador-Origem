@@ -1,0 +1,125 @@
+name: Manutenção da automação de testes
+description: Registra uma falha ou demanda de manutenção da TAS, com classificação, prioridade, responsável e prazo.
+title: "[manutenção] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este formulário para toda falha ou demanda de manutenção dos testes do Origem.
+        As labels `falha:*`, `prioridade:*` e `flaky` são aplicadas sozinhas a partir das respostas (workflow `rotular-manutencao`).
+        Critérios completos em [`docs/tas.md`](../blob/main/docs/tas.md).
+
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo de falha
+      description: Resultado da investigação. Na dúvida entre SUT e TAS, reproduza o caso à mão no site antes de classificar.
+      options:
+        - "SUT: o teste encontrou um defeito real no sistema (falha:sut)"
+        - "TAS: problema no próprio teste, como seletor, dado, mock ou assert (falha:tas)"
+        - "Ambiente: runner, rede, banco, backend fora do ar ou dependência externa (falha:ambiente)"
+        - "Esperada: mudança intencional no sistema exige atualizar o teste (falha:esperada)"
+        - "Ainda em investigação"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: prioridade
+    attributes:
+      label: Prioridade
+      options:
+        - "Alta: deixa a main vermelha ou atinge teste @smoke, corrigir em até 1 dia útil (prioridade:alta)"
+        - "Média: afeta só a regressão agendada, corrigir em até 3 dias úteis (prioridade:media)"
+        - "Baixa: sem impacto imediato, tratar na próxima revisão periódica (prioridade:baixa)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: flaky
+    attributes:
+      label: O teste é instável?
+      description: Passa e falha sem mudança de código. Se sim, o teste recebe @flaky no título, com o número desta issue, e vai para a quarentena.
+      options:
+        - "Não"
+        - "Sim"
+        - "Não sei ainda"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: nivel
+    attributes:
+      label: Nível do teste
+      options:
+        - "Unitário · frontend (Jest)"
+        - "Backend (Jest + Supertest, banco exclusivo)"
+        - "Unitário · módulo de IA (pytest)"
+        - "API (Jest ou pytest)"
+        - "End-to-End (Cypress)"
+        - "Pipeline ou ambiente, sem teste específico"
+    validations:
+      required: true
+
+  - type: input
+    id: teste
+    attributes:
+      label: Teste afetado
+      description: Arquivo e nome do teste. Se forem vários, cite o arquivo e a quantidade.
+      placeholder: "e2e/cypress/e2e/compra.cy.js: TC06 · comprador logado cota frete, compra com Pix"
+    validations:
+      required: true
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que aconteceu
+      description: Link da execução no GitHub Actions ou da issue falha-pipeline, mensagem de erro e o que se esperava.
+    validations:
+      required: true
+
+  - type: textarea
+    id: investigacao
+    attributes:
+      label: Investigação
+      description: "O que foi verificado para chegar ao tipo de falha. Exemplos: reproduziu na máquina, rodou de novo, conferiu qual commit mudou o sistema."
+    validations:
+      required: true
+
+  - type: input
+    id: responsavel
+    attributes:
+      label: Responsável
+      description: Quem vai tratar. Também atribua a pessoa em Assignees.
+      placeholder: "@usuario"
+    validations:
+      required: true
+
+  - type: input
+    id: prazo
+    attributes:
+      label: Prazo
+      description: Data limite, conforme a prioridade.
+      placeholder: "DD/MM/AAAA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: encaminhamento
+    attributes:
+      label: Encaminhamento
+      options:
+        - "Corrigir o teste"
+        - "Abrir bug para o sistema"
+        - "Corrigir o ambiente ou a pipeline"
+        - "Pôr em quarentena (@flaky) até corrigir"
+        - "Propor remoção do teste (justificar abaixo)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: justificativa
+    attributes:
+      label: Justificativa e riscos
+      description: "Obrigatório em quarentena ou remoção: o motivo, quem decidiu e qual risco fica sem cobertura. O formulário não consegue exigir isso sozinho; quem revisa a issue confere."
+    validations:
+      required: false

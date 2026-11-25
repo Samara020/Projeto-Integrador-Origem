@@ -1,0 +1,29 @@
+name: Revisão periódica da TAS
+
+# Abre a issue da revisão periódica da automação (docs/tas.md) no dia 1 e no dia 15 de
+# cada mês, às 9h de Brasília (12h UTC), com os números atuais da suíte e o roteiro.
+# workflow_dispatch: para abrir fora da data.
+on:
+  schedule:
+    - cron: "0 12 1,15 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  abrir:
+    name: Abrir issue de revisão
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Abrir a issue com os números da suíte
+        run: node .github/scripts/revisao-periodica.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

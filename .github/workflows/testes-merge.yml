@@ -27,6 +27,7 @@ jobs:
     name: Regressão completa
     permissions:
       contents: read
+      actions: read
     uses: ./.github/workflows/testes.yml
 
   imagens:
@@ -65,13 +66,20 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: Validar automação de alertas e gate
-        run: node --test .github/scripts/automacao.test.mjs
+      - name: Validar automação de alertas, gate e política
+        run: node --test .github/scripts/automacao.test.mjs .github/scripts/politica.test.mjs
+      # Política de manutenção (docs/tas.md): nenhum .only esquecido, e todo teste pulado
+      # ou em quarentena (@flaky) cita uma issue aberta.
+      - name: Conferir testes pulados e em quarentena
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/verificar-quarentena.mjs
       - name: Conferir todos os resultados obrigatórios
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}

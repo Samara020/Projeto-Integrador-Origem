@@ -487,9 +487,14 @@ TDD documentado em [`docs/TDD.md`](docs/TDD.md): story map → tarefas → teste
 
 | Nível | Ferramenta | Comando |
 |---|---|---|
-| Unitário | Jest + pytest | `npm run test:unit` |
+| Unitário | Jest + pytest + node:test | `npm run test:unit` |
+| Backend | Jest + Supertest, banco exclusivo | `npm run test:backend` |
 | API | Jest contra servidor real | `npm run test:api` |
 | E2E | Cypress | `npm run test:e2e` |
+| E2E, só o caminho crítico (`@smoke`) | Cypress | `npm run test:e2e:smoke` |
+| Quarentena (`@flaky`) | Cypress, com novas tentativas | `npm run test:quarentena` |
+
+Política de manutenção, tags e relatório de métricas (`npm run test:metricas`): [`docs/tas.md`](docs/tas.md).
 
 ### Pipeline e deploy
 
@@ -498,6 +503,7 @@ TDD documentado em [`docs/TDD.md`](docs/TDD.md): story map → tarefas → teste
 | push fora da main | `testes-commit.yml` | regressão completa |
 | push/merge na main | `testes-merge.yml` | regressão + build das imagens + smoke test |
 | todo dia 2h | `testes-agendados.yml` | regressão completa |
+| manual | `testes-smoke.yml` | só os E2E `@smoke` |
 
 O deploy do frontend é feito pela Vercel, ligada ao repositório pela integração Git. A Vercel só publica o frontend; o módulo de IA não é publicado nela.
 

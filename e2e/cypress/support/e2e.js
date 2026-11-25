@@ -81,6 +81,19 @@ before(() => {
   });
 });
 
+// Tags no título do teste (docs/tas.md): @smoke marca o caminho crítico e @flaky marca
+// teste instável em quarentena. cypress run --expose TAG=@smoke roda só os marcados;
+// --expose SEM_TAG=@flaky pula os marcados. Teste filtrado aparece como ignorado no relatório.
+// Fica antes dos outros beforeEach para o caso filtrado não preparar rede nem dados.
+const SO_COM_TAG = Cypress.expose("TAG");
+const SEM_TAG = Cypress.expose("SEM_TAG");
+
+beforeEach(function () {
+  const titulo = this.currentTest.fullTitle();
+  if (SO_COM_TAG && !titulo.includes(SO_COM_TAG)) this.skip();
+  if (SEM_TAG && titulo.includes(SEM_TAG)) this.skip();
+});
+
 beforeEach(() => {
   const baseUrl = Cypress.config("baseUrl") || "";
   const baseOrigin = normalizarOrigin(baseUrl);

@@ -1,0 +1,33 @@
+name: Rotular manutenção
+
+# Aplica as labels falha:*, prioridade:* e flaky a partir das respostas do formulário
+# de manutenção (.github/ISSUE_TEMPLATE/manutencao.yml). Política em docs/tas.md.
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: rotular-manutencao-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  rotular:
+    name: Sincronizar labels
+    if: contains(github.event.issue.body, '### Tipo de falha')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Sincronizar labels
+        run: node .github/scripts/rotular-manutencao.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

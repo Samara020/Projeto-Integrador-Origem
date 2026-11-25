@@ -1,6 +1,8 @@
 name: Testes
 
-# Regressão completa da TAS do Origem: Testes Unitários, de API (backend real + Postgres) e End-to-End num job só.
+# Regressão completa da TAS do Origem num job só: Testes Unitários, suíte do backend (banco
+# exclusivo), de API (backend real + Postgres) e End-to-End. No fim, a quarentena (@flaky,
+# não reprova) e o relatório de métricas (relatorios/metricas.html no artefato).
 # Disparo manual: aba Actions > Testes > Run workflow.
 # Também é reutilizável (workflow_call): testes-agendados.yml, testes-commit.yml e
 # testes-merge.yml chamam este arquivo, então o job existe num lugar só.
@@ -10,6 +12,8 @@ on:
 
 permissions:
   contents: read
+  # Leitura das execuções, para a taxa de sucesso da esteira no relatório de métricas.
+  actions: read
 
 jobs:
   regressao:
@@ -108,6 +112,25 @@ jobs:
           npm run prisma:generate
           npm run build
 
+      # Suíte própria do backend (backend/app/tests): apaga as tabelas, por isso tem banco só dela.
+      - name: Testes do backend (banco exclusivo)
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL_TEST: postgresql://origem_user:ci-temporary-password@localhost:5432/origem_backend_ci?schema=public
+          AUTO_SETUP_DB: "false"
+        run: |
+          PGPASSWORD=ci-temporary-password psql \
+            "postgresql://origem_user@127.0.0.1:5432/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS origem_backend_ci;" \
+            -c "CREATE DATABASE origem_backend_ci;"
+          for sql in 01_create_tables.sql 02_integrity_rules.sql 04_create_indexes.sql; do
+            PGPASSWORD=ci-temporary-password psql \
+              "postgresql://origem_user@127.0.0.1:5432/origem_backend_ci" \
+              -v ON_ERROR_STOP=1 -q -f "database/sql/$sql"
+          done
+          npm run test:backend
+
       - name: Build do frontend
         if: ${{ !cancelled() }}
         working-directory: frontend
@@ -141,40 +164,7 @@ jobs:
             rm -f relatorios/frontend-3000.pid
           fi
           timeout 30 bash -c 'until ! curl -sf -o /dev/null http://localhost:3000/; do sleep 1; done' || true
-
-          PGPASSWORD=ci-temporary-password psql \
-            "postgresql://origem_user@127.0.0.1:5432/postgres" \
-            -v ON_ERROR_STOP=1 \
-            -c "DROP DATABASE IF EXISTS origem_e2e_ci;" \
-            -c "CREATE DATABASE origem_e2e_ci;"
-
-          for sql in \
-            01_create_tables.sql \
-            02_integrity_rules.sql \
-            04_create_indexes.sql \
-            07_suporte_exclusao_logica_produto.sql \
-            08_integracao_persistencia.sql \
-            05_seed_dados_reais.sql; do
-            PGPASSWORD=ci-temporary-password psql \
-              "postgresql://origem_user@127.0.0.1:5432/origem_e2e_ci" \
-              -v ON_ERROR_STOP=1 -f "database/sql/$sql"
-          done
-
-          (cd frontend && NEXT_PUBLIC_API_URL=http://localhost:4200 npm run build > ../relatorios/frontend-e2e-build.log 2>&1)
-          (
-            cd frontend
-            API_BASE_URL=http://localhost:4200 BACKEND_URL=http://localhost:4200 nohup ./node_modules/.bin/next start -p 3200 > ../relatorios/frontend-e2e.log 2>&1 &
-            echo $! > ../relatorios/frontend-3200.pid
-          )
-          (
-            cd backend/app
-            NODE_ENV=test ORIGEM_TEST_SERVER=1 PORT=4200 DATABASE_URL="postgresql://origem_user:ci-temporary-password@127.0.0.1:5432/origem_e2e_ci?schema=public" CORS_ORIGIN=http://localhost:3200 nohup npm start > ../../relatorios/backend-e2e.log 2>&1 &
-            echo $! > ../../relatorios/backend-4200.pid
-          )
-
-          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4200/health; do sleep 1; done'
-          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:3200/; do sleep 1; done'
-          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:4200/__test/identity; do sleep 1; done'
+          bash .github/scripts/preparar-runtime-e2e.sh
 
       - name: Testes End-to-End (E2E)
         if: ${{ !cancelled() }}
@@ -183,6 +173,25 @@ jobs:
           CYPRESS_API_URL: http://localhost:4200
           TEST_DATABASE_NAME: origem_e2e_ci
         run: npm run test:e2e
+
+      # Testes instáveis (@flaky) rodam à parte, com novas tentativas. O resultado fica no
+      # relatório, mas não reprova a esteira (docs/tas.md).
+      - name: Quarentena (@flaky, não reprova)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          CYPRESS_BASE_URL: http://localhost:3200
+          CYPRESS_API_URL: http://localhost:4200
+          TEST_DATABASE_NAME: origem_e2e_ci
+        run: npm run test:quarentena
+
+      # Só informa: quem aprova ou reprova são os testes acima e o Quality Gate.
+      - name: Relatório de métricas
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run test:metricas
 
       - name: Guardar relatórios, logs, prints e vídeos
         if: ${{ !cancelled() }}
