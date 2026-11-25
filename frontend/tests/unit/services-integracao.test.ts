@@ -124,7 +124,7 @@ describe("painelArtesaoService · envio", () => {
   });
 });
 
-describe("imagem · cálculo de bytes e limites compatíveis com o backend", () => {
+describe("TC16 · imagem · cálculo de bytes e limites compatíveis com o backend", () => {
   test("limite individual cabe no limite de 1,5 MB e string base64 <= 2M do perfil", () => {
     expect(LIMITE_BYTES_IMAGEM).toBeLessThanOrEqual(1_500_000);
     expect(Math.ceil((LIMITE_BYTES_IMAGEM * 4) / 3) + 30).toBeLessThanOrEqual(2_000_000);

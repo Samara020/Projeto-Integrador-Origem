@@ -128,32 +128,34 @@ Cada caso do backlog de [`docs/testes/plano-de-testes.md`](testes/plano-de-teste
 | TC04 | Componente | `carrinho.test.ts` | push, PR, merge e diária | Automatizado |
 | TC05 | Sistema e API | `vitrine.cy.js`, `compra.cy.js`, `produtos.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
 | TC06 | Sistema e Componente | `compra.cy.js`, `validacao.test.ts` | push, PR, merge e diária; E2E: PR (smoke), merge e diária | Automatizado |
-| TC07 | Integração | nenhum com o identificador no título | não se aplica | Pendente |
+| TC07 | Integração | `pedidos.test.ts` | push, PR, merge e diária | Automatizado |
 | TC08 | Sistema, API e Componente | `acesso.cy.js`, `auth.test.ts`, `guarda-papel.test.tsx` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
 | TC09 | Sistema e API | `desempenho.cy.js`, `catalogo.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
-| TC10 | Sistema | nenhum com o identificador no título | não se aplica | Pendente |
+| TC10 | Integração | `pedidos.test.ts` | push, PR, merge e diária | Automatizado |
 | TC11 | Sistema, API e Integração | `acesso.cy.js`, `auth.test.ts`, `auth.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
 | TC12 | Sistema e Componente | `cadastro-peca.cy.js`, `painel-artesao.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
 | TC13 | Sistema | `compra.cy.js` | E2E: PR (smoke), merge e diária | Automatizado |
 | TC14 | Sistema | `acesso.cy.js` | E2E: merge e diária | Automatizado |
-| TC15 | Integração e Componente | nenhum com o identificador no título | não se aplica | Pendente |
-| TC16 | API e Sistema | nenhum com o identificador no título | não se aplica | Pendente |
+| TC15 | Integração e Componente | `integracao-persistencia.test.ts`, `seguranca-regressao.test.ts`, `auth-permissoes.test.ts`, `estados-e-sessao.test.tsx` | push, PR, merge e diária | Automatizado |
+| TC16 | API e Componente | `fluxos-criticos.test.ts`, `services-integracao.test.ts` | push, PR, merge e diária | Automatizado |
 | TC17 | Integração e Sistema | `bloqueios-contrato.test.ts`, `acesso.cy.js` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
 | TC18 | Sistema | `vitrine.cy.js` | E2E: merge e diária | Automatizado |
 | TC19 | Sistema | `compra.cy.js` | E2E: merge e diária | Automatizado |
 | TC20 | Sistema | `compra.cy.js` | E2E: merge e diária | Automatizado |
-| TC21 | Integração | nenhum com o identificador no título | não se aplica | Pendente |
-| TC22 | Integração e Componente | nenhum com o identificador no título | não se aplica | Pendente |
+| TC21 | Integração | `pedidos.test.ts` | push, PR, merge e diária | Automatizado |
+| TC22 | Integração e Componente | `pedidos.test.ts`, `historico-compras.test.tsx` | push, PR, merge e diária | Automatizado |
 | TC23 | Integração | `bloqueios-contrato.test.ts` | push, PR, merge e diária | Automatizado |
-| TC24 | Integração e API | nenhum com o identificador no título | não se aplica | Pendente |
+| TC24 | Integração e API | `admin-def04.test.ts`, `admin.test.ts` (parte do caso) | push, PR, merge e diária | Pendente, issue #39 |
 
-Dos 24 casos, 17 estão automatizados e rodam na esteira. Os casos `@smoke` do PR são de TC01, TC02 e TC06/TC13.
+Dos 24 casos, 23 estão automatizados e rodam na esteira. Os casos `@smoke` do PR são de TC01, TC02 e TC06/TC13. A conferência da gestão dos testes reprova se o backlog disser "Automatizado" para um arquivo que não tem o identificador no título.
 
 Divergências e decisões:
 
 | Item | O que o backlog diz | O que existe | Decisão |
 |---|---|---|---|
-| TC07, TC10, TC15, TC16, TC21, TC22 e TC24 | Casos prioritários | Sem o identificador no título; em 5 deles há teste do mesmo comportamento | Acrescentar o identificador e completar TC22 e TC24. Até lá contam como pendentes na cobertura de riscos. |
+| TC07, TC10, TC15, TC16, TC21 e TC22 | Casos prioritários | Tinham teste do comportamento sem o identificador no título | Resolvido em 25/11: identificador acrescentado. |
+| TC24 | Gestão administrativa, com suspensão e reativação de cadastro | O sistema não tem suspensão nem reativação | [Issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39). O caso segue pendente até a equipe implementar ou tirar do escopo. |
+| Lacunas técnicas de API | Não estão no backlog de casos | Códigos de erro sem teste próprio em carrinho, frete, perfil e painel | Listadas em [`docs/testes/suite-de-api.md`](testes/suite-de-api.md), fora da cobertura de riscos. |
 | Testes de recomendações (`modulo-ia/tests/`, `recomendacoes*.test.ts`) | Não estão no backlog | Rodam em todo push | Manter. Ficam fora da cobertura de riscos por não terem caso no plano. |
 | Testes do backend sem `TCnn` (estruturas de dados, segurança, persistência) | Não estão no backlog | Rodam em todo push | Tratar como detalhe técnico, rastreado por arquivo. |
 | E2E fora do smoke | Todos os casos do nível Sistema | Saíram do PR e rodam no merge e na regressão diária | Aceito: é o que mantém o PR rápido. Falha depois do merge abre issue. |
@@ -188,6 +190,17 @@ Uma dependência com `failure`, `skipped`, `cancelled` ou resultado ausente é r
 - Conferência da política: [`.github/scripts/verificar-quarentena.mjs`](../.github/scripts/verificar-quarentena.mjs).
 - Referência versionada da proteção: [`.github/quality-gate.ruleset.json`](../.github/quality-gate.ruleset.json).
 - Regra remota ativa conferida pela API em 25/11: [ruleset 27944584](https://github.com/Samara020/Projeto-Integrador-Origem/rules/27944584), situação `active`, com PR obrigatório, check `Quality Gate` em modo strict, bloqueio de exclusão e de force push e nenhum ator com bypass. Comando: `gh api repos/Samara020/Projeto-Integrador-Origem/rulesets/27944584`.
+
+Prova do bloqueio, em 25/11: o [PR #38](https://github.com/Samara020/Projeto-Integrador-Origem/pull/38) trouxe um teste unitário quebrado de propósito. O nível Unitário reprovou nos dois momentos (push e PR), o check `Quality Gate` reprovou e o GitHub recusou o merge:
+
+```text
+$ gh pr view 38 --json mergeStateStatus -q .mergeStateStatus
+BLOCKED
+$ gh pr merge 38 --merge
+X Pull request Samara020/Projeto-Integrador-Origem#38 is not mergeable: the base branch policy prohibits the merge.
+```
+
+Captura da aba de checks do PR: [`docs/testes/evidencias/pr-38-checks-reprovados.png`](testes/evidencias/pr-38-checks-reprovados.png). A captura da caixa de merge bloqueada exige estar logado no GitHub e ainda não foi anexada.
 
 O ruleset exige zero aprovações humanas. Exigir uma aprovação de outra pessoa é decisão da equipe e só a dona do repositório altera a regra; fica como pedido em aberto. O JSON versionado sozinho não ativa proteção; a regra foi aplicada no GitHub e verificada.
 
@@ -321,7 +334,7 @@ A lista `testesCriticos` de [`.github/politica-testes.json`](../.github/politica
 
 [`.github/rastreabilidade-testes.json`](../.github/rastreabilidade-testes.json) liga cada arquivo de teste às histórias (HU) e aos casos (TC) que verifica, ou o marca como detalhe técnico, com o motivo. A conferência reprova arquivo de teste novo que não entrou no mapa, e entrada que aponta para arquivo ou caso que não existe.
 
-Em 25/11 são 54 arquivos: 20 com as histórias lidas dos identificadores nos títulos (`origem: "título"`), 29 com as histórias atribuídas pelo assunto do arquivo (`origem: "atribuição"`) e 5 detalhes técnicos. As atribuições são proposta: a equipe confirma na revisão periódica.
+Em 25/11 são 55 arquivos: 28 com as histórias lidas dos identificadores nos títulos (`origem: "título"`), 21 com as histórias atribuídas pelo assunto do arquivo (`origem: "atribuição"`) e 6 detalhes técnicos. As atribuições são proposta: a equipe confirma na revisão periódica.
 
 ### Remoção de teste
 

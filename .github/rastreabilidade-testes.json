@@ -3,11 +3,13 @@
   "arquivos": {
     "frontend/tests/api/admin.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC24"
+      ],
       "hu": [
         "HU-16"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "frontend/tests/api/auth.test.ts": {
       "tipo": "requisito",
@@ -31,10 +33,15 @@
       "hu": [],
       "origem": "título"
     },
+    "frontend/tests/api/contrato.test.ts": {
+      "tipo": "detalhe técnico",
+      "motivo": "Formato das respostas da API contra docs/ContratoDeAPI.md: modelo de produto, lista paginada e erro."
+    },
     "frontend/tests/api/fluxos-criticos.test.ts": {
       "tipo": "requisito",
       "casos": [
-        "TC11"
+        "TC11",
+        "TC16"
       ],
       "hu": [
         "HU-01",
@@ -165,13 +172,15 @@
     },
     "frontend/tests/unit/estados-e-sessao.test.tsx": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC15"
+      ],
       "hu": [
         "HU-01",
         "HU-08",
         "HU-09"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "frontend/tests/unit/estoque-artesao.test.tsx": {
       "tipo": "requisito",
@@ -226,8 +235,7 @@
     "frontend/tests/unit/pedidos.test.ts": {
       "tipo": "requisito",
       "casos": [
-        "TC06",
-        "TC07"
+        "TC06"
       ],
       "hu": [
         "HU-09",
@@ -259,13 +267,16 @@
     },
     "frontend/tests/unit/services-integracao.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC16"
+      ],
       "hu": [
         "HU-02",
         "HU-07",
+        "HU-12",
         "HU-19"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "frontend/tests/unit/validacao.test.ts": {
       "tipo": "requisito",
@@ -284,11 +295,13 @@
     },
     "backend/app/tests/admin-def04.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC24"
+      ],
       "hu": [
         "HU-16"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "backend/app/tests/aed-buscas.test.ts": {
       "tipo": "detalhe técnico",
@@ -308,11 +321,13 @@
     },
     "backend/app/tests/auth-permissoes.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC15"
+      ],
       "hu": [
         "HU-01"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "backend/app/tests/auth.test.ts": {
       "tipo": "requisito",
@@ -338,7 +353,9 @@
     },
     "backend/app/tests/integracao-persistencia.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC15"
+      ],
       "hu": [
         "HU-01",
         "HU-07",
@@ -348,7 +365,7 @@
         "HU-22",
         "HU-24"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "backend/app/tests/pagamento-auth.unit.test.ts": {
       "tipo": "requisito",
@@ -380,7 +397,12 @@
     },
     "backend/app/tests/pedidos.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC07",
+        "TC10",
+        "TC21",
+        "TC22"
+      ],
       "hu": [
         "HU-09",
         "HU-10",
@@ -389,7 +411,7 @@
         "HU-13",
         "HU-14"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "backend/app/tests/produto-service.unit.test.ts": {
       "tipo": "requisito",
@@ -428,12 +450,14 @@
     },
     "backend/app/tests/seguranca-regressao.test.ts": {
       "tipo": "requisito",
-      "casos": [],
+      "casos": [
+        "TC15"
+      ],
       "hu": [
         "HU-01",
         "HU-14"
       ],
-      "origem": "atribuição"
+      "origem": "título"
     },
     "e2e/cypress/e2e/acesso.cy.js": {
       "tipo": "requisito",
