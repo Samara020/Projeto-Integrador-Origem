@@ -25,8 +25,8 @@ function python() {
   return WINDOWS ? "python" : "python3";
 }
 
-function npm(pasta, script) {
-  return { comando: "npm", args: ["--prefix", pasta, "run", script] };
+function npm(pasta, script, extras = []) {
+  return { comando: "npm", args: ["--prefix", pasta, "run", script, ...(extras.length ? ["--", ...extras] : [])] };
 }
 
 function pytest(alvos, relatorio) {
@@ -77,7 +77,8 @@ const NIVEIS = {
   unit: {
     titulo: "Testes Unitários",
     suites: [
-      { nome: "Jest · frontend", ...npm("frontend", "test:unit"), relatorio: "unit-jest.xml" },
+      // --coverage: mede a cobertura e aplica o mínimo de .github/politica-testes.json.
+      { nome: "Jest · frontend", ...npm("frontend", "test:unit", ["--coverage"]), relatorio: "unit-jest.xml" },
       {
         nome: "pytest · módulo de IA (lógica)",
         ...pytest(["modulo-ia/tests", "--ignore=modulo-ia/tests/test_api.py"], "unit-pytest.xml"),
@@ -102,7 +103,7 @@ const NIVEIS = {
   // então exigem banco exclusivo em DATABASE_URL_TEST (backend/app/tests/env.ts).
   backend: {
     titulo: "Testes do backend",
-    suites: [{ nome: "Jest · backend (banco exclusivo)", ...npm("backend/app", "test"), relatorio: "backend-jest.xml" }],
+    suites: [{ nome: "Jest · backend (banco exclusivo)", ...npm("backend/app", "test", ["--coverage"]), relatorio: "backend-jest.xml" }],
   },
   api: {
     titulo: "Testes de API",

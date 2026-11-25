@@ -111,7 +111,7 @@ describe("TC14 · comprador não abre área de administrador", () => {
     cy.contains("O pulso do marketplace").should("not.exist");
   });
 
-  it("visitante sem conta em /painel/admin é mandado para o login @smoke", () => {
+  it("visitante sem conta em /painel/admin é mandado para o login", () => {
     cy.visit("/painel/admin");
 
     cy.location("pathname").should("eq", "/entrar");

@@ -16,12 +16,14 @@ permissions:
 
 jobs:
   regressao:
-    name: Regressão completa
+    name: Testes
     permissions:
       contents: read
       actions: read
       issues: read
     uses: ./.github/workflows/testes.yml
+    with:
+      e2e: completo
 
   issue-falha:
     name: Registrar falha da pipeline

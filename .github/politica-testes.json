@@ -9,8 +9,18 @@
   "maximoDeIgnorados": 0,
   "taxaMinimaDeSucessoDaEsteira": 90,
   "coberturaMinimaDeRiscos": 100,
+  "coberturaMinimaDeCodigo": {
+    "frontend": {
+      "lines": 20,
+      "branches": 25
+    },
+    "backend": {
+      "lines": 75,
+      "branches": 65
+    }
+  },
   "planoDeTestes": "docs/testes/plano-de-testes.md",
-  "descricaoDoCaminhoCritico": "Entrar na conta, ver a vitrine, usar o carrinho, pagar com Pix e cadastrar peça. Acompanha os testes marcados com @smoke.",
+  "descricaoDoCaminhoCritico": "Entrar na conta, comprar com Pix e cadastrar peça. Acompanha os testes marcados com @smoke.",
   "diasDaJanelaDaEsteira": 7,
   "diasMaximosEmQuarentena": 15
 }

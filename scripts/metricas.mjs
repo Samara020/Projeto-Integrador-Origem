@@ -229,6 +229,26 @@ export function resumirRiscos(itens) {
   };
 }
 
+/** Cobertura de código de um pacote, do coverage-summary.json do Jest, contra o mínimo da política. */
+export function resumirCobertura(sumario, minimo = {}) {
+  const linhas = sumario.total.lines.pct;
+  const ramos = sumario.total.branches.pct;
+  return {
+    linhas,
+    ramos,
+    minimoDeLinhas: minimo.lines ?? null,
+    minimoDeRamos: minimo.branches ?? null,
+    abaixoDoMinimo: (minimo.lines !== undefined && linhas < minimo.lines) || (minimo.branches !== undefined && ramos < minimo.branches),
+  };
+}
+
+/** O que cada escopo de E2E significa para a leitura do relatório. */
+export const ESCOPOS = {
+  completo: "Execução completa: todos os níveis, com todos os casos End-to-End.",
+  smoke: "Execução de PR: Unitário, backend e API inteiros, e só os casos End-to-End do caminho crítico (@smoke). Os demais casos End-to-End rodam no push da main e na regressão diária.",
+  nenhum: "Execução de push: Unitário, backend e API inteiros, sem End-to-End. O End-to-End roda no PR (@smoke), no push da main e na regressão diária.",
+};
+
 /** Casos do caminho crítico (@smoke no título) no resultado do E2E. Null se nenhum rodou. */
 export function caminhoCritico(casosDoE2E) {
   const casos = casosDoE2E.filter((caso) => caso.nome.includes("@smoke"));
@@ -247,7 +267,7 @@ export function caminhoCritico(casosDoE2E) {
  * dado que não pôde ser lido); verde só com tudo em dia e todos os dados presentes.
  */
 export function situacaoGeral({ niveis, riscos, esteira, politica }) {
-  const avaliados = niveis.filter((nivel) => nivel.chave !== "quarentena");
+  const avaliados = niveis.filter((nivel) => nivel.chave !== "quarentena" && !nivel.foraDoEscopo);
   if (avaliados.every((nivel) => nivel.sinal.cor === "sem-dados")) {
     return {
       cor: "sem-dados",
@@ -393,6 +413,17 @@ ${dados.riscos.pendentes.map((item) => `<tr><th scope="row" class="junto">${html
 </table>
 </div>` : `<p class="vazio">Nenhum caso pendente no backlog.</p>`}`
     : `<p class="vazio">Sem dados: o backlog não foi encontrado em <code>${html(dados.politica.planoDeTestes)}</code>. Sem ele a situação geral não fica verde.</p>`;
+  const coberturaHtml = dados.cobertura.length
+    ? `<div class="rolagem">
+<table>
+<thead><tr><th scope="col">Pacote</th><th scope="col" class="n">Linhas</th><th scope="col" class="n">Mínimo</th><th scope="col" class="n">Ramos</th><th scope="col" class="n">Mínimo</th></tr></thead>
+<tbody>
+${dados.cobertura.map((c) => `<tr><th scope="row">${html(c.pacote)}</th><td class="n">${numero(c.linhas)}%</td><td class="n">${c.minimoDeLinhas === null ? "" : `${c.minimoDeLinhas}%`}</td><td class="n">${numero(c.ramos)}%</td><td class="n">${c.minimoDeRamos === null ? "" : `${c.minimoDeRamos}%`}</td></tr>`).join("\n")}
+</tbody>
+</table>
+</div>
+<p class="apagado">Quanto do código os testes de cada pacote executam. É diferente da cobertura de riscos, que mede quantos casos planejados têm teste. Abaixo do mínimo o próprio Jest reprova o nível. Detalhe por arquivo em <code>relatorios/cobertura/</code>, no artefato.</p>`
+    : `<p class="vazio">Sem dados: nenhum <code>coverage-summary.json</code> em <code>relatorios/cobertura/</code>. A cobertura é medida pelos comandos <code>npm run test:unit</code> e <code>npm run test:backend</code>.</p>`;
   const defeitosHtml = dados.defeitos
     ? lista(dados.defeitos.itens.map((d) => `<a href="${html(d.url)}">#${d.numero}</a> ${html(d.titulo)}${d.prioridade ? ` <span class="apagado">(prioridade ${html(d.prioridade)})</span>` : ""}`), "Nenhuma issue aberta com a label falha:sut.")
     : `<p class="vazio">Sem acesso à API do GitHub nesta execução. No GitHub Actions este bloco lista as issues abertas com a label <code>falha:sut</code>.</p>`;
@@ -416,6 +447,7 @@ ${ESTILO}</style>
 <p>Situação geral: ${selo(dados.geral)}</p>
 <ul class="motivos">${dados.motivos.map((motivo) => `<li>${html(motivo)}</li>`).join("")}</ul>
 </div>
+<p class="apagado">${html(ESCOPOS[dados.escopo])}</p>
 <p class="apagado">Relatório técnico, para a equipe de desenvolvimento. A visão para quem decide está em <a href="negocio.html">negocio.html</a>.</p>
 
 <h2>Resultado por nível</h2>
@@ -434,7 +466,7 @@ ${linhasDosNiveis}
 ${riscosHtml}
 
 <h2>Cobertura de código</h2>
-<p class="vazio">Não medida: a esteira ainda não gera relatório de cobertura de código. Este bloco não entra na situação geral.</p>
+${coberturaHtml}
 
 <h2>Casos reprovados</h2>
 ${lista(dados.falhas.map((f) => `<strong>${html(f.nivel)}</strong> · ${html(f.nome)}${origem(f) ? ` <span class="apagado">(${html(origem(f))})</span>` : ""}`), "Nenhum caso reprovado.")}
@@ -479,7 +511,7 @@ function paginaDeNegocio(dados) {
     indicador(
       "Caminho de compra funcionando",
       dados.critico ? `${dados.critico.aprovados} de ${dados.critico.total}` : "Sem dados",
-      dados.critico ? html(dados.politica.descricaoDoCaminhoCritico) : "As verificações do caminho de compra não rodaram nesta execução.",
+      dados.critico ? html(dados.politica.descricaoDoCaminhoCritico) : dados.escopo === "nenhum" ? "Não fazem parte desta execução: rodam no PR e no merge." : "As verificações do caminho de compra não rodaram nesta execução.",
     ),
     indicador(
       "Casos do plano de testes com verificação automática",
@@ -528,6 +560,8 @@ ${ESTILO}</style>
 <ul class="motivos">${dados.motivosSimples.map((motivo) => `<li>${html(motivo)}</li>`).join("")}</ul>
 </div>
 
+<p class="apagado">${html(ESCOPOS[dados.escopo])}</p>
+
 <h2>Indicadores</h2>
 <dl class="indicadores">
 ${indicadores}
@@ -560,6 +594,8 @@ function markdown(dados) {
     "",
     `Recomendação: ${dados.recomendacao}`,
     "",
+    ESCOPOS[dados.escopo],
+    "",
     ...dados.motivos.map((motivo) => `- ${motivo}`),
     "",
     "| Nível | Situação | Casos | Aprovados | Falhas | Ignorados | Aprovação | Tempo | Limite |",
@@ -576,6 +612,9 @@ function markdown(dados) {
     dados.riscos
       ? `Cobertura de riscos: ${dados.riscos.automatizados} de ${dados.riscos.total} casos do backlog automatizados (${numero(dados.riscos.cobertura)}%).`
       : "Cobertura de riscos: sem dados, backlog não encontrado.",
+    dados.cobertura.length
+      ? `Cobertura de código: ${dados.cobertura.map((c) => `${c.pacote} ${numero(c.linhas)}% das linhas e ${numero(c.ramos)}% dos ramos`).join("; ")}.`
+      : "Cobertura de código: sem dados.",
     dados.defeitos ? `Defeitos do sistema em aberto: ${dados.defeitos.total} (${dados.defeitos.altas} de prioridade alta).` : "Defeitos do sistema em aberto: sem acesso à API do GitHub nesta execução.",
     `Testes pulados ou em quarentena no código: ${dados.marcados.length}.`,
     "Páginas completas: `relatorios/metricas.html` (técnico) e `relatorios/negocio.html` (negócio). No GitHub Actions, dentro do artefato `relatorios-testes`.",
@@ -588,6 +627,10 @@ async function main() {
   const arquivosXml = existsSync(RELATORIOS) ? readdirSync(RELATORIOS).filter((nome) => nome.endsWith(".xml")) : [];
   const tempos = existsSync(join(RELATORIOS, "tempos.json")) ? JSON.parse(readFileSync(join(RELATORIOS, "tempos.json"), "utf8")) : {};
 
+  // O workflow informa o que rodou de E2E; fora dele (na máquina) vale a execução completa.
+  const escopo = Object.hasOwn(ESCOPOS, process.env.E2E_ESCOPO ?? "") ? process.env.E2E_ESCOPO : "completo";
+  const foraDoEscopo = (chave) => (chave === "e2e" && escopo === "nenhum") || (chave === "quarentena" && escopo !== "completo");
+
   const todos = [];
   const niveis = NIVEIS.map(({ chave, titulo, prefixo }) => {
     const casos = arquivosXml
@@ -597,8 +640,14 @@ async function main() {
     const resumo = casos.length ? resumirNivel(casos, tempos[chave]?.segundos) : null;
     const limite = politica.limiteDeTempoSegundos[chave];
     // Na quarentena a falha é esperada: o nível só informa, sem cor de alerta.
-    const sinal = chave === "quarentena" && resumo ? { cor: "sem-dados", motivos: ["não entra na situação geral"] } : semaforo(resumo, limite, politica.maximoDeIgnorados);
-    return { chave, titulo, resumo, sinal, limite };
+    // No PR o filtro @smoke deixa os outros casos do E2E como ignorados: ali ignorado não é pendência.
+    const maximoDeIgnorados = chave === "e2e" && escopo === "smoke" ? Infinity : politica.maximoDeIgnorados;
+    const sinal = foraDoEscopo(chave)
+      ? { cor: "sem-dados", motivos: ["não faz parte desta execução"] }
+      : chave === "quarentena" && resumo
+        ? { cor: "sem-dados", motivos: ["não entra na situação geral"] }
+        : semaforo(resumo, limite, maximoDeIgnorados);
+    return { chave, titulo, resumo, sinal, limite, foraDoEscopo: foraDoEscopo(chave) };
   });
 
   let dadosDaEsteira = null;
@@ -615,6 +664,11 @@ async function main() {
     console.error(`Não foi possível ler os defeitos abertos: ${erro.message}`);
   }
 
+  const cobertura = Object.entries(politica.coberturaMinimaDeCodigo ?? {}).flatMap(([pacote, minimo]) => {
+    const sumario = join(RELATORIOS, "cobertura", pacote, "coverage-summary.json");
+    return existsSync(sumario) ? [{ pacote, ...resumirCobertura(JSON.parse(readFileSync(sumario, "utf8")), minimo) }] : [];
+  });
+
   const caminhoDoPlano = join(RAIZ, politica.planoDeTestes);
   const riscos = existsSync(caminhoDoPlano) ? resumirRiscos(lerBacklog(readFileSync(caminhoDoPlano, "utf8"))) : null;
   const { cor: geral, motivos, simples } = situacaoGeral({ niveis, riscos, esteira: dadosDaEsteira, politica });
@@ -626,12 +680,14 @@ async function main() {
       ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
       : null,
     politica,
+    escopo,
     geral,
     motivos,
     motivosSimples: simples,
     recomendacao: recomendacao(geral),
     niveis,
     riscos,
+    cobertura,
     critico: caminhoCritico(todos.filter((caso) => caso.nivel === "End-to-End")),
     defeitos,
     falhas: todos.filter((caso) => caso.estado === "falhou" && caso.nivel !== "Quarentena (@flaky)"),
