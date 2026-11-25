@@ -48,7 +48,7 @@ const mockedUseSessao = useSessao as jest.Mock;
 const mockedUseCarrinho = useCarrinho as jest.Mock;
 const mockedUseCheckout = useCheckout as jest.Mock;
 
-describe("Critério 11 · sessão expirada, erro HTTP e falha de rede em http.ts", () => {
+describe("TC15 / Critério 11 · sessão expirada, erro HTTP e falha de rede em http.ts", () => {
   const adaptadorOriginal = cliente.defaults.adapter;
 
   beforeEach(() => {

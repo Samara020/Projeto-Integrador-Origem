@@ -9,7 +9,7 @@ type Pendente = {
 };
 type Sinalizada = { id: string; status: string; motivo: string; produto: { id: string } };
 
-describe("RBAC e endpoints administrativos (backend real)", () => {
+describe("TC24 · RBAC e endpoints administrativos (backend real)", () => {
   let adminToken: string;
   let adminEmail: string;
   let adminSenha: string;

@@ -39,7 +39,7 @@ Fica manual o que depende de julgamento: aparência, usabilidade e aceite. Ficar
 
 Os primeiros casos escolhidos são os de prioridade mais alta do backlog da seção 9: TC01, TC08 e TC11 (acesso), TC14 (função restrita), TC04 (carrinho) e TC06 (compra). Eles atendem os objetivos 1 e 3 e os critérios 1, 2 e 4.
 
-**Verificação:** são quatro objetivos, cada um ligado a um fato do projeto. Os seis casos candidatos aparecem no topo do backlog e todos já têm teste automatizado.
+**Verificação:** são quatro objetivos, cada um ligado a um fato do projeto. Os seis casos candidatos estão entre os de maior prioridade do backlog e todos já têm teste automatizado.
 
 ## 3. Escopo
 
@@ -260,26 +260,30 @@ Empate se desfaz pelo risco; persistindo, o caso pendente vem antes. As notas de
 | 4 | TC14 | HU-01 e HU-16 | Sistema | 3 | 1 | 2 | 6,0 | a definir | Automatizado (e2e/cypress/e2e/acesso.cy.js: TC14) |
 | 5 | TC04 | HU-08 | Componente | 2 | 1 | 3 | 6,0 | a definir | Automatizado (frontend/tests/unit/carrinho.test.ts: TC04) |
 | 6 | TC06 | HU-09 a HU-11 | Sistema e Componente | 3 | 2 | 3 | 4,5 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js, frontend/tests/unit/validacao.test.ts: TC06) |
-| 7 | TC07 | HU-13 e HU-14 | Integração | 2 | 1 | 2 | 4,0 | a definir | Pendente (o título com TC07 em frontend/tests/unit/pedidos.test.ts trata de pagamentosService; os testes de status em backend/app/tests/pedidos.test.ts não citam o identificador) |
+| 7 | TC07 | HU-13 e HU-14 | Integração | 2 | 1 | 2 | 4,0 | a definir | Automatizado (backend/app/tests/pedidos.test.ts: TC07) |
 | 8 | TC12 | HU-02 | Sistema e Componente | 2 | 1 | 2 | 4,0 | a definir | Automatizado (e2e/cypress/e2e/cadastro-peca.cy.js, frontend/tests/unit/painel-artesao.test.ts: TC12) |
-| 9 | TC10 | HU-09, HU-12 e HU-13 | Sistema | 3 | 2 | 2 | 3,0 | a definir | Pendente (TC10 só aparece em comentário de e2e/cypress/e2e/compra.cy.js, não em título) |
-| 10 | TC15 | HU-01 | Integração e Componente | 3 | 1 | 1 | 3,0 | a definir | Pendente (sem TC15 em título; cobertura encontrada em backend/app/tests/seguranca-regressao.test.ts, backend/app/tests/integracao-persistencia.test.ts e frontend/tests/unit/estados-e-sessao.test.tsx) |
-| 11 | TC22 | HU-13 e HU-14 | Integração e Componente | 3 | 2 | 2 | 3,0 | a definir | Pendente (o título com TC22 em frontend/tests/unit/historico-compras.test.tsx cobre só o rótulo do pedido; isolamento por comprador sem identificador) |
-| 12 | TC05 | HU-11 e HU-12 | Sistema e API | 3 | 2 | 2 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/vitrine.cy.js, e2e/cypress/e2e/compra.cy.js, frontend/tests/api/produtos.test.ts: TC05) |
-| 13 | TC13 | HU-09 | Sistema | 3 | 2 | 2 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC13) |
+| 9 | TC05 | HU-11 e HU-12 | Sistema e API | 3 | 2 | 2 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/vitrine.cy.js, e2e/cypress/e2e/compra.cy.js, frontend/tests/api/produtos.test.ts: TC05) |
+| 10 | TC10 | HU-09, HU-12 e HU-13 | Integração | 3 | 2 | 2 | 3,0 | a definir | Automatizado (backend/app/tests/pedidos.test.ts: TC10) |
+| 11 | TC13 | HU-09 | Sistema | 3 | 2 | 2 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC13) |
+| 12 | TC15 | HU-01 | Integração e Componente | 3 | 1 | 1 | 3,0 | a definir | Automatizado (backend/app/tests/integracao-persistencia.test.ts, backend/app/tests/seguranca-regressao.test.ts, backend/app/tests/auth-permissoes.test.ts, frontend/tests/unit/estados-e-sessao.test.tsx: TC15) |
+| 13 | TC22 | HU-13 e HU-14 | Integração e Componente | 3 | 2 | 2 | 3,0 | a definir | Automatizado (backend/app/tests/pedidos.test.ts, frontend/tests/unit/historico-compras.test.tsx: TC22) |
 | 14 | TC03 | HU-03 a HU-06 | Sistema e API | 2 | 2 | 3 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/vitrine.cy.js, frontend/tests/api/produtos.test.ts: TC03) |
 | 15 | TC18 | HU-04 a HU-07 | Sistema | 2 | 2 | 3 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/vitrine.cy.js: TC18) |
 | 16 | TC19 | HU-08 | Sistema | 2 | 2 | 3 | 3,0 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC19) |
-| 17 | TC21 | HU-09, HU-10 e HU-12 | Integração | 3 | 3 | 2 | 2,0 | a definir | Pendente (sem TC21 em título; cobertura encontrada em backend/app/tests/pedidos.test.ts e backend/app/tests/pagamento-auth.unit.test.ts, com RN33 e RN38) |
-| 18 | TC20 | HU-11 e HU-12 | Sistema | 3 | 3 | 2 | 2,0 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC20) |
-| 19 | TC16 | HU-02 e HU-12 | API e Sistema | 2 | 2 | 2 | 2,0 | a definir | Pendente (sem TC16 em título; cobertura encontrada em frontend/tests/api/fluxos-criticos.test.ts e frontend/tests/unit/services-integracao.test.ts) |
-| 20 | TC02 | HU-02 | Sistema e Componente | 2 | 2 | 2 | 2,0 | a definir | Automatizado (e2e/cypress/e2e/cadastro-peca.cy.js, frontend/tests/unit/painel-artesao.test.ts: TC02) |
-| 21 | TC24 | HU-16 | Integração e API | 3 | 2 | 1 | 1,5 | a definir | Pendente (sem TC24 em título; cobertura parcial encontrada em backend/app/tests/admin-def04.test.ts e frontend/tests/api/admin.test.ts) |
+| 17 | TC20 | HU-11 e HU-12 | Sistema | 3 | 3 | 2 | 2,0 | a definir | Automatizado (e2e/cypress/e2e/compra.cy.js: TC20) |
+| 18 | TC21 | HU-09, HU-10 e HU-12 | Integração | 3 | 3 | 2 | 2,0 | a definir | Automatizado (backend/app/tests/pedidos.test.ts: TC21) |
+| 19 | TC02 | HU-02 | Sistema e Componente | 2 | 2 | 2 | 2,0 | a definir | Automatizado (e2e/cypress/e2e/cadastro-peca.cy.js, frontend/tests/unit/painel-artesao.test.ts: TC02) |
+| 20 | TC16 | HU-02 e HU-12 | API e Componente | 2 | 2 | 2 | 2,0 | a definir | Automatizado (frontend/tests/api/fluxos-criticos.test.ts, frontend/tests/unit/services-integracao.test.ts: TC16) |
+| 21 | TC24 | HU-16 | Integração e API | 3 | 2 | 1 | 1,5 | a definir | Pendente (o sistema não tem suspensão nem reativação de cadastro, issue #39; listagens e controle de acesso já têm teste com TC24 em backend/app/tests/admin-def04.test.ts e frontend/tests/api/admin.test.ts) |
 | 22 | TC17 | HU-03 | Integração e Sistema | 2 | 2 | 1 | 1,0 | a definir | Automatizado (backend/app/tests/bloqueios-contrato.test.ts, e2e/cypress/e2e/acesso.cy.js: TC17) |
 | 23 | TC23 | HU-15 | Integração | 2 | 2 | 1 | 1,0 | a definir | Automatizado (backend/app/tests/bloqueios-contrato.test.ts: TC23) |
 | 24 | TC09 | Desempenho | Sistema e API | 2 | 3 | 1 | 0,67 | a definir | Automatizado (e2e/cypress/e2e/desempenho.cy.js, frontend/tests/api/catalogo.test.ts: TC09) |
 
-Cobertura de riscos em 24/11: **17 de 24 casos automatizados (70,8%)**. Os 7 pendentes são TC07, TC10, TC15, TC16, TC21, TC22 e TC24. Em 5 deles (TC07, TC10, TC15, TC16 e TC21) a busca encontrou teste do mesmo comportamento sem o identificador no título. Em TC22 e TC24 a cobertura encontrada é parcial.
+Cobertura de riscos em 25/11: **23 de 24 casos automatizados (95,8%)**. Em 24/11 eram 17: TC07, TC10, TC15, TC16, TC21 e TC22 já tinham teste do comportamento e receberam o identificador no título. O pendente é o TC24: o sistema não tem suspensão nem reativação de cadastro, que a HU-16 pede. Está na [issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39).
+
+A esteira confere este backlog: caso marcado como "Automatizado" precisa ter o identificador no título de um teste de cada arquivo citado.
+
+As lacunas técnicas da API, que não são casos do Plano de Testes, estão em [`suite-de-api.md`](suite-de-api.md) e não entram nesta conta.
 
 **Verificação:** o primeiro item (TC01) tem risco alto, custo baixo e frequência alta. Todo caso tem nível, história e status no formato que o relatório de métricas vai ler. Os arquivos citados foram conferidos por busca nos títulos dos testes em 24/11.
 
@@ -290,11 +294,12 @@ Cobertura de riscos em 24/11: **17 de 24 casos automatizados (70,8%)**. Os 7 pen
 | Ferramentas | Jest, Postman e Playwright | Jest, Jest com Supertest, pytest e Cypress | Atualizar o Plano na próxima versão. |
 | Recomendações | Fora do escopo | Testes em `modulo-ia/tests/` e `frontend/tests/api/recomendacoes*.test.ts` | Manter os testes e registrar no escopo da automação. |
 | Logística | Integração externa fora do escopo | O E2E de compra exercita a cotação de frete do próprio Origem | Manter. A transportadora real continua fora. |
-| TC07 | Atualização do status do pedido | O título com TC07 trata de pagamentosService | Corrigir o identificador na fase 2. |
-| TC10, TC15, TC16, TC21, TC24 | Casos do plano | Comportamento coberto sem o identificador no título | Acrescentar o identificador na fase 2. |
-| TC22 | Consulta, isolamento e status | Título com TC22 cobre só o rótulo do pedido | Completar na fase 2. |
+| TC07 | Atualização do status do pedido | O título com TC07 tratava de pagamentosService | Corrigido em 25/11: o título passou a TC06 e os testes de status do backend receberam TC07. |
+| TC10, TC15, TC16, TC21 | Casos do plano | Comportamento coberto sem o identificador no título | Corrigido em 25/11: identificador acrescentado. |
+| TC24 | Gestão administrativa, com suspensão e reativação | O sistema não tem suspensão nem reativação de cadastro | Issue #39, para a equipe decidir entre implementar e tirar do escopo. |
+| TC22 | Consulta, isolamento e status | Título com TC22 cobria só o rótulo do pedido | Corrigido em 25/11: os testes de listagem e isolamento do backend receberam TC22. |
 
-**Verificação:** cada divergência tem decisão proposta. Nenhuma foi aplicada neste rascunho.
+**Verificação:** cada divergência tem decisão. As de identificador foram aplicadas em 25/11; ferramentas, recomendações e logística continuam como proposta para a próxima versão do Plano.
 
 ## 11. Limitações conhecidas
 

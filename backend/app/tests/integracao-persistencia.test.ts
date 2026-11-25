@@ -66,7 +66,7 @@ describe("Regressões da integração real e persistência", () => {
     expect(outras.body).toEqual([]);
   });
 
-  test("token de recuperação é de uso único inclusive em duas requisições simultâneas", async () => {
+  test("TC15 · token de recuperação é de uso único inclusive em duas requisições simultâneas", async () => {
     const u = await criarUsuarioComprador(); const { token } = await recuperacaoRepository.criar(u.id);
     const respostas = await Promise.all([1, 2].map(() => request(app).post("/auth/redefinir-senha").send({ token, senha: "novaSenha456" })));
     expect(respostas.map(r => r.status).sort()).toEqual([200, 400]);

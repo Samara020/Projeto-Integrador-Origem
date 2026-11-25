@@ -42,7 +42,7 @@ describe("Autorização e permissões por perfil", () => {
         .expect(401);
     });
 
-    test("deve retornar 401 quando o token estiver expirado", async () => {
+    test("TC15 · deve retornar 401 quando o token estiver expirado", async () => {
       await request(app)
         .get("/artesaos/artesao/perfil")
         .set("Authorization", `Bearer ${tokenExpirado()}`)

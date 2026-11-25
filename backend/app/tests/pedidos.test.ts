@@ -31,7 +31,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
   afterAll(limparBanco);
 
   describe("Criação de Pedidos (Checkout)", () => {
-    test("POST /pedidos/checkout cria pedido, itens, historico e baixa estoque no banco", async () => {
+    test("TC10 · POST /pedidos/checkout cria pedido, itens, historico e baixa estoque no banco", async () => {
       const { comprador, produto } = await cenario();
       await criarCarrinhoComItem(comprador.id, produto.id, 2);
       const token = gerarToken(comprador.id, "COMPRADOR");
@@ -137,7 +137,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
   });
 
   describe("Consulta de Pedidos", () => {
-    test("GET /comprador/pedidos lista historico do comprador autenticado", async () => {
+    test("TC22 · GET /comprador/pedidos lista historico do comprador autenticado", async () => {
       const { comprador, produto, endereco } = await cenario();
       await criarPedido(comprador.id, endereco.id, produto.id, 2);
 
@@ -153,7 +153,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(resposta.body.pedidos[0].itens[0].produtoId).toBe(String(produto.id));
     });
 
-    test("GET /pedidos/:id consulta detalhes de um pedido especifico do comprador", async () => {
+    test("TC22 · GET /pedidos/:id consulta detalhes de um pedido especifico do comprador", async () => {
       const { comprador, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 1, 150);
 
@@ -169,7 +169,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(resposta.body.historico).toBeDefined();
     });
 
-    test("GET /pedidos/:id de outro usuario retorna 404 padronizado", async () => {
+    test("TC22 · GET /pedidos/:id de outro usuario retorna 404 padronizado", async () => {
       const { comprador, produto, endereco } = await cenario();
       const outroComprador = await criarUsuarioComprador();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id);
@@ -182,7 +182,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(resposta.body.mensagem).toBe("Pedido nao encontrado.");
     });
 
-    test("GET /artesao/pedidos lista pedidos contendo itens da loja do artesao", async () => {
+    test("TC22 · GET /artesao/pedidos lista pedidos contendo itens da loja do artesao", async () => {
       const { comprador, artesao, produto, endereco } = await cenario();
       await criarPedido(comprador.id, endereco.id, produto.id);
 
@@ -274,7 +274,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(resposta.body.mensagem).toMatch(/ja se encontra pago/i);
     });
 
-    test("RN33 · pagamento recusado cancela pedido, persiste motivo e libera reserva de peça única", async () => {
+    test("TC21 · RN33 · pagamento recusado cancela pedido, persiste motivo e libera reserva de peça única", async () => {
       const comprador = await criarUsuarioComprador();
       const segundoComprador = await criarUsuarioComprador();
       const artesao = await criarUsuarioArtesao();
@@ -346,7 +346,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(novoCheckout.body.pedidoId).toBeDefined();
     });
 
-    test("RN33 · pagamento expirado libera reserva de estoque uma única vez", async () => {
+    test("TC21 · RN33 · pagamento expirado libera reserva de estoque uma única vez", async () => {
       const { comprador, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2, 100);
       await prisma.estoque.update({
@@ -372,7 +372,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(estoque.quantidadeDisponivel).toBe(5);
     });
 
-    test("RN38 · eventos repetidos e simultâneos com a mesma Idempotency-Key não duplicam pagamento nem histórico", async () => {
+    test("TC21 · RN38 · eventos repetidos e simultâneos com a mesma Idempotency-Key não duplicam pagamento nem histórico", async () => {
       const { comprador, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 1, 100);
       const token = `Bearer ${gerarToken(comprador.id, "COMPRADOR")}`;
@@ -421,7 +421,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
         .expect(409);
     });
 
-    test("RN33/RN38 · recusa concorrente com mesma Idempotency-Key repõe estoque uma única vez", async () => {
+    test("TC21 · RN33/RN38 · recusa concorrente com mesma Idempotency-Key repõe estoque uma única vez", async () => {
       const { comprador, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2, 100);
       await prisma.estoque.update({
@@ -457,7 +457,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
   });
 
   describe("Atualização de Status de Pedido pelo Artesão", () => {
-    test("PUT /artesao/pedidos/:id/status atualiza status para ENVIADO com codigo de rastreio", async () => {
+    test("TC07 · PUT /artesao/pedidos/:id/status atualiza status para ENVIADO com codigo de rastreio", async () => {
       const { comprador, artesao, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id);
       const token = gerarToken(artesao.id, "ARTESAO");
@@ -479,7 +479,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(atualizado!.historico.some((h) => h.observacao?.includes("BR123456789"))).toBe(true);
     });
 
-    test("PUT /artesao/pedidos/:id/status para ENVIADO sem codigo de rastreio retorna 400", async () => {
+    test("TC07 · PUT /artesao/pedidos/:id/status para ENVIADO sem codigo de rastreio retorna 400", async () => {
       const { comprador, artesao, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id);
 
@@ -492,7 +492,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(resposta.body.mensagem).toMatch(/rastreio/i);
     });
 
-    test("PUT /artesao/pedidos/:id/status para CANCELADO restaura estoque no banco", async () => {
+    test("TC07 · PUT /artesao/pedidos/:id/status para CANCELADO restaura estoque no banco", async () => {
       const { comprador, artesao, produto, endereco } = await cenario();
       // Pedido de 2 unidades
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2);
@@ -548,7 +548,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(estoque!.quantidadeDisponivel).toBe(5);
     });
 
-    test("transicao concorrente nao reabre pedido depois do cancelamento e da reposicao", async () => {
+    test("TC07 · transicao concorrente nao reabre pedido depois do cancelamento e da reposicao", async () => {
       const { comprador, artesao, produto, endereco } = await cenario();
       const pedido = await criarPedido(comprador.id, endereco.id, produto.id, 2);
       const token = `Bearer ${gerarToken(artesao.id, "ARTESAO")}`;
@@ -583,7 +583,7 @@ describe("Pedidos - criacao, consulta, validacoes e persistencia", () => {
       expect(estoque!.quantidadeDisponivel).toBe(5);
     });
 
-    test("Pedido multiloja nao pode ter status alterado globalmente", async () => {
+    test("TC07 · Pedido multiloja nao pode ter status alterado globalmente", async () => {
       const comprador = await criarUsuarioComprador();
       const artesao1 = await criarUsuarioArtesao();
       const artesao2 = await criarUsuarioArtesao();

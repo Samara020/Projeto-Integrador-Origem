@@ -120,7 +120,7 @@ describe("TC06 - pedidosService", () => {
   });
 });
 
-describe("TC07 - pagamentosService", () => {
+describe("TC06 - pagamentosService", () => {
   beforeEach(() => {
     mockedHttp.mockReset();
   });

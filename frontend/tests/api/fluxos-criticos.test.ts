@@ -337,7 +337,7 @@ describe("fluxos críticos integrados (backend real + Postgres)", () => {
     expect(reabrir.status).toBe(409);
   }, 20000);
 
-  test("HU-02/HU-12 · peça SOB_ENCOMENDA persiste prazo e capacidade de produção no catálogo e detalhe", async () => {
+  test("TC16 / HU-02/HU-12 · peça SOB_ENCOMENDA persiste prazo e capacidade de produção no catálogo e detalhe", async () => {
     const artesao = await registrarELogar("ARTESAO");
     const admin = await registrarELogar("ADMINISTRADOR");
 

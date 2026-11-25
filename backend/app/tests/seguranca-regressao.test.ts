@@ -95,7 +95,7 @@ describe("Regressão de Segurança e Integridade (Auditoria 1 a 5)", () => {
   });
 
   describe("Item 5 - Revogação persistente no logout e redefinição de senha", () => {
-    test("revogação persiste entre instâncias e redefinição invalida sessões anteriores", async () => {
+    test("TC15 · revogação persiste entre instâncias e redefinição invalida sessões anteriores", async () => {
       const cadastro = await request(app)
         .post("/auth/register")
         .send({

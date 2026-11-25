@@ -10,7 +10,7 @@ import {
 
 const app = criarApp();
 
-describe("DEF04 · listagens completas de usuários e artesãos no painel admin", () => {
+describe("TC24 / DEF04 · listagens completas de usuários e artesãos no painel admin", () => {
   beforeEach(limparBanco);
   afterAll(limparBanco);
 

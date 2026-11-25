@@ -5,10 +5,13 @@
 //   2. Rastreabilidade (.github/rastreabilidade-testes.json): todo arquivo de teste está
 //      mapeado para histórias e casos, ou marcado como detalhe técnico, e o mapa não aponta
 //      para arquivo ou caso que não existe.
+//   3. Backlog do plano de testes: caso marcado como "Automatizado (arquivos: TCnn)" tem o
+//      identificador no título de um teste de cada arquivo citado.
 // Uso: node .github/scripts/gestao-testes.mjs   (sai com 1 se houver violação)
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { lerBacklog } from "../../scripts/metricas.mjs";
 import { analisar } from "./verificar-quarentena.mjs";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -104,6 +107,27 @@ export function verificarRastreabilidade(mapa, arquivos) {
 }
 
 /**
+ * Violações do backlog: toda afirmação de "Automatizado" precisa apontar arquivo que existe e
+ * que tem o identificador do caso no título de um teste.
+ */
+export function verificarBacklog(itens, arquivos) {
+  const violacoes = [];
+  for (const { id, automatizado, status } of itens) {
+    if (!automatizado) continue;
+    const citados = status.match(/\(([^)]*):\s*[^:)]*\)\s*$/)?.[1].split(",").map((arquivo) => arquivo.trim()).filter(Boolean) ?? [];
+    if (!citados.length) {
+      violacoes.push(`${id}: status "Automatizado" sem arquivo citado. Use "Automatizado (arquivo: ${id})".`);
+      continue;
+    }
+    for (const arquivo of citados) {
+      if (arquivos[arquivo] === undefined) violacoes.push(`${id}: o backlog cita ${arquivo}, que não existe.`);
+      else if (!temIdNoTitulo(arquivos[arquivo], id)) violacoes.push(`${id}: o backlog diz que ${arquivo} automatiza o caso, mas nenhum título do arquivo tem ${id}.`);
+    }
+  }
+  return violacoes;
+}
+
+/**
  * Duplicação candidata entre arquivos de teste: trechos de pelo menos `minimo` linhas iguais,
  * ignorando linha vazia, linha só de pontuação e import. Devolve um achado por par de
  * arquivos, com a primeira ocorrência e quantas janelas coincidem. É candidata: quem
@@ -151,11 +175,15 @@ function main() {
 
   const criticos = verificarCriticos(politica.testesCriticos ?? [], arquivos);
   const rastreabilidade = mapa ? verificarRastreabilidade(mapa, arquivos) : [`${politica.rastreabilidade}: arquivo de rastreabilidade não encontrado.`];
-  const violacoes = [...criticos, ...rastreabilidade];
+  const caminhoDoPlano = join(RAIZ, politica.planoDeTestes);
+  const backlog = existsSync(caminhoDoPlano) ? lerBacklog(readFileSync(caminhoDoPlano, "utf8")) : [];
+  const plano = backlog.length ? verificarBacklog(backlog, arquivos) : [`${politica.planoDeTestes}: backlog de automação não encontrado.`];
+  const violacoes = [...criticos, ...rastreabilidade, ...plano];
 
   const resumo = [
     `Testes críticos conferidos: ${(politica.testesCriticos ?? []).length}`,
     `Arquivos de teste na rastreabilidade: ${mapa ? Object.keys(mapa).length : 0} de ${Object.keys(arquivos).length}`,
+    `Casos do backlog marcados como automatizados: ${backlog.filter((item) => item.automatizado).length} de ${backlog.length}`,
     `Violações da gestão dos testes: ${violacoes.length}`,
     ...violacoes.map((violacao) => `- ${violacao}`),
   ].join("\n");

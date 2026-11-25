@@ -22,7 +22,7 @@ import {
 } from "../../scripts/metricas.mjs";
 import { avisoDeNavegador, ehChrome, navegadorDoE2E } from "../../scripts/navegador-e2e.mjs";
 import { classificar, resumo as resumoDaInstabilidade } from "../../scripts/instabilidade.mjs";
-import { duplicacoes, verificarCriticos, verificarRastreabilidade } from "./gestao-testes.mjs";
+import { duplicacoes, verificarBacklog, verificarCriticos, verificarRastreabilidade } from "./gestao-testes.mjs";
 
 test("E2E usa o Chrome da esteira quando E2E_BROWSER não é informado", () => {
   assert.equal(navegadorDoE2E({}), "chrome");
@@ -359,4 +359,14 @@ test("instabilidade: separa estável, intermitente e falha constante, sem escond
   assert.equal(porNome.pulado, undefined);
   assert.match(resumoDaInstabilidade(testes, 3), /Estáveis: 1\. Intermitentes: 1\. Falha constante: 1\./);
   assert.match(resumoDaInstabilidade(testes, 2), /menos de 3 rodadas/);
+});
+
+test("backlog: caso automatizado precisa ter o identificador no título de cada arquivo citado", () => {
+  const arquivos = { "a.cy.js": 'describe("TC01 · login", () => {});', "b.test.ts": "// TC01 só em comentário" };
+  const item = (status) => ({ id: "TC01", automatizado: /^Automatizado/.test(status), status });
+  assert.deepEqual(verificarBacklog([item("Automatizado (a.cy.js: TC01)")], arquivos), []);
+  assert.deepEqual(verificarBacklog([item("Pendente (sem teste)")], arquivos), []);
+  assert.match(verificarBacklog([item("Automatizado (a.cy.js, b.test.ts: TC01)")], arquivos)[0], /b\.test\.ts automatiza o caso, mas nenhum título do arquivo tem TC01/);
+  assert.match(verificarBacklog([item("Automatizado (c.cy.js: TC01)")], arquivos)[0], /cita c\.cy\.js, que não existe/);
+  assert.match(verificarBacklog([item("Automatizado")], arquivos)[0], /sem arquivo citado/);
 });
