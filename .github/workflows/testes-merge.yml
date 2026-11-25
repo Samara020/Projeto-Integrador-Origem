@@ -1,7 +1,8 @@
 name: Testes no merge na main
 
-# Cada commit que chega na main (merge de PR ou push direto, os dois chegam como push):
-#   1. regressao: Unitários, API e E2E (testes.yml).
+# PR para a main e cada commit que chega na main (merge de PR chega como push):
+#   1. regressao: automação e política, Unitários, backend, API e E2E (testes.yml).
+#                 No PR o E2E roda só os casos @smoke; no push da main, todos.
 #   2. imagens:   build das imagens Docker multi-stage. O estágio "test" do módulo de IA
 #                 roda o pytest dentro da imagem.
 # O deploy do frontend é feito pela integração Git da Vercel (ligada ao repositório).
@@ -24,12 +25,14 @@ concurrency:
 
 jobs:
   regressao:
-    name: Regressão completa
+    name: Testes
     permissions:
       contents: read
       actions: read
       issues: read
     uses: ./.github/workflows/testes.yml
+    with:
+      e2e: ${{ github.event_name == 'pull_request' && 'smoke' || 'completo' }}
 
   imagens:
     name: Build das imagens Docker
@@ -81,6 +84,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node .github/scripts/verificar-quarentena.mjs
+      # Regra do repositório (AGENTS.md): vulnerabilidade alta bloqueia o merge.
+      - name: Auditar dependências
+        run: |
+          falhou=0
+          for pasta in . frontend backend/app e2e; do
+            echo "== $pasta"
+            (cd "$pasta" && npm audit --audit-level=high) || falhou=1
+          done
+          exit "$falhou"
+      - name: Validar sintaxe dos workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
       - name: Conferir todos os resultados obrigatórios
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}

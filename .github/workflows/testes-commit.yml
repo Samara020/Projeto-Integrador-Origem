@@ -1,6 +1,8 @@
 name: Testes a cada commit
 
-# Regressão completa a cada push em qualquer branch, menos a main. Na main quem roda é
+# A cada push em qualquer branch, menos a main: automação e política, Unitários, backend e
+# API, sem E2E. É a resposta rápida antes de abrir o PR; o E2E smoke roda no PR e o E2E
+# completo no push da main e na regressão diária (docs/tas.md). Na main quem roda é
 # testes-merge.yml, para o mesmo commit não ser testado duas vezes. Push de tag não
 # dispara (só há filtro de branch).
 on:
@@ -11,11 +13,18 @@ on:
 permissions:
   contents: read
 
+# Push novo no mesmo branch cancela a execução anterior: só o último commit interessa.
+concurrency:
+  group: testes-push-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   regressao:
-    name: Regressão completa
+    name: Testes
     permissions:
       contents: read
       actions: read
       issues: read
     uses: ./.github/workflows/testes.yml
+    with:
+      e2e: nenhum

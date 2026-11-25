@@ -500,10 +500,11 @@ Política de manutenção, tags e relatório de métricas (`npm run test:metrica
 
 | Gatilho | Workflow | O que faz |
 |---|---|---|
-| push fora da main | `testes-commit.yml` | regressão completa |
-| push/merge na main | `testes-merge.yml` | regressão + build das imagens + smoke test |
+| push fora da main | `testes-commit.yml` | Unitário, backend e API, sem E2E |
+| PR para a main | `testes-merge.yml` | o mesmo + 3 E2E `@smoke` + build das imagens + Quality Gate |
+| merge na main | `testes-merge.yml` | regressão completa + build das imagens + smoke test |
 | todo dia 2h | `testes-agendados.yml` | regressão completa |
-| manual | `testes-smoke.yml` | só os E2E `@smoke` |
+| manual | `testes.yml` e `testes-smoke.yml` | regressão com o E2E escolhido, ou só os `@smoke` |
 
 O deploy do frontend é feito pela Vercel, ligada ao repositório pela integração Git. A Vercel só publica o frontend; o módulo de IA não é publicado nela.
 

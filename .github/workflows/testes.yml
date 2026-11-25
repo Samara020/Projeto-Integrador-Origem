@@ -1,14 +1,33 @@
 name: Testes
 
-# Regressão completa da TAS do Origem num job só: Testes Unitários, suíte do backend (banco
-# exclusivo), de API (backend real + Postgres) e End-to-End. No fim, a quarentena (@flaky,
-# não reprova) e o relatório de métricas (relatorios/metricas.html no artefato).
+# Testes da TAS do Origem num job só: automação e política, Testes Unitários, suíte do backend
+# (banco exclusivo), de API (backend real + Postgres) e End-to-End. No fim, a quarentena
+# (@flaky, não reprova) e os relatórios de métricas (relatorios/ no artefato).
+# O que roda de E2E depende do momento (docs/tas.md), pela entrada "e2e":
+#   nenhum   push fora da main (testes-commit.yml): resposta rápida, sem navegador
+#   smoke    PR para a main (testes-merge.yml): só os casos @smoke, o quality gate
+#   completo push na main, regressão diária e disparo manual: todos os casos
+# Unitário, backend e API rodam sempre inteiros.
 # Disparo manual: aba Actions > Testes > Run workflow.
 # Também é reutilizável (workflow_call): testes-agendados.yml, testes-commit.yml e
 # testes-merge.yml chamam este arquivo, então o job existe num lugar só.
 on:
   workflow_dispatch:
+    inputs:
+      e2e:
+        description: "Testes End-to-End que rodam"
+        type: choice
+        options:
+          - completo
+          - smoke
+          - nenhum
+        default: completo
   workflow_call:
+    inputs:
+      e2e:
+        description: "Testes End-to-End que rodam: completo, smoke ou nenhum"
+        type: string
+        default: completo
 
 permissions:
   contents: read
@@ -19,7 +38,7 @@ permissions:
 
 jobs:
   regressao:
-    name: Regressão completa
+    name: ${{ inputs.e2e == 'nenhum' && 'Unitário, backend e API' || inputs.e2e == 'smoke' && 'Unitário, backend, API e smoke' || 'Regressão completa' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -60,6 +79,8 @@ jobs:
       RECOMENDACAO_API_URL: http://localhost:3001
       RECOMENDACAO_API_KEY: origem-mockup-key
       E2E_BROWSER: chrome
+      # Lido por scripts/metricas.mjs: o que não fez parte da execução não conta como pendência.
+      E2E_ESCOPO: ${{ inputs.e2e }}
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
@@ -100,7 +121,16 @@ jobs:
       - name: Resumo da execução
         run: |
           mkdir -p relatorios
-          echo "## Regressão completa da TAS" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Testes da TAS (E2E: ${{ inputs.e2e }})" >> "$GITHUB_STEP_SUMMARY"
+
+      # Testes dos scripts da automação e conferência da política (docs/tas.md): nenhum
+      # .only esquecido, e todo teste pulado ou em quarentena cita uma issue aberta.
+      - name: Automação e política de manutenção
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          npm run test:automacao
+          npm run test:politica
 
       # O nível unitário não precisa de servidor: roda antes do build e da subida,
       # para uma falha ali não esconder o resultado dele.
@@ -158,7 +188,7 @@ jobs:
         run: npm run test:api
 
       - name: Preparar runtime descartável do E2E (:3200/:4200)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && inputs.e2e != 'nenhum' }}
         run: |
           mkdir -p relatorios
           if [ -f relatorios/frontend-3000.pid ]; then
@@ -169,17 +199,25 @@ jobs:
           bash .github/scripts/preparar-runtime-e2e.sh
 
       - name: Testes End-to-End (E2E)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && inputs.e2e == 'completo' }}
         env:
           CYPRESS_BASE_URL: http://localhost:3200
           CYPRESS_API_URL: http://localhost:4200
           TEST_DATABASE_NAME: origem_e2e_ci
         run: npm run test:e2e
 
+      - name: Testes End-to-End smoke (@smoke)
+        if: ${{ !cancelled() && inputs.e2e == 'smoke' }}
+        env:
+          CYPRESS_BASE_URL: http://localhost:3200
+          CYPRESS_API_URL: http://localhost:4200
+          TEST_DATABASE_NAME: origem_e2e_ci
+        run: npm run test:e2e:smoke
+
       # Testes instáveis (@flaky) rodam à parte, com novas tentativas. O resultado fica no
       # relatório, mas não reprova a esteira (docs/tas.md).
       - name: Quarentena (@flaky, não reprova)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && inputs.e2e == 'completo' }}
         continue-on-error: true
         env:
           CYPRESS_BASE_URL: http://localhost:3200

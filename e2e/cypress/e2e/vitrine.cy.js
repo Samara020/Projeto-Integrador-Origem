@@ -23,7 +23,7 @@ describe("TC03 · exibição e busca de produtos disponíveis", () => {
     });
   });
 
-  it("a vitrine da home mostra peças reais com link, sem itens vendidos @smoke", () => {
+  it("a vitrine da home mostra peças reais com link, sem itens vendidos", () => {
     cy.visit("/");
     cy.hidratado();
 
@@ -60,7 +60,7 @@ describe("TC03 · exibição e busca de produtos disponíveis", () => {
     cy.contains('p[aria-live="polite"]', "0 peças encontradas").should("be.visible");
   });
 
-  it("detalhe de peça disponível mostra nome, preço e compra liberada @smoke", () => {
+  it("detalhe de peça disponível mostra nome, preço e compra liberada", () => {
     cy.visit(`/produto/${disponivel.id}`);
     cy.hidratado();
 

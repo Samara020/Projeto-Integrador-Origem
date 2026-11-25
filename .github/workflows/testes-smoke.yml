@@ -1,7 +1,7 @@
 name: Testes smoke (caminho crítico)
 
-# Roda só os Testes End-to-End marcados com @smoke: login, vitrine, carrinho, compra com
-# Pix e cadastro de peça. É a conferência rápida do caminho crítico, sem os níveis Unitário,
+# Roda só os Testes End-to-End marcados com @smoke: login, compra com Pix e cadastro
+# de peça. É a conferência rápida do caminho crítico, sem os níveis Unitário,
 # backend e API. A regressão completa continua em testes.yml.
 # Disparo manual: aba Actions > Testes smoke (caminho crítico) > Run workflow.
 # Na máquina: npm run test:e2e:smoke (com o runtime descartável em :3200/:4200 de pé).

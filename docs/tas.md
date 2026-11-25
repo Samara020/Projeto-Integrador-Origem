@@ -39,11 +39,12 @@ As tags ficam no título do teste E2E e são lidas por `e2e/cypress/support/e2e.
 
 | Tag | Significado | Comando |
 |---|---|---|
-| `@smoke` | Caminho crítico: login, vitrine, carrinho, compra com Pix e cadastro de peça. Sete casos. | `npm run test:e2e:smoke` |
+| `@smoke` | Caminho crítico, em 3 casos: login do comprador, compra com Pix e cadastro de peça. É o que roda de E2E em todo PR. | `npm run test:e2e:smoke` |
 | `@flaky` | Teste instável em quarentena. O título cita a issue: `@flaky #123`. | `npm run test:quarentena` |
 
 - `npm run test:e2e` roda tudo, menos os `@flaky`.
 - `npm run test:e2e:smoke` abre só os specs que têm `@smoke` e roda só os casos marcados.
+- A lista `@smoke` é curta de propósito: em 24/11 eram 7 casos e ficaram 3, para o PR responder em minutos. Os outros 4 continuam na regressão completa. Caso novo só entra com justificativa no PR.
 - `npm run test:quarentena` roda só os `@flaky`, com 2 novas tentativas e relatório próprio (`relatorios/quarentena-*.xml`). Na esteira essa etapa não reprova a regressão. Sem nenhum teste marcado, o comando termina sem abrir o navegador.
 - A regressão continua com `retries: 0`: nova tentativa só existe dentro da quarentena.
 
@@ -88,37 +89,92 @@ Critério: a métrica precisa apoiar uma decisão de alguém. Sem decisão assoc
 | Testes pulados ou em quarentena | Selecionada | Teste desligado é cobertura que sumiu. A política exige issue aberta para cada um. |
 | Os 10 casos mais lentos | Selecionada | Indica onde otimizar quando o tempo do nível se aproxima do limite. |
 | Defeitos do sistema em aberto (`falha:sut`), por prioridade | Selecionada | É o risco que o negócio assume ao liberar. |
-| Cobertura de código | Adiada | A esteira ainda não gera o relatório. Entra quando a medição existir; os relatórios já dizem "não medida". |
+| Cobertura de código (linhas e ramos, por pacote) | Selecionada | Mostra quanto do código os testes executam e tem piso no Quality Gate: queda abaixo do mínimo barra o merge. |
 | Densidade de defeitos por mil linhas | Descartada | Projeto pequeno e em mudança rápida: o número oscila sem indicar decisão. |
 | Tempo médio de reparo | Descartada | O histórico de demandas tem poucos dias. A média de tão poucos casos não é confiável. |
 | Número total de testes | Descartada como indicador | Crescer o número não diz se o risco está coberto. O total aparece só como contexto. |
 | Taxa de falha por autor | Descartada | Não apoia decisão técnica e incentiva a esconder falha. |
 
-### Gatilhos publicados
+### Quando cada teste roda
 
-| Quando | Arquivo em `.github/workflows/` | O que executa |
-|---|---|---|
-| Push fora da main | `testes-commit.yml` | Regressão reutilizável |
-| PR com destino main | `testes-merge.yml` | Regressão, build/smoke Docker e Quality Gate |
-| Push na main | `testes-merge.yml` | Os mesmos checks e emissão de aviso em falhas monitoradas |
-| Diariamente, previsto para 2h de Brasília | `testes-agendados.yml` | Regressão e emissão de aviso em falha |
-| Disparo manual do núcleo | `testes.yml` | Regressão reutilizável |
-| Disparo manual | `testes-smoke.yml` | Só os E2E `@smoke`, no runtime descartável |
-| Segunda, previsto para 8h de Brasília | `politica-manutencao.yml` | Conferência de testes pulados e em quarentena |
-| Dias 1 e 15, previsto para 9h de Brasília | `revisao-periodica.yml` | Abre a issue de revisão com os números da suíte |
-| Issue aberta ou editada | `rotular-manutencao.yml` | Aplica as labels a partir do formulário de manutenção |
+O núcleo é [`testes.yml`](../.github/workflows/testes.yml), reutilizável. Os outros workflows o chamam dizendo o que roda de E2E: `nenhum`, `smoke` ou `completo`. Automação e política, Unitário, backend e API rodam sempre inteiros.
 
-O cron é `0 5 * * *` (UTC) e pode atrasar no GitHub. Um push em branch com PR aberto pode disparar os workflows de push e de PR; são execuções distintas.
+| Momento | Workflow | O que roda | Para quê |
+|---|---|---|---|
+| A cada push fora da `main` | `testes-commit.yml` | Automação e política, Unitário, backend e API. Sem E2E. | Resposta em minutos, antes de abrir o PR. |
+| A cada PR para a `main` | `testes-merge.yml` | O mesmo, mais os 3 E2E `@smoke`, build e smoke Docker e o Quality Gate. | Decide se o merge é permitido. |
+| A cada merge (push na `main`) | `testes-merge.yml` | Regressão completa, com todos os E2E, build Docker e Quality Gate. | Prova que a junção dos PRs não quebrou nada. Falha abre issue. |
+| Diariamente, previsto para 2h de Brasília | `testes-agendados.yml` | Regressão completa. | Pega o que o smoke não cobre e falha de ambiente. Falha abre issue. |
+| Segunda, previsto para 8h de Brasília | `politica-manutencao.yml` | Conferência de testes pulados e em quarentena. | Pega quarentena esquecida. |
+| Dias 1 e 15, previsto para 9h de Brasília | `revisao-periodica.yml` | Abre a issue de revisão com os números da suíte. | Revisão de gestão. |
+| Sob demanda | `testes.yml` e `testes-smoke.yml` | Regressão com o E2E escolhido, ou só o smoke. | Validar antes de entrega ou apresentação. |
+| Issue aberta ou editada | `rotular-manutencao.yml` | Aplica as labels do formulário de manutenção. | Triagem. |
+
+O agendamento do GitHub Actions não é pontual: o cron `0 5 * * *` (UTC) pode atrasar horas ou não rodar em horário de pico. A prova de que rodou é a execução registrada, não o horário. Push novo no mesmo branch cancela a execução anterior do push e do PR. Um push em branch com PR aberto dispara as duas: a do push, sem E2E, e a do PR, com smoke.
+
+Consequência assumida: um defeito que só os E2E fora do smoke pegam aparece depois do merge, na execução da `main`, e vira issue automática com prioridade alta.
+
+### Alinhamento entre backlog, testes e esteira
+
+Cada caso do backlog de [`docs/testes/plano-de-testes.md`](testes/plano-de-testes.md), o teste que o implementa e onde ele roda. "Push, PR, merge e diária" são os níveis Unitário, backend e API. O caminho completo de cada arquivo está no backlog.
+
+| Caso | Nível | Teste implementado | Onde roda | Situação |
+|---|---|---|---|---|
+| TC01 | Sistema, API e Componente | `acesso.cy.js`, `auth.test.ts`, `destino.test.ts` | push, PR, merge e diária; E2E: PR (smoke), merge e diária | Automatizado |
+| TC02 | Sistema e Componente | `cadastro-peca.cy.js`, `painel-artesao.test.ts` | push, PR, merge e diária; E2E: PR (smoke), merge e diária | Automatizado |
+| TC03 | Sistema e API | `vitrine.cy.js`, `produtos.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC04 | Componente | `carrinho.test.ts` | push, PR, merge e diária | Automatizado |
+| TC05 | Sistema e API | `vitrine.cy.js`, `compra.cy.js`, `produtos.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC06 | Sistema e Componente | `compra.cy.js`, `validacao.test.ts` | push, PR, merge e diária; E2E: PR (smoke), merge e diária | Automatizado |
+| TC07 | Integração | nenhum com o identificador no título | não se aplica | Pendente |
+| TC08 | Sistema, API e Componente | `acesso.cy.js`, `auth.test.ts`, `guarda-papel.test.tsx` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC09 | Sistema e API | `desempenho.cy.js`, `catalogo.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC10 | Sistema | nenhum com o identificador no título | não se aplica | Pendente |
+| TC11 | Sistema, API e Integração | `acesso.cy.js`, `auth.test.ts`, `auth.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC12 | Sistema e Componente | `cadastro-peca.cy.js`, `painel-artesao.test.ts` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC13 | Sistema | `compra.cy.js` | E2E: PR (smoke), merge e diária | Automatizado |
+| TC14 | Sistema | `acesso.cy.js` | E2E: merge e diária | Automatizado |
+| TC15 | Integração e Componente | nenhum com o identificador no título | não se aplica | Pendente |
+| TC16 | API e Sistema | nenhum com o identificador no título | não se aplica | Pendente |
+| TC17 | Integração e Sistema | `bloqueios-contrato.test.ts`, `acesso.cy.js` | push, PR, merge e diária; E2E: merge e diária | Automatizado |
+| TC18 | Sistema | `vitrine.cy.js` | E2E: merge e diária | Automatizado |
+| TC19 | Sistema | `compra.cy.js` | E2E: merge e diária | Automatizado |
+| TC20 | Sistema | `compra.cy.js` | E2E: merge e diária | Automatizado |
+| TC21 | Integração | nenhum com o identificador no título | não se aplica | Pendente |
+| TC22 | Integração e Componente | nenhum com o identificador no título | não se aplica | Pendente |
+| TC23 | Integração | `bloqueios-contrato.test.ts` | push, PR, merge e diária | Automatizado |
+| TC24 | Integração e API | nenhum com o identificador no título | não se aplica | Pendente |
+
+Dos 24 casos, 17 estão automatizados e rodam na esteira. Os casos `@smoke` do PR são de TC01, TC02 e TC06/TC13.
+
+Divergências e decisões:
+
+| Item | O que o backlog diz | O que existe | Decisão |
+|---|---|---|---|
+| TC07, TC10, TC15, TC16, TC21, TC22 e TC24 | Casos prioritários | Sem o identificador no título; em 5 deles há teste do mesmo comportamento | Acrescentar o identificador e completar TC22 e TC24. Até lá contam como pendentes na cobertura de riscos. |
+| Testes de recomendações (`modulo-ia/tests/`, `recomendacoes*.test.ts`) | Não estão no backlog | Rodam em todo push | Manter. Ficam fora da cobertura de riscos por não terem caso no plano. |
+| Testes do backend sem `TCnn` (estruturas de dados, segurança, persistência) | Não estão no backlog | Rodam em todo push | Tratar como detalhe técnico, rastreado por arquivo. |
+| E2E fora do smoke | Todos os casos do nível Sistema | Saíram do PR e rodam no merge e na regressão diária | Aceito: é o que mantém o PR rápido. Falha depois do merge abre issue. |
+| TC09, desempenho | Média de até 2 s e máximo de 4 s | Medido na API em todo push e no E2E completo | Manter os dois. |
 
 ### Quality Gate e proteção da main
 
-O job **Quality Gate**, em `testes-merge.yml`, declara `needs: [regressao, imagens]` e `if: always()`. Ele executa primeiro os testes da automação, depois a conferência da política (testes pulados e em quarentena) e por fim avalia os resultados dos jobs:
+O job **Quality Gate**, em `testes-merge.yml`, declara `needs: [regressao, imagens]` e `if: always()`. Ele executa, nesta ordem: os testes da automação, a conferência da política (testes pulados e em quarentena), a auditoria das dependências, a validação da sintaxe dos workflows e, por fim, a avaliação dos resultados dos jobs:
 
 ```text
 regressao = success E imagens = success
 + passos do próprio gate aprovados
 = Quality Gate aprovado
 ```
+
+O que reprova o gate:
+
+- qualquer caso reprovado em Unitário, backend, API ou nos E2E que rodaram;
+- cobertura de código abaixo do mínimo de [`.github/politica-testes.json`](../.github/politica-testes.json): o próprio Jest reprova o nível;
+- `.only` esquecido, ou teste pulado ou `@flaky` sem issue aberta;
+- vulnerabilidade de severidade alta em alguma das quatro pastas com `package.json` (`npm audit --audit-level=high`);
+- erro de sintaxe em workflow (`actionlint`);
+- falha de preparação, compilação, build Docker ou smoke test dos containers.
 
 Uma dependência com `failure`, `skipped`, `cancelled` ou resultado ausente é reprovada pelo avaliador. JSON inválido também reprova. Um cancelamento da execução inteira pode impedir a conclusão do job, sem gerar uma aprovação válida.
 
@@ -127,13 +183,24 @@ Uma dependência com `failure`, `skipped`, `cancelled` ou resultado ausente é r
 - Testes da política, da rotulagem e das métricas: [`.github/scripts/politica.test.mjs`](../.github/scripts/politica.test.mjs).
 - Conferência da política: [`.github/scripts/verificar-quarentena.mjs`](../.github/scripts/verificar-quarentena.mjs).
 - Referência versionada da proteção: [`.github/quality-gate.ruleset.json`](../.github/quality-gate.ruleset.json).
-- Regra remota ativa conferida em 23/11: [ruleset 27944584](https://github.com/Samara020/Projeto-Integrador-Origem/rules/27944584), com PR obrigatório e check `Quality Gate` de GitHub Actions, em modo strict.
+- Regra remota ativa conferida pela API em 25/11: [ruleset 27944584](https://github.com/Samara020/Projeto-Integrador-Origem/rules/27944584), situação `active`, com PR obrigatório, check `Quality Gate` em modo strict, bloqueio de exclusão e de force push e nenhum ator com bypass. Comando: `gh api repos/Samara020/Projeto-Integrador-Origem/rulesets/27944584`.
 
-O ruleset exige zero aprovações humanas mínimas no requisito configurado, bloqueia exclusão/force push e a consulta não permite bypass pela conta utilizada. O JSON sozinho não ativa proteção; a regra foi aplicada no GitHub e verificada.
+O ruleset exige zero aprovações humanas. Exigir uma aprovação de outra pessoa é decisão da equipe e só a dona do repositório altera a regra; fica como pedido em aberto. O JSON versionado sozinho não ativa proteção; a regra foi aplicada no GitHub e verificada.
 
-Qualquer falha efetiva das etapas obrigatórias pode impedir o merge: testes centrais (incluída a suíte do backend), preparação/compilação, build Docker, smoke test dos containers ou passos do gate (incluída a conferência da política). A quarentena e o relatório de métricas não reprovam. A emissão de issue ocorre depois e não é dependência do gate. O gate não reverte commits já integrados.
+#### Cobertura de código
 
-Não há, neste fluxo, limiar mínimo de cobertura, execução obrigatória de audit/lint, aprovação de deploy ou veto por existência de issue aberta. Casos ignorados são informados; a regra é que todo teste pulado cite uma issue aberta, sem exigir zero skips nem quantidade mínima de casos. Padrões específicos de hidratação React são registrados como avisos, sem reprovação direta por essa exceção; as demais asserções podem reprovar o cenário. O Cypress usa `retries: 0`.
+`npm run test:unit` e `npm run test:backend` medem a cobertura (`--coverage`) e gravam o resumo e o relatório por arquivo em `relatorios/cobertura/`, que vai no artefato. Rodar o Jest direto na pasta, sem `--coverage`, não mede nem aplica o mínimo.
+
+| Pacote | Linhas em 25/11 | Mínimo | Ramos em 25/11 | Mínimo |
+|---|---:|---:|---:|---:|
+| frontend (testes unitários) | 25,99% | 20% | 30,56% | 25% |
+| backend | 79,64% | 75% | 67,1% | 65% |
+
+Regra do mínimo: o valor medido, arredondado para baixo de 5 em 5, com pelo menos 2 pontos de folga. A folga evita que um PR pequeno de outra pessoa seja barrado por décimos. O mínimo é um piso contra queda, não uma meta. A cobertura do frontend é baixa porque só os testes unitários são medidos: telas e componentes são exercitados pelo E2E, que não entra na conta.
+
+A quarentena e os relatórios de métricas não reprovam. A emissão de issue ocorre depois e não é dependência do gate. O gate não reverte commits já integrados.
+
+Não há, neste fluxo, lint obrigatório, aprovação de deploy ou veto por existência de issue aberta. Casos ignorados são informados; a regra é que todo teste pulado cite uma issue aberta, sem exigir zero skips nem quantidade mínima de casos. Padrões específicos de hidratação React são registrados como avisos, sem reprovação direta por essa exceção; as demais asserções podem reprovar o cenário. O Cypress usa `retries: 0`.
 
 ### Issues e evidências
 
@@ -216,7 +283,7 @@ Prazo estourado: a demanda sobe um nível de prioridade e entra na pauta do pró
 | Média em 3 dias úteis | A regressão agendada roda uma vez por dia. Três dias dão três execuções para separar falha constante de falha intermitente. |
 | Baixa até a próxima revisão | A revisão acontece nos dias 1 e 15. Nenhuma demanda baixa fica mais de 15 dias sem ser olhada. |
 | Quarentena de no máximo 15 dias | É o mesmo ciclo da revisão: todo teste em quarentena passa por pelo menos uma revisão antes de vencer. |
-| `@smoke` não entra em quarentena | Os 7 casos `@smoke` cobrem login, vitrine, carrinho, compra com Pix e cadastro de peça. Em quarentena, deixariam de barrar o merge. |
+| `@smoke` não entra em quarentena | Os 3 casos `@smoke` são todo o E2E que roda no PR: login, compra com Pix e cadastro de peça. Em quarentena, deixariam de barrar o merge. |
 | Nova tentativa só na quarentena | A regressão usa `retries: 0`. Nova tentativa na regressão faria teste intermitente passar por estável. |
 | Issue automática só na `main` e na agendada | Falha em PR é da própria mudança e já bloqueia o merge. Abrir issue para ela geraria ruído. |
 | Triagem pelo autor do push | Quem enviou a mudança tem o contexto, e a esteira identifica o commit. |
@@ -251,7 +318,7 @@ Situação real, de 24 e 25/11/2026.
 
 O que a demonstração não cobre: a causa dentro do Electron foi deduzida, não medida. O aviso flutuante só fica visível quando o navegador desenha quadros de animação, e isso foi observado em um navegador com tela parado, não no Electron.
 
-**Ainda não existe:** cobertura de código, diagnóstico automático de instabilidade (rodar a suíte várias vezes e classificar cada teste), lista de testes críticos protegidos contra remoção, rastreabilidade teste para história de usuário validada por arquivo e escala do rodízio de triagem.
+**Ainda não existe:** diagnóstico automático de instabilidade (rodar a suíte várias vezes e classificar cada teste), lista de testes críticos protegidos contra remoção, rastreabilidade teste para história de usuário validada por arquivo e escala do rodízio de triagem.
 
 ## 3. Evidências e evolução
 
@@ -277,7 +344,7 @@ Contagens pertencem a essas execuções, não são percentuais de cobertura nem 
 ## 4. Próximos passos
 
 1. Confirmar com a equipe os critérios de quarentena, revisão, prazos e limites de `.github/politica-testes.json`.
-2. Medir cobertura de código e guardar o relatório a cada execução.
+2. Pedir à dona do repositório a exigência de uma aprovação humana no ruleset da `main`.
 3. Criar o diagnóstico de instabilidade e a lista de testes críticos.
 4. Avaliar a entrada dos testes C++ de `aed/tests/` no fluxo obrigatório.
 5. Manter mudanças de produto e respectivas expectativas dos testes no mesmo PR, sem enfraquecer verificações para mascarar falhas.

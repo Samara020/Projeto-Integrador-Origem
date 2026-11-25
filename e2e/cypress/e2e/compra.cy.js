@@ -70,7 +70,7 @@ describe("TC19 / Card 18 Item 8 · adição e remoção de produto no carrinho",
     );
   });
 
-  it("adiciona pela página da peça e remove na tela do carrinho @smoke", () => {
+  it("adiciona pela página da peça e remove na tela do carrinho", () => {
     adicionarPelaTela(produto);
 
     cy.get('a[aria-label="Carrinho com 1 item"]').click();

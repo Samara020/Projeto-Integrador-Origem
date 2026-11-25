@@ -6,11 +6,13 @@ import assert from "node:assert/strict";
 import { analisar } from "./verificar-quarentena.mjs";
 import { planejar, resposta } from "./rotular-manutencao.mjs";
 import {
+  ESCOPOS,
   caminhoCritico,
   lerBacklog,
   lerCasos,
   piorCor,
   recomendacao,
+  resumirCobertura,
   resumirDefeitos,
   resumirEsteira,
   resumirNivel,
@@ -274,4 +276,20 @@ test("defeitos abertos: ignora PRs e lê a prioridade da label", () => {
   assert.equal(resumo.altas, 1);
   assert.deepEqual(resumo.itens[0], { numero: 12, titulo: "Frete some do total", url: "u12", prioridade: "alta" });
   assert.equal(resumo.itens[1].prioridade, null);
+});
+
+test("cobertura de código: lê linhas e ramos e compara com o mínimo da política", () => {
+  const sumario = { total: { lines: { pct: 25.99 }, branches: { pct: 30.56 } } };
+  assert.deepEqual(resumirCobertura(sumario, { lines: 20, branches: 25 }), { linhas: 25.99, ramos: 30.56, minimoDeLinhas: 20, minimoDeRamos: 25, abaixoDoMinimo: false });
+  assert.equal(resumirCobertura(sumario, { lines: 30, branches: 25 }).abaixoDoMinimo, true);
+  assert.equal(resumirCobertura(sumario).abaixoDoMinimo, false);
+});
+
+test("nível fora do escopo da execução não vira pendência nem impede o verde", () => {
+  const e2eFora = { chave: "e2e", titulo: "End-to-End", sinal: { cor: "sem-dados", motivos: ["não faz parte desta execução"] }, foraDoEscopo: true };
+  const situacao = situacaoGeral({ niveis: [nivelCom("verde"), e2eFora], riscos: RISCOS_EM_DIA, esteira: ESTEIRA_ESTAVEL, politica: POLITICA });
+  assert.equal(situacao.cor, "verde");
+  const semEscopo = situacaoGeral({ niveis: [nivelCom("verde"), { ...e2eFora, foraDoEscopo: false }], riscos: RISCOS_EM_DIA, esteira: ESTEIRA_ESTAVEL, politica: POLITICA });
+  assert.equal(semEscopo.cor, "amarelo");
+  assert.deepEqual(Object.keys(ESCOPOS), ["completo", "smoke", "nenhum"]);
 });
