@@ -6,6 +6,8 @@
 **CESAR School, 4º Semestre, 2026.2**
 
 > **Avaliação de IA (AV2):** instruções de instalação, tabela de requisitos e casos de teste estão na seção [Módulo de IA](#módulo-de-ia-recomendação-de-produtos-av2).
+>
+> **FCCPD · Unidade 2 (Parte 2 — Arquitetura Distribuída, Paralelismo e Benchmarks):** diagrama, justificativa da separação, código paralelo, metodologia, resultados e evidências estão na seção [Arquitetura Distribuída — Projeto Origem (FCCPD / Unidade 2)](#arquitetura-distribuída--projeto-origem-fccpd--unidade-2).
 
 ## Sobre o projeto
 
@@ -525,7 +527,7 @@ Usamos o Claude (Anthropic) para gerar a primeira versão dos Dockerfiles, do `c
 
 ### 1. Módulos existentes no repositório e suas responsabilidades
 
-A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços:
+A solução reutiliza os componentes existentes no repositório, mantendo a separação de responsabilidades sem fragmentar artificialmente o sistema em microsserviços.
 
 - **Frontend Web (`frontend/`):** aplicação em Next.js 16, React 19 e TypeScript responsável pela interface do marketplace, incluindo vitrine, catálogo, busca, detalhes dos produtos, carrinho, checkout, painel do artesão, painel administrativo e suporte. Não acessa diretamente o banco de dados; consome o backend por meio do cliente HTTP centralizado (`frontend/src/lib/http.ts`).
 - **Backend Principal (`backend/app/`):** API em Node.js, Express, TypeScript e Prisma ORM responsável pelas regras de negócio centrais, autenticação e autorização (JWT/RBAC), gestão de usuários, artesãos, produtos, estoque, pedidos, checkout e integração com o serviço de recomendação.
@@ -541,7 +543,9 @@ A solução reutiliza os componentes existentes no repositório, mantendo a sepa
 | **Frontend Web (`frontend/`)** | **Backend Principal (`backend/app/`)** | HTTP/REST com JSON, via `NEXT_PUBLIC_API_URL` (padrão `http://localhost:4000`) | Autenticação, consulta de catálogo e produtos, carrinho, checkout, pedidos e painéis. |
 | **Backend Principal (`backend/app/`)** | **Serviço de IA (`modulo-ia/`)** | HTTP/REST com JSON, utilizando `X-API-Key` | Solicitação de recomendações de produtos. Em caso de falha ou indisponibilidade, o backend utiliza o mecanismo de fallback para sugestões locais. |
 | **Backend Principal (`backend/app/`)** | **PostgreSQL (`database/` / Prisma)** | Protocolo nativo PostgreSQL sobre TCP, por meio do Prisma ORM | Persistência relacional e operações transacionais de domínio, como catálogo, pedidos e estoque. |
-| **Cliente externo da demonstração** | **API do Módulo de Concorrência (`.NET 10`)** | HTTP/REST para acesso à API e `Channel` para enfileiramento interno em memória | Demonstrar o processamento concorrente e o controle de pedidos em fila, independentemente do fluxo principal do backend Node.js. |
+| **Cliente externo da demonstração** | **API do Módulo de Concorrência (.NET 10)** | HTTP/REST | Envio de solicitações para demonstrar o processamento concorrente. |
+| **API do Módulo de Concorrência (.NET 10)** | **Fila `Channel`** | Enfileiramento assíncrono em memória | Recebimento e armazenamento temporário das solicitações para processamento. |
+| **Fila `Channel`** | **`BackgroundService`** | Leitura assíncrona da fila | Consumo e processamento das solicitações em segundo plano. |
 
 ### 3. Diagrama da Arquitetura Distribuída
 
@@ -561,14 +565,20 @@ flowchart LR
         AI["Python / BentoML<br/>Recomendação de produtos"]
     end
 
-    subgraph Concorrencia["Demonstração independente"]
-        CONC["API C# / .NET 10<br/>Channel"]
+    subgraph Concorrencia["Demonstração independente - C# / .NET 10"]
+        API["API ASP.NET Core<br/>Program.cs"]
+        Fila[["Channel<br/>Fila limitada em memória<br/>100 mensagens"]]
+        Worker["BackgroundService<br/>ProcessadorPedidos.cs"]
     end
 
-    FE -->|"HTTP/REST · JSON"| BE
-    BE -->|"Prisma ORM · PostgreSQL/TCP"| DB
-    BE -->|"HTTP/REST · POST /recommendations"| AI
-    CLI -->|"HTTP/REST"| CONC
+    FE -->|"HTTP/REST - JSON"| BE
+    BE -->|"Prisma ORM / PostgreSQL TCP"| DB
+    BE -->|"HTTP/REST - POST /recommendations<br/>X-API-Key + timeout"| AI
+    AI -->|"JSON ou falha / timeout<br/>fallback baseline local"| BE
+
+    CLI -->|"HTTP/REST"| API
+    API -->|"Enfileiramento assíncrono"| Fila
+    Fila -->|"Leitura assíncrona"| Worker
 ```
 
 O diagrama representa os mecanismos de comunicação entre os componentes. O módulo de concorrência em C# aparece separado do núcleo do Origem porque constitui uma demonstração independente, sem integração obrigatória com o backend principal.
@@ -582,6 +592,101 @@ O diagrama representa os mecanismos de comunicação entre os componentes. O mó
 - **Por que o módulo C#/.NET é mantido separado como demonstração de concorrência:** o módulo `Origem.Concorrencia`, desenvolvido em C# e .NET 10, demonstra concorrência e enfileiramento de pedidos por meio de `Channel`. Sua execução independente permite demonstrar os conceitos da disciplina sem acoplá-lo ao backend Node.js ou ao fluxo principal de checkout em produção.
 
 - **Por que não houve fragmentação desnecessária em microsserviços:** para o porte e o escopo acadêmico do Projeto Origem, dividir o domínio principal em múltiplos microsserviços ou adicionar brokers externos aumentaria a complexidade operacional, de implantação e de depuração sem benefício proporcional. A arquitetura adotada preserva a modularidade do backend principal e separa apenas os componentes que possuem responsabilidades e necessidades tecnológicas específicas.
+
+### 5. Limites da Demonstração de Concorrência
+
+O módulo `Origem.Concorrencia` é uma demonstração independente do checkout principal.
+
+- A API ASP.NET Core recebe as solicitações HTTP.
+- A fila `Channel` realiza o enfileiramento em memória, com capacidade limitada.
+- O `BackgroundService` consome e processa os itens de forma assíncrona.
+- A fila, os pedidos e o estoque demonstrativo são mantidos em memória.
+- O módulo não utiliza o PostgreSQL do marketplace para persistência.
+- O módulo não substitui nem integra automaticamente o checkout do backend Express.
+
+Os componentes são executados separadamente para demonstrar os conceitos de concorrência, processamento assíncrono e desacoplamento.
+
+### 6. Arquivos e trechos que implementam comunicação e paralelismo
+
+- **Comunicação entre módulos/serviços:**
+  - `frontend/src/lib/http.ts`: cliente HTTP Axios centralizado (`NEXT_PUBLIC_API_URL`, envio automático do cabeçalho `Authorization: Bearer <JWT>`).
+  - `backend/app/src/lib/modulo-ia.ts` e `backend/app/src/services/recomendacao.service.ts`: chamada HTTP `POST /recommendations` ao `modulo-ia` com cabeçalho `X-API-Key`, timeout de `2.000 ms` e *fallback* automático para o algoritmo *baseline* sobre o PostgreSQL (`X-Recomendacao-Fonte: ia` ou `baseline`).
+  - `modulo-ia/app/service.py`: endpoints BentoML `POST /recommendations` e `POST /recommendations/batch`.
+  - **Persistência e concorrência no PostgreSQL:** `backend/app/src/lib/prisma.ts` apenas inicializa e reutiliza o cliente `PrismaClient`. Os bloqueios de linha com `FOR UPDATE`, dentro de transações, estão em `backend/app/src/repositories/carrinho.repository.ts` (`adicionarItemComTrava`, `removerItemComTrava`, `atualizarQuantidadeComTrava`), `backend/app/src/repositories/pedido.repository.ts` (`criarCheckout`, `atualizarStatus`) e `backend/app/src/repositories/pagamento.repository.ts` (`registrarPagamento`). A idempotência de pagamento é tratada por `pagamentoRepository.buscarPorChaveIdempotencia` e `pagamentoRepository.registrarPagamento`, com unicidade de `chaveIdempotencia` definida em `backend/app/prisma/schema.prisma` (`Pagamento.chaveIdempotencia`). Outras operações transacionais incluem `backend/app/src/repositories/produto.repository.ts` (`criar`, `atualizar`, `excluirFisicamente`, `atualizarEstoqueEPausa`), `backend/app/src/repositories/recuperacao.repository.ts` (`consumir`) e `backend/app/src/repositories/tentativa-login.repository.ts` (`registrarFalha`).
+  - **Consultas SQL de sessão:** `backend/app/src/lib/revogacao-token.ts` usa consultas parametrizadas em `tokenFoiRevogado`, `obterVersaoSessaoUsuario` e `sessaoUsuarioInvalidada`; `invalidarSessoesUsuario` atualiza a versão da sessão com SQL parametrizado.
+  - `backend/backend/Origem.Concorrencia/Program.cs`, `FilaPedidos.cs` e `ProcessadorPedidos.cs`: demonstração independente em .NET 10 com fila `Channel` e `BackgroundService`.
+- **Processamento sequencial e paralelo:**
+  - `modulo-ia/app/recommendation.py`:
+    - Versões sequenciais preservadas: `rank_candidates` e `rank_batch_recommendations`.
+    - Versões paralelas equivalentes: `rank_candidates_parallel` e `rank_batch_recommendations_parallel` (`ProcessPoolExecutor` / `ThreadPoolExecutor` com `_init_batch_worker` carregando o catálogo uma única vez por processo worker e consolidação determinística por `(-score, product_id)`).
+  - `modulo-ia/app/fallback.py`: integração no fluxo real via `select_candidates` e `select_candidates_batch`.
+  - `modulo-ia/app/config.py`: parâmetros configuráveis (`RECOMENDACAO_PARALLEL_WORKERS`, `RECOMENDACAO_PARALLEL_EXECUTOR`, `RECOMENDACAO_PARALLEL_MIN_ITEMS`, `RECOMENDACAO_PARALLEL_BATCH_MIN_REQUESTS`).
+  - `modulo-ia/benchmark_parallel.py`: script reproduzível do benchmark comparativo (exporta `docs/benchmark_amostras_brutas.csv`).
+  - `modulo-ia/tests/test_parallel_equivalence.py` e `modulo-ia/tests/test_api.py`: validação automatizada de equivalência (`sequencial == thread == process`) e contrato HTTP.
+
+### 7. Metodologia do benchmark, resultados e interpretação
+
+- **Metodologia (`docs/metodologia-benchmark.md`):** medições com `time.perf_counter()`, `2` aquecimentos descartados + `7` repetições cronometradas por configuração (**`147` amostras brutas** em [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv)). O script calcula mediana, média e mínimo por configuração; o desvio padrão é calculado externamente a partir das amostras brutas de cada configuração. Também são avaliados *throughput* (`prod/s`), *speedup* (`T_seq / T_par`) e redução percentual em Windows 11 (`Intel Core i5-1135G7 @ 2.40GHz`, 4 núcleos físicos / 8 CPUs lógicas, `15,80 GB` RAM, Python `3.14.7`).
+- **Resultados — Pré-cálculo de recomendações em lote (`POST /recommendations/batch`, catálogo de `1.000` peças, top-5 por produto):**
+
+| Lote | Sequencial (Mediana) | Paralelo `thread` (`w=4`, GIL) | Paralelo `process` (`w=2`) | Paralelo `process` (`w=4`) | Throughput (`seq` → `process w=4`) | Ganho (`process w=4`) |
+|---:|---:|---:|---:|---:|---:|---:|
+| **200 prod.** | 1.319,69 ms | 1.725,39 ms (0,76x) | 575,15 ms (**2,29x** / -56,42%) | **364,08 ms** | 151,6 → **549,3 prod/s** | **3,62x (-72,41%)** |
+| **500 prod.** | 3.498,87 ms | 4.464,93 ms (0,78x) | 2.353,21 ms (**1,49x** / -32,74%) | **1.067,06 ms** | 142,9 → **468,6 prod/s** | **3,28x (-69,50%)** |
+| **1.000 prod.** | 6.292,55 ms | 8.792,48 ms (0,72x) | 4.830,20 ms (**1,30x** / -23,24%) | **2.259,25 ms** | 158,9 → **442,6 prod/s** | **2,79x (-64,10%)** |
+
+- **Resultados — Comunicação distribuída `backend` ↔ `modulo-ia` (`5` aquecimentos + `30` repetições = `90` amostras em [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv), SHA `93628a1`):**
+
+| Cenário | HTTP 200 | Fonte | Mediana | Média ± DP | P95 | Throughput |
+|---|---:|---|---:|---:|---:|---:|
+| `ia_direto` (`POST :3001/recommendations`) | 30/30 | `ia_direto` | **10,943 ms** | 11,978 ± 4,700 ms | 20,655 ms | 91,4 req/s |
+| `backend_com_ia` (`GET :4000/produtos/recomendacoes`) | 30/30 | `ia` | **17,694 ms** | 19,426 ± 4,728 ms | 28,195 ms | 56,5 req/s |
+| `backend_fallback_baseline` (`modulo-ia` parado) | 30/30 | `baseline` | **2.013,959 ms** | 2.014,869 ± 4,870 ms | 2.026,490 ms | 0,5 req/s |
+
+- **Interpretação dos resultados:**
+  - **Onde houve ganho:** `ProcessPoolExecutor` no pré-cálculo em lote (**`2,79x` a `3,62x`** com `w=4`, redução de **`64,10%` a `72,41%`**) porque processos independentes escapam do GIL em trabalho CPU-bound e o `initializer` evita reserializar o catálogo a cada lote.
+  - **Onde não houve ganho e por quê:** `ThreadPoolExecutor` (`0,72x`–`0,78x`) sofre contenção pelo GIL do Python, e listas muito pequenas (`100` candidatos, `0,402 ms` sequencial) sofrem *overhead* de coordenação (`0,74x`–`0,75x`). Por isso a arquitetura mantém limiares configuráveis em `app/config.py` e isola o `modulo-ia` do *event loop* do Node.js.
+  - **Custo da comunicação e trade-off do fallback:** a inferência Python pura leva `0,19`–`0,56 ms`, enquanto a chamada distribuída completa (`backend_com_ia`) tem mediana de `17,694 ms` (`P95 28,195 ms`, ~70× abaixo do SLA de `2.000 ms`), evidenciando que >95% do tempo unitário vem de SQL/HTTP/JSON. Na indisponibilidade do `modulo-ia`, o fallback garante 100% de respostas `HTTP 200`, mas cada requisição aguarda o timeout completo (`2.000 ms`), reduzindo o *throughput* para `0,5 req/s` — justificando a evolução futura com *circuit breaker*.
+
+### 8. Evidências funcionais e instruções de reprodução
+
+**Documentos e evidências vinculadas (rastreáveis ao commit `93628a1`):**
+- **Arquitetura distribuída e justificativas:** documento principal [`docs/arquitetura/arquitetura-distribuida.md`](docs/arquitetura/arquitetura-distribuida.md) *(resumo do diagrama em [`docs/arquitetura/diagrama-arquitetura-distribuida.md`](docs/arquitetura/diagrama-arquitetura-distribuida.md))*.
+- **Evidências de comunicação, fallback e testes de API (`8/8`):** relatório principal [`docs/evidencias-comunicacao-modulos.md`](docs/evidencias-comunicacao-modulos.md), logs em [`evidencias-comunicacao/logs-comunicacao.txt`](evidencias-comunicacao/logs-comunicacao.txt) e saída dos testes integrados em [`evidencias-comunicacao/relatorio-integracao.txt`](evidencias-comunicacao/relatorio-integracao.txt).
+- **Evidências da execução paralela, `pytest` (`33/33`) e benchmark distribuído:** [`evidencias-comunicacao/evidencias-paralelismo.txt`](evidencias-comunicacao/evidencias-paralelismo.txt).
+- **Metodologia, dados brutos e interpretação:**
+  - Metodologia: [`docs/metodologia-benchmark.md`](docs/metodologia-benchmark.md)
+  - Relatório consolidado de interpretação e decisões técnicas *(principal)*: [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](docs/relatorio-interpretacao-decisoes-tecnicas.md)
+  - Tabelas completas de medição: [`docs/medicao-ganho-paralelismo.md`](docs/medicao-ganho-paralelismo.md) *(síntese focada em paralelismo: [`docs/medicao-interpretacao-paralelismo.md`](docs/medicao-interpretacao-paralelismo.md))*
+  - Amostras brutas e scripts: [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv) (`147` amostras), [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv) (`90` amostras) e [`scripts/benchmark-comunicacao.mjs`](scripts/benchmark-comunicacao.mjs)
+
+**Como reproduzir:**
+```powershell
+# 1. Subir os 4 serviços distribuídos (frontend, backend, modulo-ia, postgres)
+docker compose up -d --build
+
+# 2. Reproduzir o benchmark de comunicação distribuída e fallback (atualiza docs/benchmark_comunicacao_brutas.csv)
+node scripts/benchmark-comunicacao.mjs --scenarios ia_direto,backend_com_ia
+docker compose stop modulo-ia
+node scripts/benchmark-comunicacao.mjs --scenarios backend_fallback_baseline --append
+docker compose start modulo-ia
+
+# 3. Rodar os testes de integração de API (backend + modulo-ia reais)
+npm --prefix frontend run test:api -- tests/api/recomendacoes.test.ts tests/api/modulo-ia.test.ts
+
+# 4. Testar o endpoint paralelo em lote (POST /recommendations/batch)
+Invoke-RestMethod -Method Post -Uri "http://localhost:3001/recommendations/batch" `
+  -Headers @{"X-API-Key"="origem-mockup-key"} -ContentType "application/json" `
+  -Body '{"product_ids":["prd_201","prd_202"],"limit":3}'
+
+# 5. Rodar os 33 testes automatizados do módulo de IA (equivalência sequencial/paralela, HTTP e P95)
+docker build --target test --progress=plain ./modulo-ia
+
+# 6. Reproduzir o benchmark sequencial x paralelo (atualiza docs/benchmark_amostras_brutas.csv)
+cd modulo-ia
+python -m benchmark_parallel
+```
+
 
 ## Figma
 

@@ -1,0 +1,16 @@
+# Logs da comunicação distribuída (backend <-> modulo-ia) e fallback
+# Branch: feat/unidade2-paralelismo-benchmarks | Commit SHA validado: 93628a1fa677193f818708aa753ecc4cda125542
+# Ambiente: Docker Compose (postgres:17, backend Node 24, modulo-ia Python 3.13-slim / BentoML)
+# Comando: docker compose logs --no-color backend modulo-ia
+
+backend-1    | [setup-db] aplicado 07_suporte_exclusao_logica_produto.sql
+backend-1    | [setup-db] aplicado 08_integracao_persistencia.sql
+modulo-ia-1  | 2026-11-24T17:47:23+0000 [INFO] [cli] Starting production HTTP BentoServer from "app.service:RecommendationService" listening on http://localhost:3001 (Press CTRL+C to quit)
+modulo-ia-1  | 2026-11-24T17:47:25+0000 [INFO] [entry_service:RecommendationService:1] Service RecommendationService initialized
+modulo-ia-1  | recommendation_request results=4 elapsed_ms=0.29
+modulo-ia-1  | 2026-11-24T17:48:39+0000 [INFO] [entry_service:RecommendationService:1] 172.18.0.4:36444 (scheme=http,method=POST,path=/recommendations,type=application/json,length=2214) (status=200,type=application/json,length=436) 19.793ms (trace=04d3dd8ef406fc9d34a5937e833c46a1,span=f7f7456f74cfb71a,sampled=0,service.name=RecommendationService)
+modulo-ia-1  | 2026-11-24T17:51:30+0000 [INFO] [cli] Starting production HTTP BentoServer from "app.service:RecommendationService" listening on http://localhost:3001 (Press CTRL+C to quit)
+modulo-ia-1  | 2026-11-24T17:51:32+0000 [INFO] [entry_service:RecommendationService:1] Service RecommendationService initialized
+backend-1    | [setup-db] banco ja possui dados; nada a fazer.
+backend-1    | API Origem rodando em http://localhost:4000
+backend-1    | [modulo-ia] indisponível ou tempo esgotado; aplicando baseline local: The operation was aborted due to timeout

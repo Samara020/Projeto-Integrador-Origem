@@ -1,5 +1,15 @@
 ﻿from app.catalog import available_products
-from app.recommendation import attributes_match, rank_candidates
+from app.config import (
+    PARALLEL_BATCH_MIN_REQUESTS,
+    PARALLEL_EXECUTOR,
+    PARALLEL_MIN_ITEMS,
+    PARALLEL_WORKERS,
+)
+from app.recommendation import (
+    attributes_match,
+    rank_batch_recommendations_parallel,
+    rank_candidates_parallel,
+)
 
 
 FALLBACK_STAGES = [
@@ -34,7 +44,13 @@ def select_candidates(context, reference_product_id=None, limit=5, catalog=None)
             ):
                 stage_candidates.append(candidate)
 
-        ranked = rank_candidates(context, stage_candidates)
+        ranked = rank_candidates_parallel(
+            context,
+            stage_candidates,
+            workers=PARALLEL_WORKERS,
+            executor_type=PARALLEL_EXECUTOR,
+            min_items_for_parallel=PARALLEL_MIN_ITEMS,
+        )
 
         for recommendation in ranked:
             if recommendation["product_id"] in selected_ids:
@@ -47,3 +63,18 @@ def select_candidates(context, reference_product_id=None, limit=5, catalog=None)
                 return selected
 
     return selected
+
+
+def select_candidates_batch(references, catalog, limit=5):
+    """
+    Gera recomendações em lote para múltiplos produtos do catálogo utilizando
+    processamento paralelo por partições independentes.
+    """
+    return rank_batch_recommendations_parallel(
+        references=references,
+        catalog=catalog,
+        limit=limit,
+        workers=PARALLEL_WORKERS,
+        executor_type=PARALLEL_EXECUTOR,
+        min_requests_for_parallel=PARALLEL_BATCH_MIN_REQUESTS,
+    )
