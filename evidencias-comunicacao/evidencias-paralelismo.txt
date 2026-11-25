@@ -1,7 +1,8 @@
 ================================================================================
-EVIDÊNCIAS FUNCIONAIS — PROCESSAMENTO PARALELO E TESTES (modulo-ia)
-Data: 2026-11-24 | Branch: feat/unidade2-paralelismo-benchmarks
-Ambiente: Windows 11 (10.0.26300-SP0) | Intel Core i5-1135G7 @ 2.40GHz (4c/8t) | 15,80 GB RAM | Python 3.14.7
+EVIDÊNCIAS FUNCIONAIS — PROCESSAMENTO PARALELO, COMUNICAÇÃO E TESTES
+Data: 2026-11-24 / 2026-11-25 UTC | Branch: feat/unidade2-paralelismo-benchmarks
+Commit (SHA): 93628a1fa677193f818708aa753ecc4cda125542 (93628a1)
+Ambiente: Windows 11 (10.0.26300-SP0) | Intel Core i5-1135G7 @ 2.40GHz (4c/8t) | 15,80 GB RAM | Python 3.14.7 | Node v24.19.0
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -85,3 +86,23 @@ tests/test_service.py::test_configuracao_de_simulacao_503 PASSED         [ 96%]
 tests/test_service.py::test_configuracao_de_simulacao_500 PASSED         [100%]
 
 ============================== 33 passed in 5.72s ==============================
+
+--------------------------------------------------------------------------------
+4. BENCHMARK DE COMUNICAÇÃO DISTRIBUÍDA E REEXECUÇÃO DE TESTES DE API (SHA 93628a1)
+   Script: node scripts/benchmark-comunicacao.mjs (5 warm-ups + 30 repetições = 90 amostras)
+   Amostras brutas: docs/benchmark_comunicacao_brutas.csv
+   Timestamp UTC: 2026-11-25T01:08:49Z .. 2026-11-25T01:09:32Z
+--------------------------------------------------------------------------------
+ia_direto                | HTTP 200: 30/30 | fonte=ia_direto | mediana=10.943 ms | media=11.978 +/- 4.700 ms | P95=20.655 ms | min=5.871 ms | max=22.836 ms | throughput=91.4 req/s
+backend_com_ia           | HTTP 200: 30/30 | fonte=ia        | mediana=17.694 ms | media=19.426 +/- 4.728 ms | P95=28.195 ms | min=13.658 ms | max=34.151 ms | throughput=56.5 req/s
+backend_fallback_baseline| HTTP 200: 30/30 | fonte=baseline  | mediana=2013.959 ms | media=2014.869 +/- 4.870 ms | P95=2026.490 ms | min=2008.477 ms | max=2027.469 ms | throughput=0.5 req/s
+
+Logs Docker observados no mesmo SHA (93628a1):
+- modulo-ia-1: recommendation_request results=4 elapsed_ms=0.19 .. 0.56 (BentoML HTTP interno: 2.313 ms .. 3.172 ms)
+- backend-1 (com modulo-ia parado): [modulo-ia] indisponível ou tempo esgotado; aplicando baseline local: The operation was aborted due to timeout
+
+Reexecução da suíte de integração de API (Jest contra containers Docker ativos em SHA 93628a1):
+Comando: npm --prefix frontend run test:api -- tests/api/recomendacoes.test.ts tests/api/modulo-ia.test.ts
+Test Suites: 2 passed, 2 total
+Tests:       8 passed, 8 total
+Time:        3.587 s

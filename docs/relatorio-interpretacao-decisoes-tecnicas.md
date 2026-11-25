@@ -8,9 +8,11 @@
   - No ranqueamento unitário de listas pequenas (`100` candidatos, mediana sequencial de `0,402 ms`), paralelizar adicionou *overhead* (`0,74x`–`0,75x`).
 - **Validação funcional automatizada:** a suíte `pytest` completa do `modulo-ia` (`docker build --target test --progress=plain ./modulo-ia`) aprovou **33/33 testes** (incluindo equivalência exata entre sequencial, `thread` e `process` em `tests/test_parallel_equivalence.py`, endpoints HTTP `/recommendations` e `/recommendations/batch` em `tests/test_api.py` e P95 em `tests/test_performance.py`).
 
-## 2. Análise com Base nas Medições (`docs/medicao-ganho-paralelismo.md` e `docs/benchmark_amostras_brutas.csv`)
+## 2. Análise com Base nas Medições (`docs/medicao-ganho-paralelismo.md`, `docs/benchmark_amostras_brutas.csv` e `docs/benchmark_comunicacao_brutas.csv`)
 
-- **Ambiente e protocolo:** Windows 11 (`10.0.26300-SP0`), `Intel Core i5-1135G7 @ 2.40GHz` (4 núcleos físicos / 8 CPUs lógicas), `15,80 GB` RAM, Python `3.14.7`, `2` aquecimentos + `7` repetições por cenário (**`147` amostras brutas**).
+- **Rastreabilidade e ambiente:** branch `feat/unidade2-paralelismo-benchmarks`, commit SHA `93628a1fa677193f818708aa753ecc4cda125542` (`93628a1`); Windows 11 (`10.0.26300-SP0`), `Intel Core i5-1135G7 @ 2.40GHz` (4 núcleos físicos / 8 CPUs lógicas), `15,80 GB` RAM, Python `3.14.7`, Node.js `v24.19.0`, Docker Compose (`postgres`, `backend`, `modulo-ia`).
+- **Protocolo de paralelismo:** `2` aquecimentos + `7` repetições por cenário (**`147` amostras brutas** em `docs/benchmark_amostras_brutas.csv`).
+- **Protocolo de comunicação distribuída:** `5` aquecimentos + `30` repetições por cenário (**`90` amostras brutas** em `docs/benchmark_comunicacao_brutas.csv`, via `scripts/benchmark-comunicacao.mjs`).
 - **Cenário 2 — Pré-cálculo de recomendações em lote (catálogo de `1.000` peças, top-5 por produto):**
   - **200 produtos:** sequencial `1.319,69 ms` (`151,6 prod/s`) | `thread w=4` `1.725,39 ms` (`0,76x`, `-30,74%`) | `process w=2` **`575,15 ms`** (**`2,29x`**, `-56,42%`) | `process w=4` **`364,08 ms`** (**`3,62x`**, `-72,41%`, `549,3 prod/s`).
   - **500 produtos:** sequencial `3.498,87 ms` (`142,9 prod/s`) | `thread w=4` `4.464,93 ms` (`0,78x`, `-27,61%`) | `process w=2` **`2.353,21 ms`** (**`1,49x`**, `-32,74%`) | `process w=4` **`1.067,06 ms`** (**`3,28x`**, `-69,50%`, `468,6 prod/s`).
@@ -22,8 +24,17 @@
 
 ## 3. Custo Adicional da Comunicação entre Componentes
 
-- A integração Frontend (`:3000`) → Backend (`:4000`) → Módulo de IA (`:3001`) via `POST /recommendations` (`X-API-Key`) adiciona serialização JSON, sobrecarga HTTP e latência de rede além do tempo de cálculo interno (evidenciado em `docs/evidencias-comunicacao-modulos.md` e `evidencias-comunicacao/relatorio-integracao.txt`).
-- O Backend aplica timeout (`2000 ms`) e fallback *baseline* local (`X-Recomendacao-Fonte: baseline`) para que indisponibilidade ou lentidão da IA não bloqueiem a resposta ao usuário.
+Para ir além de chamadas isoladas e quantificar sistematicamente o custo e a dispersão da comunicação distribuída, executamos `scripts/benchmark-comunicacao.mjs` (`5` aquecimentos + `30` repetições por cenário = **`90` amostras** registradas em `docs/benchmark_comunicacao_brutas.csv`, SHA `93628a1`) contra a pilha Docker real (`backend` `:4000` + `modulo-ia` `:3001` + `postgres` `:5433`):
+
+| Cenário | HTTP 200 | Fonte | Mediana | Média ± DP | P95 | Mín – Máx | Throughput |
+|---|---:|---|---:|---:|---:|---:|---:|
+| `ia_direto` (`POST :3001/recommendations`) | 30/30 | `ia_direto` | **10,943 ms** | 11,978 ± 4,700 ms | 20,655 ms | 5,871 – 22,836 ms | 91,4 req/s |
+| `backend_com_ia` (`GET :4000/produtos/recomendacoes`) | 30/30 | `ia` | **17,694 ms** | 19,426 ± 4,728 ms | 28,195 ms | 13,658 – 34,151 ms | 56,5 req/s |
+| `backend_fallback_baseline` (`modulo-ia` parado) | 30/30 | `baseline` | **2.013,959 ms** | 2.014,869 ± 4,870 ms | 2.026,490 ms | 2.008,477 – 2.027,469 ms | 0,5 req/s |
+
+- **Decomposição do custo de rede/E/S vs. cálculo puro:** nos logs do `modulo-ia-1`, o cálculo interno de recomendação em Python consome apenas **`0,19`–`0,56 ms`** (`elapsed_ms`). A chamada HTTP direta do host ao container (`ia_direto`) eleva a mediana para **`10,943 ms`** (serialização JSON, validação HTTP/BentoML e ponte de rede Docker). Quando a requisição percorre o fluxo completo do produto (`backend_com_ia`: Express + consulta Prisma ao PostgreSQL + chamada HTTP `POST /recommendations` com `X-API-Key`), a mediana sobe para **`17,694 ms`** (`+6,751 ms` ou `+61,7%` sobre `ia_direto`; P95 de `28,195 ms`). Ou seja, **mais de 95% da latência unitária distribuída é custo de comunicação e E/S**, não de computação — mas o valor absoluto (`P95 = 28,2 ms`) permanece ~**70× abaixo** do limite de `2.000 ms` do critério de desempenho da interface (TC09), validando a separação dos serviços em operação normal.
+- **Variação observada (desvio padrão ~`4,7 ms`):** o desvio padrão equivalente nos dois cenários ativos (`±4,700 ms` e `±4,728 ms`, com picos até `34,151 ms`) reflete o *jitter* natural da rede virtual Docker Desktop no Windows e do agendamento de processos, confirmando por que a **mediana** e o **P95** são mais confiáveis que uma medição isolada.
+- **Trade-off medido no fallback sem *circuit breaker* (`2.013,959 ms`):** com o `modulo-ia` parado, **30/30 requisições** retornaram `HTTP 200` com `X-Recomendacao-Fonte: baseline`, comprovando tolerância a falhas sem quebra para o usuário. Contudo, como o backend tenta contactar o `modulo-ia` a cada chamada e aguarda integralmente `RECOMENDACAO_TIMEOUT_MS=2000 ms` antes de cair para o *baseline* local (~`14 ms` de SQL/cálculo), o *throughput* cai de **`56,5 req/s` para `0,5 req/s`**. Esse achado empírico justifica a recomendação de evoluir o cliente `backend/app/src/lib/modulo-ia.ts` com um ***circuit breaker*** (abrir o circuito após falhas/timeouts consecutivos por uma janela de *cooldown*, reduzindo o tempo em falha de ~`2.014 ms` para `<20 ms`).
 
 ## 4. Limitações de CPU, Memória, E/S e Sincronização
 

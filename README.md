@@ -627,38 +627,50 @@ Os componentes são executados separadamente para demonstrar os conceitos de con
 | **500 prod.** | 3.498,87 ms | 4.464,93 ms (0,78x) | 2.353,21 ms (**1,49x** / -32,74%) | **1.067,06 ms** | 142,9 → **468,6 prod/s** | **3,28x (-69,50%)** |
 | **1.000 prod.** | 6.292,55 ms | 8.792,48 ms (0,72x) | 4.830,20 ms (**1,30x** / -23,24%) | **2.259,25 ms** | 158,9 → **442,6 prod/s** | **2,79x (-64,10%)** |
 
+- **Resultados — Comunicação distribuída `backend` ↔ `modulo-ia` (`5` aquecimentos + `30` repetições = `90` amostras em [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv), SHA `93628a1`):**
+
+| Cenário | HTTP 200 | Fonte | Mediana | Média ± DP | P95 | Throughput |
+|---|---:|---|---:|---:|---:|---:|
+| `ia_direto` (`POST :3001/recommendations`) | 30/30 | `ia_direto` | **10,943 ms** | 11,978 ± 4,700 ms | 20,655 ms | 91,4 req/s |
+| `backend_com_ia` (`GET :4000/produtos/recomendacoes`) | 30/30 | `ia` | **17,694 ms** | 19,426 ± 4,728 ms | 28,195 ms | 56,5 req/s |
+| `backend_fallback_baseline` (`modulo-ia` parado) | 30/30 | `baseline` | **2.013,959 ms** | 2.014,869 ± 4,870 ms | 2.026,490 ms | 0,5 req/s |
+
 - **Interpretação dos resultados:**
   - **Onde houve ganho:** `ProcessPoolExecutor` no pré-cálculo em lote (**`2,79x` a `3,62x`** com `w=4`, redução de **`64,10%` a `72,41%`**) porque processos independentes escapam do GIL em trabalho CPU-bound e o `initializer` evita reserializar o catálogo a cada lote.
   - **Onde não houve ganho e por quê:** `ThreadPoolExecutor` (`0,72x`–`0,78x`) sofre contenção pelo GIL do Python, e listas muito pequenas (`100` candidatos, `0,402 ms` sequencial) sofrem *overhead* de coordenação (`0,74x`–`0,75x`). Por isso a arquitetura mantém limiares configuráveis em `app/config.py` e isola o `modulo-ia` do *event loop* do Node.js.
+  - **Custo da comunicação e trade-off do fallback:** a inferência Python pura leva `0,19`–`0,56 ms`, enquanto a chamada distribuída completa (`backend_com_ia`) tem mediana de `17,694 ms` (`P95 28,195 ms`, ~70× abaixo do SLA de `2.000 ms`), evidenciando que >95% do tempo unitário vem de SQL/HTTP/JSON. Na indisponibilidade do `modulo-ia`, o fallback garante 100% de respostas `HTTP 200`, mas cada requisição aguarda o timeout completo (`2.000 ms`), reduzindo o *throughput* para `0,5 req/s` — justificando a evolução futura com *circuit breaker*.
 
 ### 8. Evidências funcionais e instruções de reprodução
 
-**Documentos e evidências vinculadas:**
+**Documentos e evidências vinculadas (rastreáveis ao commit `93628a1`):**
 - Arquitetura distribuída e justificativas: [`docs/arquitetura/arquitetura-distribuida.md`](docs/arquitetura/arquitetura-distribuida.md) e [`docs/arquitetura/diagrama-arquitetura-distribuida.md`](docs/arquitetura/diagrama-arquitetura-distribuida.md)
-- Evidências de comunicação e fallback: [`docs/evidencias-comunicacao-modulos.md`](docs/evidencias-comunicacao-modulos.md), [`evidencias-comunicacao/logs-comunicacao.txt`](evidencias-comunicacao/logs-comunicacao.txt) e [`evidencias-comunicacao/relatorio-integracao.txt`](evidencias-comunicacao/relatorio-integracao.txt)
-- Evidências da execução paralela e `pytest` (`33/33`): [`evidencias-comunicacao/evidencias-paralelismo.txt`](evidencias-comunicacao/evidencias-paralelismo.txt)
-- Metodologia, amostras brutas e relatórios de desempenho: [`docs/metodologia-benchmark.md`](docs/metodologia-benchmark.md), [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv), [`docs/medicao-ganho-paralelismo.md`](docs/medicao-ganho-paralelismo.md), [`docs/medicao-interpretacao-paralelismo.md`](docs/medicao-interpretacao-paralelismo.md) e [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](docs/relatorio-interpretacao-decisoes-tecnicas.md)
+- Evidências de comunicação, fallback e testes de API (`8/8`): [`docs/evidencias-comunicacao-modulos.md`](docs/evidencias-comunicacao-modulos.md), [`evidencias-comunicacao/logs-comunicacao.txt`](evidencias-comunicacao/logs-comunicacao.txt) e [`evidencias-comunicacao/relatorio-integracao.txt`](evidencias-comunicacao/relatorio-integracao.txt)
+- Evidências da execução paralela, `pytest` (`33/33`) e benchmark distribuído: [`evidencias-comunicacao/evidencias-paralelismo.txt`](evidencias-comunicacao/evidencias-paralelismo.txt)
+- Metodologia, amostras brutas e relatórios de desempenho: [`docs/metodologia-benchmark.md`](docs/metodologia-benchmark.md), [`docs/benchmark_amostras_brutas.csv`](docs/benchmark_amostras_brutas.csv), [`docs/benchmark_comunicacao_brutas.csv`](docs/benchmark_comunicacao_brutas.csv), [`scripts/benchmark-comunicacao.mjs`](scripts/benchmark-comunicacao.mjs), [`docs/medicao-ganho-paralelismo.md`](docs/medicao-ganho-paralelismo.md), [`docs/medicao-interpretacao-paralelismo.md`](docs/medicao-interpretacao-paralelismo.md) e [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](docs/relatorio-interpretacao-decisoes-tecnicas.md)
 
 **Como reproduzir:**
 ```powershell
 # 1. Subir os 4 serviços distribuídos (frontend, backend, modulo-ia, postgres)
 docker compose up -d --build
 
-# 2. Testar a comunicação Backend -> Módulo de IA (header X-Recomendacao-Fonte: ia) e fallback (baseline)
-Invoke-WebRequest "http://localhost:4000/produtos/recomendacoes?produtoId=2001&limite=4"
+# 2. Reproduzir o benchmark de comunicação distribuída e fallback (atualiza docs/benchmark_comunicacao_brutas.csv)
+node scripts/benchmark-comunicacao.mjs --scenarios ia_direto,backend_com_ia
 docker compose stop modulo-ia
-Invoke-WebRequest "http://localhost:4000/produtos/recomendacoes?produtoId=2001&limite=4"
+node scripts/benchmark-comunicacao.mjs --scenarios backend_fallback_baseline --append
 docker compose start modulo-ia
 
-# 3. Testar o endpoint paralelo em lote (POST /recommendations/batch)
+# 3. Rodar os testes de integração de API (backend + modulo-ia reais)
+npm --prefix frontend run test:api -- tests/api/recomendacoes.test.ts tests/api/modulo-ia.test.ts
+
+# 4. Testar o endpoint paralelo em lote (POST /recommendations/batch)
 Invoke-RestMethod -Method Post -Uri "http://localhost:3001/recommendations/batch" `
   -Headers @{"X-API-Key"="origem-mockup-key"} -ContentType "application/json" `
   -Body '{"product_ids":["prd_201","prd_202"],"limit":3}'
 
-# 4. Rodar os 33 testes automatizados do módulo de IA (equivalência sequencial/paralela, HTTP e P95)
+# 5. Rodar os 33 testes automatizados do módulo de IA (equivalência sequencial/paralela, HTTP e P95)
 docker build --target test --progress=plain ./modulo-ia
 
-# 5. Reproduzir o benchmark sequencial x paralelo (atualiza docs/benchmark_amostras_brutas.csv)
+# 6. Reproduzir o benchmark sequencial x paralelo (atualiza docs/benchmark_amostras_brutas.csv)
 cd modulo-ia
 python -m benchmark_parallel
 ```

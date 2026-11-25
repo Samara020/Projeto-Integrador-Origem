@@ -3,7 +3,7 @@
 ## 1. Objetivo
 Definir um procedimento documentado e reproduzível de avaliação de desempenho para o **Projeto Origem**, consolidando as suítes já existentes no repositório (estruturas de dados em C++17 e TypeScript, serviço de IA/recomendações em Python e testes E2E de interface com Cypress) e estabelecendo critérios rigorosos de comparação e reprodutibilidade — inclusive como base metodológica para a **Parte 2 (FCCPD — Unidade 2)** (paralelismo e comunicação entre módulos).
 
-> Nota de transparência: este documento formaliza a metodologia e os procedimentos de execução; os resultados empíricos do benchmark de paralelismo do `modulo-ia` estão registrados em `docs/medicao-ganho-paralelismo.md`, `docs/medicao-interpretacao-paralelismo.md` e `docs/benchmark_amostras_brutas.csv`.
+> Nota de transparência: este documento formaliza a metodologia e os procedimentos de execução; os resultados empíricos do benchmark de paralelismo do `modulo-ia` e da comunicação distribuída (`backend` ↔ `modulo-ia`) estão registrados em `docs/medicao-ganho-paralelismo.md`, `docs/medicao-interpretacao-paralelismo.md`, `docs/relatorio-interpretacao-decisoes-tecnicas.md`, `docs/benchmark_amostras_brutas.csv` (`147` registros) e `docs/benchmark_comunicacao_brutas.csv` (`90` registros).
 
 ## 2. O Que Será Medido (Métricas)
 - **Implementado nas suítes do repositório**:
@@ -13,6 +13,7 @@ Definir um procedimento documentado e reproduzível de avaliação de desempenho
 
 $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 
+  - **Comunicação distribuída (`scripts/benchmark-comunicacao.mjs`)**: **latência ponta a ponta** (mediana, média ± desvio padrão, P95, mínimo e máximo em `ms`), **taxa de sucesso HTTP 200**, cabeçalho `X-Recomendacao-Fonte` e **throughput** (`req/s`) em três cenários (`ia_direto`, `backend_com_ia` e `backend_fallback_baseline`).
   - **Interface E2E (`e2e/cypress/e2e/desempenho.cy.js` — TC09)**: tempo até renderização/hidratação com conteúdo esperado em **renderização do catálogo**, **renderização da busca** e **renderização dos detalhes do produto**, acompanhando **média** (`<= 2.000 ms`) e **maior tempo** (sem execução `> 4.000 ms`).
 
 ## 3. Ferramentas e Scripts Utilizados
@@ -20,6 +21,7 @@ $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 - **TypeScript / Node.js**: `backend/app/src/aed/benchmarks/analise-complexidade.ts` (`perf_hooks`), executado via script `aed:benchmark` em `backend/app`.
 - **IA / Recomendação — desempenho P95 (Python)**: `modulo-ia/tests/test_performance.py` (`time.perf_counter()`), executado com `pytest`.
 - **IA / Recomendação — benchmark sequencial vs. paralelo (Python)**: `modulo-ia/benchmark_parallel.py` (`time.perf_counter()`, `ThreadPoolExecutor` e `ProcessPoolExecutor` com `initializer`), executado via `python -m benchmark_parallel`, exportando amostras brutas para `docs/benchmark_amostras_brutas.csv`.
+- **Comunicação distribuída `backend` ↔ `modulo-ia` (Node.js)**: `scripts/benchmark-comunicacao.mjs` (`performance.now()`, `fetch` nativo, carimbo automático de `git_sha`, `branch`, `timestamp_utc` e `environment`), exportando amostras brutas para `docs/benchmark_comunicacao_brutas.csv`.
 - **End-to-End / UI**: `e2e/cypress/e2e/desempenho.cy.js` (TC09), executado via Cypress em `e2e`.
 
 ## 4. Configurações da Máquina e do Ambiente
@@ -48,6 +50,7 @@ $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 ## 6. Número de Repetições e Aquecimento (Warm-up)
 - **Estado atual nas suítes**:
   - `modulo-ia/benchmark_parallel.py`: **2 execuções de aquecimento** (*warm-up*) descartadas + **7 repetições cronometradas** por configuração (`147` amostras brutas no CSV). O script calcula internamente mediana, média e mínimo, e grava no CSV as amostras, a mediana e a média. O desvio padrão apresentado nos relatórios é calculado externamente a partir das sete amostras brutas de cada configuração. O script também calcula speedup e variação/redução percentual; o throughput dos relatórios é derivado externamente da mediana.
+  - `scripts/benchmark-comunicacao.mjs`: **5 execuções de aquecimento** (*warm-up*) descartadas + **30 repetições cronometradas** por cenário (`90` amostras brutas em `docs/benchmark_comunicacao_brutas.csv`), consolidando mediana, média, desvio padrão, P95, mínimo/máximo e throughput.
   - `e2e/cypress/e2e/desempenho.cy.js` (TC09): **10 medições** por operação (calcula média e máximo).
   - `modulo-ia/tests/test_performance.py`: **20 execuções** de recomendação (calcula P95).
   - `aed/src/benchmark.cpp` e `backend/app/src/aed/benchmarks/analise-complexidade.ts`: não possuem laço multi-repetição nem estatística consolidada entre rodadas no código atual.
@@ -73,6 +76,14 @@ $$\text{Speedup} = \frac{T_{\text{seq}}}{T_{\text{par}}}$$
 ### Benchmark de paralelismo da IA (gera `docs/benchmark_amostras_brutas.csv`)
     cd modulo-ia
     python -m benchmark_parallel
+
+### Benchmark de comunicação distribuída `backend` ↔ `modulo-ia` (gera `docs/benchmark_comunicacao_brutas.csv`)
+    # Com Docker Compose ativo (postgres, modulo-ia e backend):
+    node scripts/benchmark-comunicacao.mjs --scenarios ia_direto,backend_com_ia
+    # Cenário de indisponibilidade/fallback (com modulo-ia parado):
+    docker compose stop modulo-ia
+    node scripts/benchmark-comunicacao.mjs --scenarios backend_fallback_baseline --append
+    docker compose start modulo-ia
 
 ### Benchmark de desempenho da IA (no ambiente Python ou Docker do `modulo-ia`)
     docker build --target test --progress=plain ./modulo-ia

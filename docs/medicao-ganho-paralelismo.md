@@ -1,12 +1,13 @@
 # Medição do Ganho Obtido com o Paralelismo — Recomendações (`modulo-ia`)
 
 ## 1. Ambiente, máquina e metodologia
-- **Data de referência:** 24 de novembro de 2026 (`2026-11-24`, `17:42:54 UTC`).
+- **Data de referência:** 24 de novembro de 2026 (`2026-11-24`, `17:42:54 UTC` para paralelismo; `2026-11-25`, `01:08:49 UTC` para comunicação distribuída).
+- **Rastreabilidade Git:** branch `feat/unidade2-paralelismo-benchmarks`, commit SHA `93628a1fa677193f818708aa753ecc4cda125542` (`93628a1`).
 - **Máquina / ambiente de execução:**
   - **SO:** Microsoft Windows 11 (`10.0.26300-SP0`, PowerShell)
   - **CPU:** `11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz` (`2419 MHz`, 4 núcleos físicos / 8 CPUs lógicas)
   - **Memória RAM:** `15,80 GB`
-  - **Runtime:** Python `3.14.7` (reprodutível via `cd modulo-ia && python -m benchmark_parallel`)
+  - **Runtimes:** Python `3.14.7` (reprodutível via `cd modulo-ia && python -m benchmark_parallel`), Node.js `v24.19.0` (reprodutível via `node scripts/benchmark-comunicacao.mjs`) e Docker Compose (`postgres:16`, `backend`, `modulo-ia` em `python:3.13-slim`).
   - **Estado de carga:** execução local dedicada, sem outros benchmarks concorrentes.
 - **Métricas coletadas:** latência (mediana, média e desvio padrão em `ms`), **throughput** (`produtos/s` no lote e `candidatos/s` no ranqueamento unitário), *speedup* e redução percentual de tempo.
 - **Tarefas reais medidas do produto (`modulo-ia/app/recommendation.py`, integradas em `app/fallback.py` e `app/service.py`):**
@@ -55,6 +56,23 @@ Catálogo de `1.000` peças; pré-cálculo das 5 melhores recomendações por pr
 | **5.000** | Paralelo `thread` (`w=2`) | 20,331 ms | 21,941 ± 4,218 ms | 245.935 cand/s | 1,23x | +18,70% |
 | **5.000** | Paralelo `thread` (`w=4`) | 21,503 ms | 21,950 ± 1,777 ms | 232.527 cand/s | 1,16x | +14,01% |
 
-## 5. Validação automatizada e integração no produto
+## 5. Benchmark de Comunicação Distribuída (`backend` ↔ `modulo-ia`)
+
+Para caracterizar estatisticamente o custo e a variação da comunicação entre os serviços distribuídos, foi executado o script reproduzível [`scripts/benchmark-comunicacao.mjs`](../scripts/benchmark-comunicacao.mjs) sobre a pilha Docker Compose (`origem-postgres` `:5433`, `origem-modulo-ia-1` `:3001`, `origem-backend-1` `:4000`) gerada a partir do commit `93628a1fa677193f818708aa753ecc4cda125542`.
+
+- **Protocolo:** `5` requisições de aquecimento descartadas + `30` repetições cronometradas com `performance.now()` por cenário (**`90` amostras brutas** com SHA, branch, timestamp e ambiente em [`docs/benchmark_comunicacao_brutas.csv`](benchmark_comunicacao_brutas.csv)).
+- **Carga testada:** catálogo real de 14 peças do PostgreSQL/JSON, `produtoId=2001` (`prd_201`), `limite=4` (e `limit=5` no endpoint direto da IA), cabeçalho `X-API-Key` autenticado e `RECOMENDACAO_TIMEOUT_MS=2000`.
+
+| Cenário | Taxa HTTP 200 | Fonte (`X-Recomendacao-Fonte`) | Latência Mediana | Média ± Desvio Padrão | Percentil P95 | Mín – Máx | Throughput |
+|---|---:|---|---:|---:|---:|---:|---:|
+| **`ia_direto`** (`POST :3001/recommendations`) | 30/30 (100%) | `ia_direto` | **10,943 ms** | 11,978 ± 4,700 ms | 20,655 ms | 5,871 – 22,836 ms | **91,4 req/s** |
+| **`backend_com_ia`** (`GET :4000/produtos/recomendacoes`) | 30/30 (100%) | `ia` | **17,694 ms** | 19,426 ± 4,728 ms | 28,195 ms | 13,658 – 34,151 ms | **56,5 req/s** |
+| **`backend_fallback_baseline`** (`modulo-ia` parado) | 30/30 (100%) | `baseline` | **2.013,959 ms** | 2.014,869 ± 4,870 ms | 2.026,490 ms | 2.008,477 – 2.027,469 ms | **0,5 req/s** |
+
+- **Custo distribuído observado:** a inferência Python pura dentro do container `modulo-ia-1` leva `0,19`–`0,56 ms` (`elapsed_ms` nos logs BentoML), enquanto a chamada completa pelo `backend` (`Express + Prisma/PostgreSQL + HTTP/JSON para modulo-ia`) apresenta mediana de **`17,694 ms`** (`+6,751 ms` sobre `ia_direto` e ~`17 ms` de overhead de rede/E/S sobre o cálculo puro), mantendo margem de ~70× abaixo do SLA de `2.000 ms` (TC09).
+- **Impacto do fallback sob indisponibilidade:** com o `modulo-ia` parado, **100% das 30 requisições** continuam retornando `HTTP 200` com `X-Recomendacao-Fonte: baseline`, mas aguardam a janela inteira de timeout (`2.000 ms`) antes de executar o *baseline* local (~`14 ms`), reduzindo o throughput de `56,5 req/s` para `0,5 req/s` — ver análise completa e recomendação de *circuit breaker* em [`docs/relatorio-interpretacao-decisoes-tecnicas.md`](relatorio-interpretacao-decisoes-tecnicas.md).
+
+## 6. Validação automatizada e integração no produto
 - **Integração no fluxo real:** `select_candidates` em `modulo-ia/app/fallback.py` utiliza `rank_candidates_parallel`, e `POST /recommendations/batch` em `modulo-ia/app/service.py` utiliza `select_candidates_batch` (`rank_batch_recommendations_parallel`), com limiares e executor configuráveis em `modulo-ia/app/config.py`.
-- **Equivalência e testes:** suíte completa `pytest` em `modulo-ia/tests/` executada via `docker build --target test --progress=plain ./modulo-ia` — **33/33 testes aprovados em 5,00 s** (equivalência exata entre sequencial, `thread` e `process`, endpoints HTTP `/recommendations` e `/recommendations/batch`, serviço e desempenho P95).
+- **Equivalência e testes (`modulo-ia`):** suíte completa `pytest` em `modulo-ia/tests/` executada via `docker build --target test --progress=plain ./modulo-ia` — **33/33 testes aprovados** (equivalência exata entre sequencial, `thread` e `process`, endpoints HTTP `/recommendations` e `/recommendations/batch`, serviço e desempenho P95).
+- **Testes de integração de API (`backend` + `modulo-ia` em Docker, SHA `93628a1`):** `npm --prefix frontend run test:api -- tests/api/recomendacoes.test.ts tests/api/modulo-ia.test.ts` — **2/2 suítes, 8/8 testes aprovados em `3,587 s`**.
