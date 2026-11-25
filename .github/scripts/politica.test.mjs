@@ -6,6 +6,28 @@ import assert from "node:assert/strict";
 import { analisar } from "./verificar-quarentena.mjs";
 import { planejar, resposta } from "./rotular-manutencao.mjs";
 import { lerCasos, piorCor, resumirEsteira, resumirNivel, semaforo } from "../../scripts/metricas.mjs";
+import { avisoDeNavegador, ehChrome, navegadorDoE2E } from "../../scripts/navegador-e2e.mjs";
+
+test("E2E usa o Chrome da esteira quando E2E_BROWSER não é informado", () => {
+  assert.equal(navegadorDoE2E({}), "chrome");
+  assert.equal(navegadorDoE2E({ E2E_BROWSER: "electron" }), "electron");
+});
+
+test("Chrome pelo nome ou pelo caminho do binário não gera aviso", () => {
+  for (const navegador of ["chrome", "/usr/bin/google-chrome-stable", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"]) {
+    assert.equal(ehChrome(navegador), true, navegador);
+    assert.equal(avisoDeNavegador(navegador), null, navegador);
+  }
+});
+
+test("navegador diferente do Chrome avisa que a reprovação não é prova de defeito", () => {
+  for (const navegador of ["electron", "firefox", "/usr/bin/brave-browser", "chromium"]) {
+    assert.equal(ehChrome(navegador), false, navegador);
+    assert.match(avisoDeNavegador(navegador), /esteira usa o Chrome/);
+    assert.match(avisoDeNavegador(navegador), /não é prova de defeito/);
+    assert.ok(avisoDeNavegador(navegador).includes(`"${navegador}"`));
+  }
+});
 
 test("teste pulado sem issue viola a política", () => {
   const { violacoes, marcados } = analisar('it.skip("não cita nada", () => {});', "a.test.ts");
