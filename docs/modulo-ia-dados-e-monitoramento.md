@@ -12,14 +12,15 @@ Foi criado o script idempotente `database/sql/10_estrutura_modulo_ia.sql` no Pos
 - **View:** `public.vw_catalogo_recomendacao_ia`, consolidando `produto`, `categoria`, `loja` e `estoque` com os campos esperados pelo recomendador (`product_id`, `name`, `category`, `technique`, `region`, `available`, além de `preco`, `selo_ativo`, `quantidade_disponivel`, `id_loja` e `id_categoria`).
 - **Regra de disponibilidade (`available`):** `NOT p.excluido AND NOT p.pausado AND UPPER(TRIM(p.status_validacao)) = 'APROVADA' AND COALESCE(e.quantidade_disponivel, 0) > 0`.
 
-## 2. Validação dos Dados Utilizados pela IA
+## 2. Validação dos Dados e Consistência entre Fontes
 
-Na auditoria executada sobre `public.vw_catalogo_recomendacao_ia`:
+Na auditoria executada sobre `public.vw_catalogo_recomendacao_ia` e os arquivos JSON de `modulo-ia/data/`:
 
-- **Total de itens:** 15 (`13` disponíveis e `2` indisponíveis).
-- **Campos nulos/vazios em itens disponíveis:** `0` sem categoria, `0` sem técnica e `0` sem região.
-- **Integridade numérica:** `0` itens com `preco <= 0` ou `quantidade_disponivel < 0`.
-- **Observação de padronização:** identificada variação de capitalização/granularidade em `region` (`"pernambuco"` com `0` disponíveis frente a padrões como `"Agreste - PE"`, `"Zona da Mata - PE"`, `"Sertão do São Francisco - PE"` e `"Sertão do Pajeú - PE"`). A comparação no recomendador já normaliza via `strip().casefold()`.
+- **Seed oficial (`database/sql/05_seed_dados_reais.sql`) e catálogo JSON de referência (`modulo-ia/data/catalogo_origem.json`):** 14 produtos (`2001`–`2014`), sendo `12` disponíveis e `2` indisponíveis. O `catalogo_origem.json` atua como *fallback* local quando a conexão com o banco não está ativa.
+- **PostgreSQL (`public.vw_catalogo_recomendacao_ia` no `origem_db`) e reprodução do item `2015`:** o seed oficial permanece com os 14 produtos (`2001`–`2014`). O 15.º registro (`id_produto = 2015`, `"Xicara de Barro"`, `SKU ORG-002015`, `status_validacao = REPROVADA`, `available = false`, `region = "pernambuco"`) foi criado via fluxo da aplicação em `2026-11-23` (não fazendo parte do seed inicial de 14 itens) e pode ser reproduzido criando um produto na aplicação ou executando um `INSERT` isolado em `produto` e `estoque` no `origem_db` após o seed.
+- **Catálogo JSON sintético (`modulo-ia/data/catalogo.json`):** 8 produtos utilizados exclusivamente pela suíte de testes automatizados (`CATALOGO_IA`).
+- **Completude:** `0` registros disponíveis sem `category`, `technique` ou `region`; `0` registros com `preco <= 0` ou `quantidade_disponivel < 0`.
+- **Convenção de região e normalização:** o PostgreSQL (`vw_catalogo_recomendacao_ia`) possui regiões como `Agreste - PE`, `Zona da Mata - PE`, `Sertão do São Francisco - PE` e `Sertão do Pajeú - PE` (além de `"pernambuco"` no item `2015`), enquanto `catalogo_origem.json` mantém `Agreste`, `Zona da Mata`, `Sertão do São Francisco` e `Sertão do Pajeú` para compatibilidade com os testes existentes; o motor de recomendação realiza comparação normalizada (`strip().casefold()`).
 
 ## 3. Acesso a Dados, Integração e Logs de Execução
 
@@ -29,7 +30,7 @@ Na auditoria executada sobre `public.vw_catalogo_recomendacao_ia`:
 
 ## 4. Testes e Evidências de Monitoramento
 
-- **Build e testes unitários:** 33 testes aprovados no build do `modulo-ia` e asserções unitárias de `repository.py` e `observability.py` aprovadas.
+- **Build e testes unitários:** 33 testes aprovados no estágio `test` do `modulo-ia` (`docker build --target test --progress=plain ./modulo-ia`, com `bentoml`, `pytest` e `requests` instalados no ambiente) e asserções unitárias de `repository.py` e `observability.py` aprovadas.
 - **Testes HTTP:** validação de `401` sem `X-API-Key`, `404` para produto inexistente e `200` em `/recommendations` e `/recommendations/batch`.
 
 ### Resumo de Latência e Execuções (`modulo_ia_execucao`)

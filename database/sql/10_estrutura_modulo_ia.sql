@@ -1,6 +1,4 @@
 ﻿-- 10_estrutura_modulo_ia.sql
--- Estrutura de dados do modulo de IA sobre as tabelas do catalogo relacional.
--- Idempotente: pode ser reaplicada com seguranca.
 
 CREATE INDEX IF NOT EXISTS idx_produto_recomendacao_ativo
     ON public.produto (status_validacao, excluido, pausado, fk_categoria_id_categoria, fk_loja_id_loja)

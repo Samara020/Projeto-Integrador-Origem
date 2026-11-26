@@ -304,7 +304,7 @@ Os testes de serviço e desempenho verificam os cenários implementados nos resp
 
 Na validação das correções dos filtros e da disponibilidade, a suíte completa apresentou os seguintes resultados:
 
-- 25 testes aprovados;
+- 33 testes aprovados;
 - 0 testes com falha.
 
 A execução incluiu testes HTTP, desempenho, lógica de recomendação e configuração do serviço.
