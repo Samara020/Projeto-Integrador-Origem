@@ -1,12 +1,12 @@
 ﻿import os
-import time
 
 import bentoml
 from pydantic import BaseModel
 
-from app.catalog import find_product, load_catalog
 from app.config import DEFAULT_LIMIT, MAX_LIMIT, get_api_key
 from app.fallback import select_candidates, select_candidates_batch
+from app.observability import iniciar_cronometro, registrar_execucao
+from app.repository import get_catalog_items, get_repository_product
 
 
 class CatalogItem(BaseModel):
@@ -132,7 +132,7 @@ def obter_produto_referencia(ctx, product_id, catalog=None):
     if product_id is None:
         return None, None
 
-    reference_product = find_product(product_id, catalog=catalog)
+    reference_product = get_repository_product(product_id, catalog=catalog)
 
     if reference_product is None:
         return None, error_response(
@@ -166,16 +166,6 @@ def montar_contexto(request, reference_product):
     return context
 
 
-def registrar_desempenho(recommendations, start_time):
-    elapsed = time.perf_counter() - start_time
-
-    print(
-        f"recommendation_request "
-        f"results={len(recommendations)} "
-        f"elapsed_ms={elapsed * 1000:.2f}"
-    )
-
-
 @bentoml.service(
     traffic={"timeout": 2}
 )
@@ -190,28 +180,52 @@ class RecommendationService:
         ctx: bentoml.Context,
         **params,
     ) -> dict:
-
+        start_time = iniciar_cronometro()
         request = RecommendationRequest(**params)
-        start_time = time.perf_counter()
+        reference_id = normalizar_texto(request.product_id)
+        origem_catalogo = "payload" if request.catalog is not None else "repository_or_json"
 
         erro = validar_disponibilidade(ctx)
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations",
+                status="erro",
+                start_time=start_time,
+                product_id=reference_id,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         erro = validar_autenticacao(ctx)
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations",
+                status="erro",
+                start_time=start_time,
+                product_id=reference_id,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         erro = validar_requisicao(ctx, request)
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations",
+                status="erro",
+                start_time=start_time,
+                product_id=reference_id,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         catalog = (
             [item.model_dump() for item in request.catalog]
             if request.catalog is not None
-            else None
+            else get_catalog_items()
         )
-        reference_id = normalizar_texto(request.product_id)
 
         reference_product, erro = obter_produto_referencia(
             ctx,
@@ -219,6 +233,14 @@ class RecommendationService:
             catalog=catalog,
         )
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations",
+                status="erro",
+                start_time=start_time,
+                product_id=reference_id,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         context = montar_contexto(request, reference_product)
@@ -230,7 +252,14 @@ class RecommendationService:
             catalog=catalog,
         )
 
-        registrar_desempenho(recommendations, start_time)
+        registrar_execucao(
+            rota="/recommendations",
+            status="sucesso",
+            start_time=start_time,
+            product_id=reference_id,
+            origem_catalogo=origem_catalogo,
+            total_resultados=len(recommendations),
+        )
 
         return {
             "recommendations": recommendations
@@ -245,18 +274,40 @@ class RecommendationService:
         ctx: bentoml.Context,
         **params,
     ) -> dict:
+        start_time = iniciar_cronometro()
         request = BatchRecommendationRequest(**params)
-        start_time = time.perf_counter()
+        origem_catalogo = "payload" if request.catalog is not None else "repository_or_json"
 
         erro = validar_disponibilidade(ctx)
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations/batch",
+                status="erro",
+                start_time=start_time,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         erro = validar_autenticacao(ctx)
         if erro is not None:
+            registrar_execucao(
+                rota="/recommendations/batch",
+                status="erro",
+                start_time=start_time,
+                origem_catalogo=origem_catalogo,
+                codigo_erro=erro["error"]["code"],
+            )
             return erro
 
         if request.limit < 1 or request.limit > MAX_LIMIT:
+            registrar_execucao(
+                rota="/recommendations/batch",
+                status="erro",
+                start_time=start_time,
+                origem_catalogo=origem_catalogo,
+                codigo_erro="INVALID_LIMIT",
+            )
             return error_response(
                 ctx,
                 400,
@@ -267,7 +318,7 @@ class RecommendationService:
         catalog = (
             [item.model_dump() for item in request.catalog]
             if request.catalog is not None
-            else load_catalog()
+            else get_catalog_items()
         )
 
         if request.product_ids:
@@ -282,7 +333,13 @@ class RecommendationService:
             limit=request.limit,
         )
 
-        registrar_desempenho(recommendations_by_product, start_time)
+        registrar_execucao(
+            rota="/recommendations/batch",
+            status="sucesso",
+            start_time=start_time,
+            origem_catalogo=origem_catalogo,
+            total_resultados=len(recommendations_by_product),
+        )
 
         return {
             "total_products": len(recommendations_by_product),
