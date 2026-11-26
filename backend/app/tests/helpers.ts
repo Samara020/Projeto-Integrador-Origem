@@ -20,6 +20,7 @@ export async function limparBanco() {
   await prisma.produto.deleteMany();
   await prisma.loja.deleteMany();
   await prisma.categoria.deleteMany();
+  await prisma.acaoAdministrativaUsuario.deleteMany();
   await prisma.usuario.deleteMany();
 }
 

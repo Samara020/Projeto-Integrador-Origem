@@ -370,10 +370,12 @@
     "backend/app/tests/pagamento-auth.unit.test.ts": {
       "tipo": "requisito",
       "casos": [
-        "TC11"
+        "TC11",
+        "TC24"
       ],
       "hu": [
-        "HU-01"
+        "HU-01",
+        "HU-16"
       ],
       "origem": "título"
     },

@@ -19,6 +19,8 @@ model Usuario {
   funcao      String? @db.VarChar(100)
   // COMPRADOR | ARTESAO | ADMINISTRADOR
   usuarioTipo String  @map("usuario_tipo") @db.VarChar(20)
+  // ATIVO | SUSPENSO. Conta suspensa não entra e perde as sessões abertas.
+  situacao    String  @default("ATIVO") @db.VarChar(20)
 
   loja             Loja[]
   carrinho         Carrinho?
@@ -28,6 +30,8 @@ model Usuario {
   personalizacoes  Personalizacao[]
   recuperacoes     RecuperacaoSenha[]
   produtosDecididos Produto[] @relation("ProdutoDecididoPor")
+  acoesRecebidas   AcaoAdministrativaUsuario[] @relation("AcaoAdministrativaAlvo")
+  acoesRealizadas  AcaoAdministrativaUsuario[] @relation("AcaoAdministrativaResponsavel")
 
   @@map("usuario")
 }
@@ -327,4 +331,23 @@ model TentativaLogin {
   atualizadoEm DateTime  @default(now()) @map("atualizado_em") @db.Timestamp(6)
 
   @@map("tentativa_login")
+}
+
+// Auditoria das ações do administrador sobre um cadastro (HU-16): uma linha por ação.
+model AcaoAdministrativaUsuario {
+  id                 Int      @id(map: "pk_acao_administrativa_usuario") @default(autoincrement()) @map("id_acao")
+  alvoId             Int      @map("fk_usuario_alvo")
+  responsavelId      Int      @map("fk_usuario_responsavel")
+  // SUSPENDER | REATIVAR
+  acao               String   @db.VarChar(20)
+  justificativa      String
+  // ATIVO | SUSPENSO: o resultado da ação
+  situacaoResultante String   @map("situacao_resultante") @db.VarChar(20)
+  realizadaEm        DateTime @default(now()) @map("realizada_em") @db.Timestamp(6)
+
+  alvo        Usuario @relation("AcaoAdministrativaAlvo", fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_acao_usuario_alvo")
+  responsavel Usuario @relation("AcaoAdministrativaResponsavel", fields: [responsavelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_acao_usuario_responsavel")
+
+  @@index([alvoId], map: "idx_acao_usuario_alvo")
+  @@map("acao_administrativa_usuario")
 }

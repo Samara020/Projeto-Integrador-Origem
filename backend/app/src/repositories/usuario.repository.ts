@@ -10,6 +10,12 @@ export const usuarioRepository = {
     return prisma.usuario.findUnique({ where: { id: toId(id) } });
   },
 
+  /** Lê só a situação (ATIVO | SUSPENSO), sempre do banco, para o login decidir na hora. */
+  async buscarSituacao(id: Id) {
+    const usuario = await prisma.usuario.findUnique({ where: { id: toId(id) }, select: { situacao: true } });
+    return usuario?.situacao ?? null;
+  },
+
   criar(dados: {
     nome: string;
     email: string;

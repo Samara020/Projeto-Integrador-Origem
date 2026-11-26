@@ -145,7 +145,7 @@ Cada caso do backlog de [`docs/testes/plano-de-testes.md`](testes/plano-de-teste
 | TC21 | Integração | `pedidos.test.ts` | push, PR, merge e diária | Automatizado |
 | TC22 | Integração e Componente | `pedidos.test.ts`, `historico-compras.test.tsx` | push, PR, merge e diária | Automatizado |
 | TC23 | Integração | `bloqueios-contrato.test.ts` | push, PR, merge e diária | Automatizado |
-| TC24 | Integração e API | `admin-def04.test.ts`, `admin.test.ts` (parte do caso) | push, PR, merge e diária | Pendente, issue #39 |
+| TC24 | Integração e API | `admin-def04.test.ts`, `admin.test.ts`, `pagamento-auth.unit.test.ts` | push, PR, merge e diária | Automatizado |
 
 Dos 24 casos, 23 estão automatizados e rodam na esteira. Os casos `@smoke` do PR são de TC01, TC02 e TC06/TC13. A conferência da gestão dos testes reprova se o backlog disser "Automatizado" para um arquivo que não tem o identificador no título.
 
@@ -154,7 +154,7 @@ Divergências e decisões:
 | Item | O que o backlog diz | O que existe | Decisão |
 |---|---|---|---|
 | TC07, TC10, TC15, TC16, TC21 e TC22 | Casos prioritários | Tinham teste do comportamento sem o identificador no título | Resolvido em 25/11: identificador acrescentado. |
-| TC24 | Gestão administrativa, com suspensão e reativação de cadastro | O sistema não tem suspensão nem reativação | [Issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39). O caso segue pendente até a equipe implementar ou tirar do escopo. |
+| TC24 | Gestão administrativa, com suspensão e reativação de cadastro | Em 25/11 o sistema não tinha suspensão nem reativação | Implementado no servidor em 26/11 ([issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39)), com teste do ciclo inteiro. A tela e o efeito sobre a loja do artesão ficaram na [issue #42](https://github.com/Samara020/Projeto-Integrador-Origem/issues/42). |
 | Lacunas técnicas de API | Não estão no backlog de casos | Códigos de erro sem teste próprio em carrinho, frete, perfil e painel | Listadas em [`docs/testes/suite-de-api.md`](testes/suite-de-api.md), fora da cobertura de riscos. |
 | Testes de recomendações (`modulo-ia/tests/`, `recomendacoes*.test.ts`) | Não estão no backlog | Rodam em todo push | Manter. Ficam fora da cobertura de riscos por não terem caso no plano. |
 | Testes do backend sem `TCnn` (estruturas de dados, segurança, persistência) | Não estão no backlog | Rodam em todo push | Tratar como detalhe técnico, rastreado por arquivo. |

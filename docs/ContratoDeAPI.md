@@ -84,6 +84,11 @@ Autentica o usuário e emite o token de sessão JWT.
 > seguidas para o mesmo e-mail, novas tentativas retornam `429 Too Many Requests`
 > com cabeçalho `Retry-After` (bloqueio temporário de `15` minutos). Um login
 > bem-sucedido antes do limite ou após a expiração do bloqueio zera o contador. Logout e expiração natural continuam válidos.
+>
+> **Conta suspensa (HU-16 / TC24):** com e-mail e senha corretos, a conta suspensa pelo
+> administrador recebe `403 Forbidden` com `{ "mensagem": "Esta conta está suspensa. Fale com o suporte da Origem." }`
+> e nenhum token. Com senha errada a resposta é o mesmo `401` de conta inexistente: só quem
+> sabe a senha descobre a suspensão.
 
 #### POST /auth/logout
 Encerra a sessão ativa e revoga imediatamente o token JWT apresentado no cabeçalho `Authorization: Bearer <token>`. Qualquer requisição subsequente utilizando o mesmo token retorna `401 Unauthorized` até sua expiração natural.
@@ -990,8 +995,8 @@ Retorna métricas globais e indicadores administrativos da plataforma.
   "totalArtesaos": 45,
   "volumeTransacionadoGlobal": 28450.00,
   "usuariosCadastrados": [
-    { "id": 1, "nome": "Ana Compradora", "papel": "COMPRADOR" },
-    { "id": 2, "nome": "Bia Artesã", "papel": "ARTESAO" }
+    { "id": "1", "nome": "Ana Compradora", "papel": "COMPRADOR", "situacao": "ATIVO" },
+    { "id": "2", "nome": "Bia Artesã", "papel": "ARTESAO", "situacao": "SUSPENSO" }
   ],
   "artesaosCadastrados": [
     { "id": 2, "nome": "Bia Artesã", "papel": "ARTESAO" }
@@ -1000,9 +1005,52 @@ Retorna métricas globais e indicadores administrativos da plataforma.
 ```
 
 `usuariosCadastrados` traz a lista completa de contas e `artesaosCadastrados` o recorte
-de papel `ARTESAO`, ambos com `id`, `nome` e `papel`. As listas não incluem senha,
-hash nem token e existem para consulta no painel; edição e remoção de contas não
-fazem parte deste endpoint.
+de papel `ARTESAO`, ambos com `id`, `nome` e `papel`. `usuariosCadastrados` traz também
+`situacao` (`ATIVO` ou `SUSPENSO`). As listas não incluem senha, hash nem token e existem
+para consulta no painel; edição e remoção de contas não fazem parte deste endpoint.
+
+#### PUT /admin/usuarios/{id}/suspensao
+Suspende um cadastro (HU-16, critério "Ação auditável"). Só administrador. A conta suspensa
+não entra mais (ver `POST /auth/login`) e perde na hora as sessões abertas: o token emitido
+antes passa a receber `401` com `{ "mensagem": "Sessão encerrada. Faça login novamente." }`.
+
+```json
+{
+  "justificativa": "Denúncias de pedido não entregue."
+}
+```
+*Response (200 OK):*
+```json
+{
+  "id": "17",
+  "situacao": "SUSPENSO",
+  "acao": "SUSPENDER",
+  "justificativa": "Denúncias de pedido não entregue.",
+  "responsavelId": "3",
+  "realizadaEm": "2026-11-26T14:02:11.000Z"
+}
+```
+
+#### PUT /admin/usuarios/{id}/reativacao
+Reativa um cadastro suspenso. Mesmo corpo e mesma resposta, com `"situacao": "ATIVO"` e
+`"acao": "REATIVAR"`. A conta volta a entrar com um login novo; o token de antes da
+suspensão continua inválido.
+
+> Regras das duas rotas:
+> - `justificativa` é obrigatória nas duas ações, de 1 a 1000 caracteres depois de tirar os
+>   espaços das pontas. Ausente, vazia ou que não seja texto: `400` com
+>   `{ "mensagem": "Informe a justificativa da ação." }`.
+> - Sem token: `401`. Perfil que não é `ADMINISTRADOR`: `403`.
+> - Cadastro inexistente ou `id` inválido: `404`.
+> - Ação que não muda a situação (suspender conta já suspensa, reativar conta ativa): `409`.
+> - O administrador não suspende a própria conta: `409`.
+> - Cada ação grava uma linha na tabela `acao_administrativa_usuario` com o cadastro alvo, o
+>   responsável, a ação, a justificativa, a situação resultante e a data. Reativar não apaga
+>   o registro da suspensão. Situação, registro e derrubada das sessões valem juntos ou não
+>   valem (uma transação). Ainda não há rota para ler esse histórico.
+> - Limite desta entrega: a suspensão atinge só o acesso da conta. A loja e as peças de um
+>   artesão suspenso continuam visíveis no catálogo e podem ser compradas, e os pedidos em
+>   aberto seguem como estão. A tela no painel do administrador também fica para outra issue.
 
 ---
 

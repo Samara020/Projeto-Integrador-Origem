@@ -144,7 +144,14 @@ export const authService = {
       await usuarioRepository.atualizarSenha(usuario.id, novoHash);
     }
 
+    // A versão da sessão é lida antes da situação. A suspensão grava situação e versão na
+    // mesma transação: se ela acontecer entre as duas leituras, a situação já vem SUSPENSO;
+    // se acontecer depois, o token sai com a versão antiga e o middleware o recusa.
     const sv = await obterVersaoSessaoUsuario(String(usuario.id));
+    // Só chega aqui quem acertou a senha: a resposta não revela a conta a quem não é o dono.
+    if ((await usuarioRepository.buscarSituacao(usuario.id)) === "SUSPENSO") {
+      throw new ErroApp(403, "Esta conta está suspensa. Fale com o suporte da Origem.");
+    }
     const token = gerarToken({
       id: String(usuario.id),
       email: usuario.email,

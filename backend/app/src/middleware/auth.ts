@@ -30,7 +30,7 @@ export const autenticar = async (req: Request, res: Response, next: NextFunction
     }
     const dados = verificarToken(token);
     if (await sessaoUsuarioInvalidada(dados.id, dados.iat, dados.sv)) {
-      return res.status(401).json({ mensagem: "Sessão encerrada após alteração de senha. Faça login novamente." });
+      return res.status(401).json({ mensagem: "Sessão encerrada. Faça login novamente." });
     }
     req.usuario = dados;
     req.tokenBruto = token;

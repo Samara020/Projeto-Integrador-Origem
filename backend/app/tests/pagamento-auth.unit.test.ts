@@ -15,6 +15,7 @@ jest.mock("../src/repositories/pagamento.repository", () => ({
 jest.mock("../src/repositories/usuario.repository", () => ({
   usuarioRepository: {
     buscarPorEmail: jest.fn(),
+    buscarSituacao: jest.fn(async () => "ATIVO"),
     atualizarSenha: jest.fn(),
   },
 }));
@@ -44,6 +45,8 @@ import { pedidoRepository } from "../src/repositories/pedido.repository";
 import { pagamentoRepository } from "../src/repositories/pagamento.repository";
 import { usuarioRepository } from "../src/repositories/usuario.repository";
 import { tentativaLoginRepository } from "../src/repositories/tentativa-login.repository";
+import { gerarToken } from "../src/lib/jwt";
+import { obterVersaoSessaoUsuario } from "../src/lib/revogacao-token";
 import { ErroApp } from "../src/middleware/error";
 
 type MockFn = jest.Mock<(...args: any[]) => any>;
@@ -292,3 +295,52 @@ describe("authService.login (unitário — TC11 limite de tentativas)", () => {
     expect(tentativaLoginRepository.limpar).toHaveBeenCalledWith("maria@teste.com");
   });
 });
+
+describe("authService.login (unitário — TC24 conta suspensa)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    asMock(usuarioRepository.buscarSituacao).mockReset().mockImplementation(async () => "ATIVO");
+    asMock(tentativaLoginRepository.buscar).mockResolvedValue(null);
+    asMock(usuarioRepository.buscarPorEmail).mockResolvedValue({
+      id: 9,
+      nome: "Rita",
+      email: "rita@teste.com",
+      senha: "senha-correta",
+      usuarioTipo: "ARTESAO",
+    });
+  });
+
+  test("senha correta em conta suspensa responde 403 e não emite token", async () => {
+    asMock(usuarioRepository.buscarSituacao).mockResolvedValue("SUSPENSO");
+
+    await expect(authService.login({ email: "rita@teste.com", senha: "senha-correta" })).rejects.toMatchObject({
+      status: 403,
+      message: "Esta conta está suspensa. Fale com o suporte da Origem.",
+    });
+
+    expect(gerarToken).not.toHaveBeenCalled();
+  });
+
+  test("senha errada em conta suspensa responde 401 sem consultar a situação", async () => {
+    asMock(usuarioRepository.buscarSituacao).mockResolvedValue("SUSPENSO");
+
+    await expect(authService.login({ email: "rita@teste.com", senha: "senha-errada" })).rejects.toMatchObject({
+      status: 401,
+    });
+
+    expect(usuarioRepository.buscarSituacao).not.toHaveBeenCalled();
+    expect(gerarToken).not.toHaveBeenCalled();
+  });
+
+  // A suspensão grava situação e versão de sessão juntas. Ler a versão antes da situação
+  // garante que uma suspensão no meio do login não deixa sair um token válido.
+  test("lê a versão da sessão antes da situação da conta", async () => {
+    await authService.login({ email: "rita@teste.com", senha: "senha-correta" });
+
+    const ordemDaVersao = asMock(obterVersaoSessaoUsuario).mock.invocationCallOrder[0];
+    const ordemDaSituacao = asMock(usuarioRepository.buscarSituacao).mock.invocationCallOrder[0];
+    expect(ordemDaVersao).toBeLessThan(ordemDaSituacao);
+    expect(usuarioRepository.buscarSituacao).toHaveBeenCalledWith(9);
+  });
+});
+
