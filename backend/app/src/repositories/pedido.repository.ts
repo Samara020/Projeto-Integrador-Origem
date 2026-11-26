@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
 import { ErroApp } from "../middleware/error";
+import { Prisma } from "@prisma/client";
 
 const PREFIXO_RASTREIO = "Rastreio: ";
 
@@ -28,6 +29,24 @@ export const pedidoRepository = {
 
       if (itensCarrinho.length === 0) {
         throw new ErroApp(400, "Carrinho vazio.");
+      }
+
+      // A peça pode ter entrado no carrinho antes de a loja ser suspensa (HU-16). A leitura
+      // trava a linha do dono da loja (FOR SHARE): se uma suspensão estiver em andamento, o
+      // checkout espera ela terminar e lê a situação já gravada; se o checkout chegar antes,
+      // a suspensão espera e encontra este pedido para cancelar. Não sobra pedido novo de
+      // loja suspensa.
+      const lojaIds = [...new Set<number>(itensCarrinho.map((item: any) => item.produto.lojaId))];
+      const donos: { id_loja: number; situacao: string }[] = await tx.$queryRaw`
+        SELECT l.id_loja, u.situacao
+        FROM loja l
+        JOIN usuario u ON u.id_usuario = l.fk_usuario_id_usuario
+        WHERE l.id_loja IN (${Prisma.join(lojaIds)})
+        FOR SHARE OF u`;
+      const lojasSuspensas = new Set(donos.filter((dono) => dono.situacao !== "ATIVO").map((dono) => dono.id_loja));
+      const deLojaSuspensa = itensCarrinho.find((item: any) => lojasSuspensas.has(item.produto.lojaId));
+      if (deLojaSuspensa) {
+        throw new ErroApp(409, `A peça "${deLojaSuspensa.produto.nome}" não está mais disponível. Retire-a do carrinho para continuar.`);
       }
 
       const itensAtualizados = itensCarrinho.map((item: any) => {

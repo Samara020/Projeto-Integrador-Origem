@@ -83,10 +83,11 @@ export const carrinhoRepository = {
       await tx.$queryRaw`SELECT id_estoque FROM estoque WHERE fk_produto_id_produto = ${produtoIdNumerico} FOR UPDATE`;
       const produto = await tx.produto.findFirst({
         where: { id: produtoIdNumerico, excluido: false },
-        include: { estoque: true },
+        include: { estoque: true, loja: { select: { usuario: { select: { situacao: true } } } } },
       });
       if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-      if (produto.pausado || produto.statusValidacao !== "APROVADA") {
+      // Peça de loja suspensa (HU-16) sai da venda como peça pausada.
+      if (produto.pausado || produto.statusValidacao !== "APROVADA" || produto.loja.usuario.situacao !== "ATIVO") {
         throw new ErroApp(409, "Produto indisponível.");
       }
 
@@ -151,10 +152,11 @@ export const carrinhoRepository = {
 
       const produto = await tx.produto.findFirst({
         where: { id: produtoIdNumerico, excluido: false },
-        include: { estoque: true },
+        include: { estoque: true, loja: { select: { usuario: { select: { situacao: true } } } } },
       });
       if (!produto) throw new ErroApp(404, "Produto nao encontrado.");
-      if (produto.pausado || produto.statusValidacao !== "APROVADA") {
+      // Peça de loja suspensa (HU-16) sai da venda como peça pausada.
+      if (produto.pausado || produto.statusValidacao !== "APROVADA" || produto.loja.usuario.situacao !== "ATIVO") {
         throw new ErroApp(409, "Produto indisponível.");
       }
 

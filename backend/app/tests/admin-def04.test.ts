@@ -2,6 +2,10 @@ import request from "supertest";
 import { criarApp } from "../src/index";
 import prisma from "../src/lib/prisma";
 import {
+  criarCategoria,
+  criarEndereco,
+  criarLoja,
+  criarProduto,
   criarUsuario,
   criarUsuarioArtesao,
   criarUsuarioComprador,
@@ -118,7 +122,9 @@ describe("TC24 · suspensão e reativação de cadastro com auditoria", () => {
 
     const resposta = await suspender(comprador.id, admin.token).expect(200);
 
-    expect(Object.keys(resposta.body).sort()).toEqual(["acao", "id", "justificativa", "realizadaEm", "responsavelId", "situacao"]);
+    expect(Object.keys(resposta.body).sort()).toEqual(["acao", "efeitos", "id", "justificativa", "realizadaEm", "responsavelId", "situacao"]);
+    // Comprador não tem loja: suspender a conta dele não mexe em pedido nenhum.
+    expect(resposta.body.efeitos).toEqual({ pedidosCancelados: 0, pagamentosReembolsados: 0, valorReembolsado: 0 });
     expect(resposta.body).toMatchObject({
       id: comprador.id,
       situacao: "SUSPENSO",
@@ -285,6 +291,222 @@ describe("TC24 · suspensão e reativação de cadastro com auditoria", () => {
 
     expect(respostas.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(await auditoria(comprador.id)).toHaveLength(1);
+  });
+});
+
+// Decisão da equipe em 26/11 (issue #42): loja suspensa não vende. As peças saem da venda,
+// o pedido que ainda não foi enviado é cancelado e o que foi pago é reembolsado. Pedido já
+// enviado ou entregue segue como está.
+describe("TC24 · suspensão de artesão tira as peças da venda e reembolsa o pedido não enviado", () => {
+  beforeEach(limparBanco);
+  afterAll(limparBanco);
+
+  const SENHA = "SenhaTeste123";
+  let sequencia = 0;
+
+  async function cadastrar(papel: "COMPRADOR" | "ARTESAO" | "ADMINISTRADOR") {
+    sequencia += 1;
+    const resposta = await request(app)
+      .post("/auth/register")
+      .send({
+        nome: `${papel} Loja`,
+        email: `${papel.toLowerCase()}.loja.${Date.now()}.${sequencia}@test.com`,
+        senha: SENHA,
+        papel,
+        ...(papel === "ADMINISTRADOR" ? { codigoConvite: "origem-admin-2026" } : {}),
+      })
+      .expect(201);
+    return { id: String(resposta.body.id), token: resposta.body.token as string };
+  }
+
+  /** Artesão com loja e uma peça aprovada, com 10 unidades em estoque. */
+  async function artesaoComPeca(nome: string) {
+    const artesao = await cadastrar("ARTESAO");
+    const categoria = await criarCategoria(`Categoria ${nome}`);
+    const loja = await criarLoja(Number(artesao.id), `Loja ${nome}`);
+    const produto = await criarProduto(categoria.id, loja.id, { nome, preco: 100, estoque: 10 });
+    return { ...artesao, loja, produto };
+  }
+
+  /** Pedido gravado direto no banco, na situação pedida. Com `pago`, leva um pagamento aprovado. */
+  async function pedidoCom(compradorId: string, produtoIds: number[], status: string, pago: boolean) {
+    const endereco = await criarEndereco();
+    const pedido = await prisma.pedido.create({
+      data: {
+        usuarioId: Number(compradorId),
+        enderecoEntregaId: endereco.id,
+        status,
+        data: new Date(),
+        itens: {
+          create: produtoIds.map((produtoId, indice) => ({ numeroItem: indice + 1, produtoId, quantidade: 1, precoUnitario: 100, subtotal: 100 })),
+        },
+      },
+    });
+    if (pago) {
+      await prisma.pagamento.create({
+        data: { pedidoId: pedido.id, data: new Date(), valor: 100 * produtoIds.length, status: "APROVADO", formaPagamento: "PIX" },
+      });
+    }
+    return pedido;
+  }
+
+  const comToken = (token: string) => ({ Authorization: `Bearer ${token}` });
+  const suspender = (id: string, token: string) =>
+    request(app).put(`/admin/usuarios/${id}/suspensao`).set(comToken(token)).send({ justificativa: "Loja com denúncias de fraude." });
+  const reativar = (id: string, token: string) =>
+    request(app).put(`/admin/usuarios/${id}/reativacao`).set(comToken(token)).send({ justificativa: "Denúncias apuradas e descartadas." });
+  const estoqueDe = async (produtoId: number) =>
+    (await prisma.estoque.findUniqueOrThrow({ where: { produtoId } })).quantidadeDisponivel;
+  const statusDe = async (pedidoId: number) => (await prisma.pedido.findUniqueOrThrow({ where: { id: pedidoId } })).status;
+  const nomesNoCatalogo = async () =>
+    (await request(app).get("/produtos?limite=50").expect(200)).body.itens.map((item: { nome: string }) => item.nome);
+
+  test("peças saem do catálogo, do detalhe, do perfil da loja e do carrinho, e voltam na reativação", async () => {
+    const admin = await cadastrar("ADMINISTRADOR");
+    const comprador = await cadastrar("COMPRADOR");
+    const suspenso = await artesaoComPeca("Vaso da Loja Suspensa");
+    const outro = await artesaoComPeca("Vaso da Loja Ativa");
+
+    expect(await nomesNoCatalogo()).toEqual(expect.arrayContaining(["Vaso da Loja Suspensa", "Vaso da Loja Ativa"]));
+    await request(app).get(`/produtos/${suspenso.produto.id}`).expect(200);
+    await request(app).get(`/artesaos/${suspenso.id}/perfil`).expect(200);
+
+    await suspender(suspenso.id, admin.token).expect(200);
+
+    const nomes = await nomesNoCatalogo();
+    expect(nomes).not.toContain("Vaso da Loja Suspensa");
+    expect(nomes).toContain("Vaso da Loja Ativa");
+    await request(app).get(`/produtos/${suspenso.produto.id}`).expect(404);
+    await request(app).get(`/artesaos/${suspenso.id}/perfil`).expect(404);
+    await request(app).get(`/artesaos/${outro.id}/perfil`).expect(200);
+    const noCarrinho = await request(app)
+      .post("/carrinho/itens")
+      .set(comToken(comprador.token))
+      .send({ produtoId: String(suspenso.produto.id), quantidade: 1 })
+      .expect(409);
+    expect(noCarrinho.body).toEqual({ mensagem: "Produto indisponível." });
+    // A peça não foi apagada nem pausada: só deixou de aparecer.
+    const noBanco = await prisma.produto.findUniqueOrThrow({ where: { id: suspenso.produto.id } });
+    expect(noBanco).toMatchObject({ excluido: false, pausado: false, statusValidacao: "APROVADA" });
+
+    await reativar(suspenso.id, admin.token).expect(200);
+
+    expect(await nomesNoCatalogo()).toContain("Vaso da Loja Suspensa");
+    await request(app).get(`/produtos/${suspenso.produto.id}`).expect(200);
+    await request(app).get(`/artesaos/${suspenso.id}/perfil`).expect(200);
+    await request(app)
+      .post("/carrinho/itens")
+      .set(comToken(comprador.token))
+      .send({ produtoId: String(suspenso.produto.id), quantidade: 1 })
+      .expect((r) => expect([200, 201]).toContain(r.status));
+  });
+
+  test("peça que já estava no carrinho trava o fechamento da compra, sem criar pedido nem baixar estoque", async () => {
+    const admin = await cadastrar("ADMINISTRADOR");
+    const comprador = await cadastrar("COMPRADOR");
+    const artesao = await artesaoComPeca("Vaso no Carrinho");
+    await request(app)
+      .post("/carrinho/itens")
+      .set(comToken(comprador.token))
+      .send({ produtoId: String(artesao.produto.id), quantidade: 2 })
+      .expect((r) => expect([200, 201]).toContain(r.status));
+    await suspender(artesao.id, admin.token).expect(200);
+
+    const resposta = await request(app)
+      .post("/pedidos/checkout")
+      .set(comToken(comprador.token))
+      .send({ enderecoEntrega: { cep: "50000-000", rua: "Rua Teste", numero: "123", cidade: "Recife" } })
+      .expect(409);
+
+    expect(resposta.body.mensagem).toBe('A peça "Vaso no Carrinho" não está mais disponível. Retire-a do carrinho para continuar.');
+    expect(await prisma.pedido.count()).toBe(0);
+    expect(await estoqueDe(artesao.produto.id)).toBe(10);
+  });
+
+  test("cancela o pedido não enviado, devolve o estoque e reembolsa o que foi pago; enviado e entregue seguem", async () => {
+    const admin = await cadastrar("ADMINISTRADOR");
+    const comprador = await cadastrar("COMPRADOR");
+    const artesao = await artesaoComPeca("Vaso com Pedidos");
+    const id = artesao.produto.id;
+    const aguardando = await pedidoCom(comprador.id, [id], "AGUARDANDO_PAGAMENTO", false);
+    const pago = await pedidoCom(comprador.id, [id], "PAGO", true);
+    const emProducao = await pedidoCom(comprador.id, [id], "EM_PRODUCAO", true);
+    const enviado = await pedidoCom(comprador.id, [id], "ENVIADO", true);
+    const entregue = await pedidoCom(comprador.id, [id], "ENTREGUE", true);
+    const jaCancelado = await pedidoCom(comprador.id, [id], "CANCELADO", false);
+
+    const resposta = await suspender(artesao.id, admin.token).expect(200);
+
+    expect(resposta.body.efeitos).toEqual({ pedidosCancelados: 3, pagamentosReembolsados: 2, valorReembolsado: 200 });
+    expect(await statusDe(aguardando.id)).toBe("CANCELADO");
+    expect(await statusDe(pago.id)).toBe("CANCELADO");
+    expect(await statusDe(emProducao.id)).toBe("CANCELADO");
+    expect(await statusDe(enviado.id)).toBe("ENVIADO");
+    expect(await statusDe(entregue.id)).toBe("ENTREGUE");
+    // Três pedidos cancelados, uma unidade cada: o estoque de 10 vai a 13.
+    expect(await estoqueDe(id)).toBe(13);
+
+    const pagamentos = await prisma.pagamento.findMany({ orderBy: { pedidoId: "asc" } });
+    expect(pagamentos.map((p) => [p.pedidoId, p.status])).toEqual([
+      [pago.id, "REEMBOLSADO"],
+      [emProducao.id, "REEMBOLSADO"],
+      [enviado.id, "APROVADO"],
+      [entregue.id, "APROVADO"],
+    ]);
+    expect(pagamentos[0].motivo).toBe("Reembolso: pedido cancelado pela suspensão da loja antes do envio.");
+    expect(Number(pagamentos[0].valor)).toBe(100);
+
+    const historico = await prisma.historicoPedido.findMany({ orderBy: { id: "asc" } });
+    expect(historico.map((h) => [h.pedidoId, h.status, h.observacao])).toEqual([
+      [aguardando.id, "CANCELADO", "Cancelado pela suspensão da loja de uma das peças."],
+      [pago.id, "CANCELADO", "Cancelado pela suspensão da loja de uma das peças. Valor reembolsado."],
+      [emProducao.id, "CANCELADO", "Cancelado pela suspensão da loja de uma das peças. Valor reembolsado."],
+    ]);
+    expect(await prisma.historicoPedido.count({ where: { pedidoId: jaCancelado.id } })).toBe(0);
+
+    // O comprador vê o cancelamento no histórico de compras dele.
+    const compras = await request(app).get("/comprador/pedidos").set(comToken(comprador.token)).expect(200);
+    expect(JSON.stringify(compras.body)).toContain("CANCELADO");
+
+    // Reativar devolve as peças à venda, mas não desfaz cancelamento nem reembolso.
+    const reativacao = await reativar(artesao.id, admin.token).expect(200);
+    expect(reativacao.body.efeitos).toEqual({ pedidosCancelados: 0, pagamentosReembolsados: 0, valorReembolsado: 0 });
+    expect(await statusDe(pago.id)).toBe("CANCELADO");
+    expect(await estoqueDe(id)).toBe(13);
+  });
+
+  test("pedido com peças de duas lojas é cancelado inteiro e as duas peças voltam ao estoque", async () => {
+    const admin = await cadastrar("ADMINISTRADOR");
+    const comprador = await cadastrar("COMPRADOR");
+    const suspenso = await artesaoComPeca("Vaso da Suspensa");
+    const outro = await artesaoComPeca("Vaso da Outra Loja");
+    const misto = await pedidoCom(comprador.id, [suspenso.produto.id, outro.produto.id], "PAGO", true);
+    const soDaOutra = await pedidoCom(comprador.id, [outro.produto.id], "PAGO", true);
+
+    const resposta = await suspender(suspenso.id, admin.token).expect(200);
+
+    expect(resposta.body.efeitos).toEqual({ pedidosCancelados: 1, pagamentosReembolsados: 1, valorReembolsado: 200 });
+    expect(await statusDe(misto.id)).toBe("CANCELADO");
+    expect(await statusDe(soDaOutra.id)).toBe("PAGO");
+    expect(await estoqueDe(suspenso.produto.id)).toBe(11);
+    expect(await estoqueDe(outro.produto.id)).toBe(11);
+  });
+
+  test("pedido cancelado pela suspensão não pode mais ser pago", async () => {
+    const admin = await cadastrar("ADMINISTRADOR");
+    const comprador = await cadastrar("COMPRADOR");
+    const artesao = await artesaoComPeca("Vaso sem Pagamento");
+    const pedido = await pedidoCom(comprador.id, [artesao.produto.id], "AGUARDANDO_PAGAMENTO", false);
+    await suspender(artesao.id, admin.token).expect(200);
+
+    await request(app)
+      .post("/pagamentos")
+      .set(comToken(comprador.token))
+      .send({ pedidoId: String(pedido.id), metodoPagamento: "PIX" })
+      .expect(400);
+
+    expect(await prisma.pagamento.count()).toBe(0);
+    expect(await statusDe(pedido.id)).toBe("CANCELADO");
   });
 });
 

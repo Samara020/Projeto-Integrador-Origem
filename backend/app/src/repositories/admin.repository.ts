@@ -1,12 +1,78 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
 import { invalidarSessoesUsuario, prepararControleDeSessao } from "../lib/revogacao-token";
+import { MOTIVO_DO_REEMBOLSO, OBSERVACAO_DO_CANCELAMENTO, PEDIDO_NAO_ENVIADO } from "../lib/loja-ativa";
+import type { Prisma } from "@prisma/client";
 
 export type AcaoSobreCadastro = "SUSPENDER" | "REATIVAR";
 type ResultadoDaAcao =
   | { tipo: "INEXISTENTE" }
   | { tipo: "SEM_MUDANCA" }
-  | { tipo: "FEITA"; id: number; situacao: string; acao: string; justificativa: string; responsavelId: number; realizadaEm: Date };
+  | {
+      tipo: "FEITA";
+      id: number;
+      situacao: string;
+      acao: string;
+      justificativa: string;
+      responsavelId: number;
+      realizadaEm: Date;
+      efeitos: EfeitosDaSuspensao;
+    };
+
+export type EfeitosDaSuspensao = { pedidosCancelados: number; pagamentosReembolsados: number; valorReembolsado: number };
+
+/**
+ * Efeito da suspensão sobre os pedidos da loja do artesão (HU-16): pedido que ainda não foi
+ * enviado é cancelado inteiro, o estoque de todos os itens volta e o pagamento aprovado
+ * passa a REEMBOLSADO. Pedido ENVIADO ou ENTREGUE não é tocado. Roda dentro da transação
+ * da suspensão; cada pedido é travado e relido antes de mudar.
+ */
+async function cancelarPedidosNaoEnviados(tx: Prisma.TransactionClient, usuarioId: number): Promise<EfeitosDaSuspensao> {
+  const efeitos: EfeitosDaSuspensao = { pedidosCancelados: 0, pagamentosReembolsados: 0, valorReembolsado: 0 };
+  const lojas = await tx.loja.findMany({ where: { usuarioId }, select: { id: true } });
+  if (!lojas.length) return efeitos;
+
+  const candidatos = await tx.pedido.findMany({
+    where: {
+      status: { in: PEDIDO_NAO_ENVIADO },
+      itens: { some: { produto: { lojaId: { in: lojas.map((loja) => loja.id) } } } },
+    },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+
+  for (const { id } of candidatos) {
+    await tx.$queryRaw`SELECT id_pedidos FROM pedido WHERE id_pedidos = ${id} FOR UPDATE`;
+    const pedido = await tx.pedido.findUnique({ where: { id }, include: { itens: true, pagamentos: true } });
+    // Outra transação pode ter enviado ou cancelado o pedido enquanto esperávamos a trava.
+    if (!pedido || !PEDIDO_NAO_ENVIADO.includes(pedido.status)) continue;
+
+    const aprovados = pedido.pagamentos.filter((pagamento) => pagamento.status === "APROVADO");
+    await tx.pedido.update({ where: { id }, data: { status: "CANCELADO" } });
+    await tx.historicoPedido.create({
+      data: {
+        pedidoId: id,
+        status: "CANCELADO",
+        observacao: aprovados.length ? `${OBSERVACAO_DO_CANCELAMENTO} Valor reembolsado.` : OBSERVACAO_DO_CANCELAMENTO,
+        data: new Date(),
+      },
+    });
+    for (const item of pedido.itens) {
+      await tx.estoque.updateMany({
+        where: { produtoId: item.produtoId },
+        data: { quantidadeDisponivel: { increment: item.quantidade } },
+      });
+    }
+    for (const pagamento of aprovados) {
+      await tx.pagamento.update({ where: { id: pagamento.id }, data: { status: "REEMBOLSADO", motivo: MOTIVO_DO_REEMBOLSO } });
+      efeitos.pagamentosReembolsados += 1;
+      efeitos.valorReembolsado += Number(pagamento.valor);
+    }
+    efeitos.pedidosCancelados += 1;
+  }
+  efeitos.valorReembolsado = Math.round(efeitos.valorReembolsado * 100) / 100;
+  return efeitos;
+}
 
 export const adminRepository = {
   async listarMetricasAdmin() {
@@ -81,7 +147,12 @@ export const adminRepository = {
         data: { alvoId, responsavelId, acao: dados.acao, justificativa: dados.justificativa, situacaoResultante: para },
       });
       // Reativar não precisa derrubar nada: os tokens antigos já caíram na suspensão.
-      if (dados.acao === "SUSPENDER") await invalidarSessoesUsuario(String(alvoId), tx);
+      // Também não desfaz cancelamento nem reembolso: as peças só voltam à venda.
+      let efeitos: EfeitosDaSuspensao = { pedidosCancelados: 0, pagamentosReembolsados: 0, valorReembolsado: 0 };
+      if (dados.acao === "SUSPENDER") {
+        await invalidarSessoesUsuario(String(alvoId), tx);
+        efeitos = await cancelarPedidosNaoEnviados(tx, alvoId);
+      }
 
       return {
         tipo: "FEITA",
@@ -91,8 +162,9 @@ export const adminRepository = {
         justificativa: registro.justificativa,
         responsavelId: registro.responsavelId,
         realizadaEm: registro.realizadaEm,
+        efeitos,
       };
-    });
+    }, { timeout: 30000 });
   },
 
   /** O SQL nao tem tabela de perfil de admin: usa o primeiro usuario ADMINISTRADOR. */

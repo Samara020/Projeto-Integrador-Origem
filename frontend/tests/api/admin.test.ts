@@ -1,5 +1,5 @@
 // RBAC e endpoints administrativos reais com JWT e Postgres.
-import { get, post, put, registrarELogar } from "./cliente";
+import { criarProdutoAprovado, get, post, put, registrarELogar } from "./cliente";
 
 type Pendente = {
   id: string;
@@ -152,7 +152,8 @@ describe("TC24 · RBAC e endpoints administrativos (backend real)", () => {
 // efeito no login e na sessão. A linha de auditoria no banco é conferida na suíte do backend
 // (backend/app/tests/admin-def04.test.ts), porque ainda não há rota que leia o histórico.
 describe("TC24 · suspensão e reativação de cadastro (backend real)", () => {
-  type Acao = { id: string; situacao: string; acao: string; justificativa: string; responsavelId: string; realizadaEm: string };
+  type Efeitos = { pedidosCancelados: number; pagamentosReembolsados: number; valorReembolsado: number };
+  type Acao = { id: string; situacao: string; acao: string; justificativa: string; responsavelId: string; realizadaEm: string; efeitos: Efeitos };
   type Metricas = { usuariosCadastrados: { id: string; situacao: string }[] };
 
   let admin: Awaited<ReturnType<typeof registrarELogar>>;
@@ -256,5 +257,50 @@ describe("TC24 · suspensão e reativação de cadastro (backend real)", () => {
     expect(aSiMesmo.status).toBe(409);
     expect((await get("/admin/painel/metricas", { token: admin.token })).status).toBe(200);
   });
-});
 
+  // Decisão da equipe em 26/11 (issue #42): loja suspensa não vende, pedido que ainda não
+  // foi enviado é cancelado e o que foi pago é reembolsado.
+  test("suspender artesão tira a peça da venda, cancela o pedido pago e não enviado e devolve o estoque", async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const comprador = await registrarELogar("COMPRADOR");
+    const produto = await criarProdutoAprovado(artesao.token, admin.token, { nome: `Peça de Loja Suspensa ${Date.now()}`, estoque: 3, preco: 120 });
+    const endereco = { cep: "55002-000", rua: "Rua do Artesanato", numero: "42", bairro: "Centro", cidade: "Caruaru" };
+
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+    const pedido = await post<{ pedidoId: string }>("/pedidos/checkout", { enderecoEntrega: endereco, opcaoEnvioId: "economico" }, { token: comprador.token });
+    expect(pedido.status).toBe(201);
+    const pagamento = await post<{ status: string }>("/pagamentos", { pedidoId: String(pedido.corpo.pedidoId), metodoPagamento: "PIX", tokenCartao: null }, { token: comprador.token });
+    expect(pagamento.status).toBe(200);
+    expect((await get<{ estoque: number }>(`/produtos/${produto.id}`)).corpo.estoque).toBe(2);
+    // Segunda unidade fica no carrinho, para conferir o fechamento da compra depois da suspensão.
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+
+    const suspensao = await suspender(String(artesao.usuario.id), { justificativa: "Loja com denúncias de fraude." }, admin.token);
+
+    expect(suspensao.status).toBe(200);
+    expect(suspensao.corpo.efeitos.pedidosCancelados).toBe(1);
+    expect(suspensao.corpo.efeitos.pagamentosReembolsados).toBe(1);
+    expect(suspensao.corpo.efeitos.valorReembolsado).toBeGreaterThanOrEqual(120);
+
+    expect((await get(`/produtos/${produto.id}`)).status).toBe(404);
+    expect((await get(`/artesaos/${artesao.usuario.id}/perfil`)).status).toBe(404);
+    const busca = await get<{ total: number }>(`/produtos?termo=${encodeURIComponent(produto.nome)}`);
+    expect(busca.corpo.total).toBe(0);
+
+    const compras = await get<{ pedidos: { id: string; status: string }[] }>("/comprador/pedidos", { token: comprador.token });
+    expect(compras.corpo.pedidos.find((item) => item.id === String(pedido.corpo.pedidoId))?.status).toBe("CANCELADO");
+
+    const fechamento = await post<{ mensagem: string }>("/pedidos/checkout", { enderecoEntrega: endereco, opcaoEnvioId: "economico" }, { token: comprador.token });
+    expect(fechamento.status).toBe(409);
+    expect(fechamento.corpo.mensagem).toContain("não está mais disponível");
+
+    const reativacao = await reativar(String(artesao.usuario.id), { justificativa: "Denúncias apuradas e descartadas." }, admin.token);
+    expect(reativacao.status).toBe(200);
+    const deVolta = await get<{ estoque: number }>(`/produtos/${produto.id}`);
+    expect(deVolta.status).toBe(200);
+    // A unidade do pedido cancelado voltou ao estoque; reativar não desfaz o cancelamento.
+    expect(deVolta.corpo.estoque).toBe(3);
+    const depois = await get<{ pedidos: { id: string; status: string }[] }>("/comprador/pedidos", { token: comprador.token });
+    expect(depois.corpo.pedidos.find((item) => item.id === String(pedido.corpo.pedidoId))?.status).toBe("CANCELADO");
+  });
+});

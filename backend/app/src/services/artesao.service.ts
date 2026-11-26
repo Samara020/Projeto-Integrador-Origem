@@ -83,7 +83,8 @@ export const artesaoService = {
   async perfilPublico(usuarioId: string) {
     const usuario = await usuarioRepository.buscarPerfilPublicoArtesao(usuarioId);
     const loja = usuario?.loja[0];
-    if (!usuario || !loja) throw new ErroApp(404, "Artesao nao encontrado.");
+    // Loja de conta suspensa (HU-16) some da vitrine como se não existisse.
+    if (!usuario || !loja || usuario.situacao !== "ATIVO") throw new ErroApp(404, "Artesao nao encontrado.");
 
     const produtos = loja.produtos;
     const ids = produtos.map((p) => p.id);

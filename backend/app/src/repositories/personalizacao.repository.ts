@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma";
 import { Id, toId } from "../lib/ids";
+import { DE_LOJA_ATIVA } from "../lib/loja-ativa";
 
 const incluir = {
   produto: {
@@ -18,6 +19,7 @@ export const personalizacaoRepository = {
         excluido: false,
         pausado: false,
         statusValidacao: "APROVADA",
+        ...DE_LOJA_ATIVA,
       },
     });
   },

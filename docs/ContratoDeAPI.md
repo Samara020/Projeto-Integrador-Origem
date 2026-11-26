@@ -1027,9 +1027,13 @@ antes passa a receber `401` com `{ "mensagem": "Sessão encerrada. Faça login n
   "acao": "SUSPENDER",
   "justificativa": "Denúncias de pedido não entregue.",
   "responsavelId": "3",
-  "realizadaEm": "2026-11-26T14:02:11.000Z"
+  "realizadaEm": "2026-11-26T14:02:11.000Z",
+  "efeitos": { "pedidosCancelados": 2, "pagamentosReembolsados": 1, "valorReembolsado": 145.80 }
 }
 ```
+
+`efeitos` conta o que a suspensão fez com os pedidos da loja do artesão (ver "Loja suspensa"
+abaixo). Vem zerado quando a conta não tem loja e na reativação.
 
 #### PUT /admin/usuarios/{id}/reativacao
 Reativa um cadastro suspenso. Mesmo corpo e mesma resposta, com `"situacao": "ATIVO"` e
@@ -1048,9 +1052,26 @@ suspensão continua inválido.
 >   responsável, a ação, a justificativa, a situação resultante e a data. Reativar não apaga
 >   o registro da suspensão. Situação, registro e derrubada das sessões valem juntos ou não
 >   valem (uma transação). Ainda não há rota para ler esse histórico.
-> - Limite desta entrega: a suspensão atinge só o acesso da conta. A loja e as peças de um
->   artesão suspenso continuam visíveis no catálogo e podem ser compradas, e os pedidos em
->   aberto seguem como estão. A tela no painel do administrador também fica para outra issue.
+> - A tela no painel do administrador fica para outra issue.
+>
+> **Loja suspensa (decisão da equipe em 26/11):** enquanto a conta do artesão estiver
+> suspensa, a loja não vende.
+> - As peças saem de `GET /produtos`, da busca, dos filtros de técnica e região e das
+>   recomendações. `GET /produtos/{id}` e `GET /artesaos/{id}/perfil` respondem `404`.
+> - `POST /carrinho/itens` e a alteração de quantidade respondem `409` com
+>   `{ "mensagem": "Produto indisponível." }`.
+> - `POST /pedidos/checkout` com peça de loja suspensa no carrinho responde `409` com
+>   `{ "mensagem": "A peça \"<nome>\" não está mais disponível. Retire-a do carrinho para continuar." }`,
+>   sem criar pedido nem baixar estoque.
+> - Na suspensão, todo pedido com peça da loja que ainda não foi enviado
+>   (`AGUARDANDO_PAGAMENTO`, `PAGO` ou `EM_PRODUCAO`) passa a `CANCELADO`, o estoque de todos
+>   os itens volta e o pagamento `APROVADO` passa a `REEMBOLSADO`. O histórico do pedido
+>   recebe a observação do cancelamento. Pedido `ENVIADO` ou `ENTREGUE` não muda.
+> - O pedido é cancelado inteiro, mesmo quando tem peças de outra loja: o sistema não tem
+>   situação por item. O reembolso é só a mudança de situação do pagamento, porque o
+>   pagamento do ambiente é simulado.
+> - A reativação devolve as peças à venda. Não desfaz cancelamento nem reembolso.
+> - As peças não são apagadas nem pausadas: o artesão as reencontra como deixou.
 
 ---
 

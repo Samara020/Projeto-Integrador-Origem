@@ -138,6 +138,7 @@ export const adminService = {
       justificativa: resultado.justificativa,
       responsavelId: resultado.responsavelId,
       realizadaEm: resultado.realizadaEm.toISOString(),
+      efeitos: resultado.efeitos,
     };
   },
 
