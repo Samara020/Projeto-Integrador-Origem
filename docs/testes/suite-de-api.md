@@ -20,7 +20,7 @@ A suíte tem três partes, todas sem dublê da API:
 
 ## 2. Endpoints contemplados
 
-O backend declara 75 rotas em `backend/app/src/routes/`. A cobertura por grupo:
+O backend declara 77 rotas em `backend/app/src/routes/`. A cobertura por grupo:
 
 | Grupo | Rotas | Situação | Onde |
 |---|---:|---|---|
@@ -29,7 +29,7 @@ O backend declara 75 rotas em `backend/app/src/routes/`. A cobertura por grupo:
 | Catálogo (`/categorias`, `/tecnicas`, `/regioes`, `/indicadores`) | 4 | Contemplado | `api/catalogo.test.ts` |
 | Pedidos | 8 | Contemplado | `pedidos.test.ts`, `api/fluxos-criticos.test.ts` |
 | Pagamentos | 1 | Contemplado | `pedidos.test.ts`, `pagamento-auth.unit.test.ts` |
-| Painel do artesão e do administrador, envio e recomendações | 9 | Contemplado em parte | `admin-def04.test.ts`, `bloqueios-contrato.test.ts`, `api/admin.test.ts`, `api/recomendacoes*.test.ts` |
+| Painel do artesão e do administrador, envio, recomendações e suspensão de cadastro | 11 | Contemplado em parte | `admin-def04.test.ts`, `bloqueios-contrato.test.ts`, `api/admin.test.ts`, `api/recomendacoes*.test.ts` |
 | Artesãos e perfil | 8 | Contemplado em parte | `artesaos.test.ts`, `integracao-persistencia.test.ts` |
 | Carrinho | 4 | Contemplado em parte | Só dentro dos fluxos: `api/fluxos-criticos.test.ts`, `api/fluxos-integrados.test.ts` |
 | Avaliações | 11 | Contemplado em parte | `api/fluxos-integrados.test.ts`, `api/admin.test.ts` |
@@ -127,7 +127,7 @@ Sem falha na execução de referência. O que a API fez de diferente do esperado
 2. **O contrato não descreve o corpo do erro.** A API usa sempre `{ "mensagem": "..." }`, e o frontend depende disso. Os testes de contrato passaram a fixar esse formato; falta escrevê-lo em `docs/ContratoDeAPI.md`.
 3. **E-mail duplicado no cadastro responde 400**, não 409. O contrato reserva 409 para "conflito de estado ou estoque insuficiente". Não é defeito comprovado: é ponto para a equipe confirmar.
 4. **Mensagens de erro sem acento em parte das rotas**: "Produto nao encontrado." e "Rota nao encontrada.", enquanto outras vêm acentuadas ("Token de autenticação não informado."). Aparece na tela do usuário.
-5. **O painel administrativo não suspende nem reativa cadastro**, que a HU-16 pede. Está na [issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39).
+5. **O painel administrativo não suspendia nem reativava cadastro**, que a HU-16 pede ([issue #39](https://github.com/Samara020/Projeto-Integrador-Origem/issues/39)). Corrigido no servidor em 26/11: `PUT /admin/usuarios/{id}/suspensao` e `PUT /admin/usuarios/{id}/reativacao`, com os itens da cobertura mínima que se aplicam (caminho feliz, 401, 403, 404, 400, 409, efeito no login e na sessão, corpo da resposta e auditoria no banco). No mesmo dia entrou o efeito sobre a loja do artesão: peças fora do catálogo, do carrinho e do fechamento da compra, pedido não enviado cancelado e pagamento reembolsado, com teste. A tela ficou na [issue #42](https://github.com/Samara020/Projeto-Integrador-Origem/issues/42).
 
 Limitações da suíte: as lacunas da seção 3, e o fato de pagamento e transporte serem simulados.
 

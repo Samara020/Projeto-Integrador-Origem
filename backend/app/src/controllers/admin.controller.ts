@@ -8,6 +8,16 @@ export class AdminController {
     return res.json(resultado);
   }
 
+  async suspenderUsuario(req: Request, res: Response) {
+    const resultado = await adminService.mudarSituacaoDoUsuario(req.usuario!.id, String(req.params.id), "SUSPENDER", req.body);
+    return res.json(resultado);
+  }
+
+  async reativarUsuario(req: Request, res: Response) {
+    const resultado = await adminService.mudarSituacaoDoUsuario(req.usuario!.id, String(req.params.id), "REATIVAR", req.body);
+    return res.json(resultado);
+  }
+
   async buscarPerfil(req: Request, res: Response) {
     const resultado = await adminService.buscarPerfilAdmin(req.usuario!.id);
     return res.json(resultado);

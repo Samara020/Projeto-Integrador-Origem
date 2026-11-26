@@ -7,6 +7,7 @@ import {
   produtoRepository,
   usuarioRepository,
 } from "../repositories";
+import type { AcaoSobreCadastro } from "../repositories/admin.repository";
 import { conferirSenha, protegerSenha } from "../lib/senha";
 import { configuracaoPadrao, opcaoPorId } from "../lib/frete";
 
@@ -101,10 +102,43 @@ export const adminService = {
       validacoesPendentes, denunciasPendentes, ticketsSuporte: tickets.length,
       ticketsUrgentes: tickets.filter(t => t.prioridade === "ALTA").length,
       usuariosRecentes: usuarios.slice(0, 10).map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
-      usuariosCadastrados: usuarios.map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
+      usuariosCadastrados: usuarios.map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo, situacao: u.situacao })),
       artesaosCadastrados: usuarios
         .filter(u => u.usuarioTipo === "ARTESAO")
         .map(u => ({ id: u.id, nome: u.nome, papel: u.usuarioTipo })),
+    };
+  },
+
+  /**
+   * Suspende ou reativa um cadastro (HU-16, critério "Ação auditável"): exige justificativa
+   * e registra responsável, data e resultado. Conta suspensa não entra e perde as sessões.
+   */
+  async mudarSituacaoDoUsuario(responsavelId: string, alvoId: string, acao: AcaoSobreCadastro, entrada: unknown) {
+    const { justificativa } = z.object({
+      justificativa: z
+        .string({ error: "Informe a justificativa da ação." })
+        .trim()
+        .min(1, "Informe a justificativa da ação.")
+        .max(1000, "A justificativa pode ter até 1000 caracteres."),
+    }).parse(entrada ?? {});
+
+    if (acao === "SUSPENDER" && String(alvoId) === String(responsavelId)) {
+      throw new ErroApp(409, "Você não pode suspender a própria conta.");
+    }
+
+    const resultado = await adminRepository.mudarSituacaoDoUsuario({ alvoId, responsavelId, acao, justificativa });
+    if (resultado.tipo === "INEXISTENTE") throw new ErroApp(404, "Usuário não encontrado.");
+    if (resultado.tipo === "SEM_MUDANCA") {
+      throw new ErroApp(409, acao === "SUSPENDER" ? "Esta conta já está suspensa." : "Esta conta não está suspensa.");
+    }
+    return {
+      id: resultado.id,
+      situacao: resultado.situacao,
+      acao: resultado.acao,
+      justificativa: resultado.justificativa,
+      responsavelId: resultado.responsavelId,
+      realizadaEm: resultado.realizadaEm.toISOString(),
+      efeitos: resultado.efeitos,
     };
   },
 

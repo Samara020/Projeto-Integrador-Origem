@@ -47,6 +47,21 @@ router.get(
   (req, res, next) => admin.metricas(req, res).catch(next)
 );
 
+// Suspensão e reativação de cadastro (HU-16): justificativa obrigatória e ação auditada.
+router.put(
+  "/admin/usuarios/:id/suspensao",
+  autenticar,
+  adminApenas,
+  (req, res, next) => admin.suspenderUsuario(req, res).catch(next)
+);
+
+router.put(
+  "/admin/usuarios/:id/reativacao",
+  autenticar,
+  adminApenas,
+  (req, res, next) => admin.reativarUsuario(req, res).catch(next)
+);
+
 router.get(
   "/admin/perfil",
   autenticar,

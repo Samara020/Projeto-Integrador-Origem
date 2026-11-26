@@ -1,5 +1,5 @@
 // RBAC e endpoints administrativos reais com JWT e Postgres.
-import { get, post, put, registrarELogar } from "./cliente";
+import { criarProdutoAprovado, get, post, put, registrarELogar } from "./cliente";
 
 type Pendente = {
   id: string;
@@ -144,5 +144,163 @@ describe("TC24 · RBAC e endpoints administrativos (backend real)", () => {
     expect(corpo.totalUsuarios).toBeGreaterThan(0);
     expect(corpo.totalArtesaos).toBeGreaterThan(0);
     expect(corpo.validacoesPendentes).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// HU-16, critério "Ação auditável": suspender e reativar exigem justificativa e registram
+// responsável, data e resultado. Aqui a prova é pela API, de fora: o que a rota responde e o
+// efeito no login e na sessão. A linha de auditoria no banco é conferida na suíte do backend
+// (backend/app/tests/admin-def04.test.ts), porque ainda não há rota que leia o histórico.
+describe("TC24 · suspensão e reativação de cadastro (backend real)", () => {
+  type Efeitos = { pedidosCancelados: number; pagamentosReembolsados: number; valorReembolsado: number };
+  type Acao = { id: string; situacao: string; acao: string; justificativa: string; responsavelId: string; realizadaEm: string; efeitos: Efeitos };
+  type Metricas = { usuariosCadastrados: { id: string; situacao: string }[] };
+
+  let admin: Awaited<ReturnType<typeof registrarELogar>>;
+
+  beforeAll(async () => {
+    admin = await registrarELogar("ADMINISTRADOR");
+  });
+
+  const suspender = (id: string, corpo: unknown, token?: string) =>
+    put<Acao & { mensagem?: string }>(`/admin/usuarios/${id}/suspensao`, corpo, { token });
+  const reativar = (id: string, corpo: unknown, token?: string) =>
+    put<Acao & { mensagem?: string }>(`/admin/usuarios/${id}/reativacao`, corpo, { token });
+  const situacaoNoPainel = async (id: string) => {
+    const painel = await get<Metricas>("/admin/painel/metricas", { token: admin.token });
+    return painel.corpo.usuariosCadastrados.find((usuario) => usuario.id === id)?.situacao;
+  };
+
+  test("suspender derruba a sessão e o login; reativar devolve o acesso com login novo", async () => {
+    const comprador = await registrarELogar("COMPRADOR");
+    const id = String(comprador.usuario.id);
+    expect((await get("/comprador/pedidos", { token: comprador.token })).status).toBe(200);
+    const antes = Date.now();
+
+    const suspensao = await suspender(id, { justificativa: "Denúncias de pedido não entregue." }, admin.token);
+
+    expect(suspensao.status).toBe(200);
+    expect(suspensao.corpo).toMatchObject({
+      id,
+      situacao: "SUSPENSO",
+      acao: "SUSPENDER",
+      justificativa: "Denúncias de pedido não entregue.",
+      responsavelId: String(admin.usuario.id),
+    });
+    expect(Math.abs(new Date(suspensao.corpo.realizadaEm).getTime() - antes)).toBeLessThan(60_000);
+    expect(await situacaoNoPainel(id)).toBe("SUSPENSO");
+
+    const sessaoAntiga = await get<{ mensagem: string }>("/comprador/pedidos", { token: comprador.token });
+    expect(sessaoAntiga.status).toBe(401);
+    expect(sessaoAntiga.corpo).toEqual({ mensagem: "Sessão encerrada. Faça login novamente." });
+
+    const loginSuspenso = await post<{ mensagem: string; token?: string }>("/auth/login", { email: comprador.email, senha: comprador.senha });
+    expect(loginSuspenso.status).toBe(403);
+    expect(loginSuspenso.corpo).toEqual({ mensagem: "Esta conta está suspensa. Fale com o suporte da Origem." });
+
+    const reativacao = await reativar(id, { justificativa: "Pendência resolvida com o comprador." }, admin.token);
+
+    expect(reativacao.status).toBe(200);
+    expect(reativacao.corpo).toMatchObject({ id, situacao: "ATIVO", acao: "REATIVAR", responsavelId: String(admin.usuario.id) });
+    expect(await situacaoNoPainel(id)).toBe("ATIVO");
+
+    const loginNovo = await post<{ token: string }>("/auth/login", { email: comprador.email, senha: comprador.senha });
+    expect(loginNovo.status).toBe(200);
+    expect((await get("/comprador/pedidos", { token: loginNovo.corpo.token })).status).toBe(200);
+    // O token de antes da suspensão não volta a valer.
+    expect((await get("/comprador/pedidos", { token: comprador.token })).status).toBe(401);
+  });
+
+  test("justificativa ausente, vazia ou só com espaços responde 400 e a conta segue ativa", async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const id = String(artesao.usuario.id);
+
+    for (const corpo of [{}, { justificativa: "" }, { justificativa: "   " }]) {
+      const resposta = await suspender(id, corpo, admin.token);
+      expect(resposta.status).toBe(400);
+      expect(resposta.corpo.mensagem).toBe("Informe a justificativa da ação.");
+    }
+
+    expect(await situacaoNoPainel(id)).toBe("ATIVO");
+    expect((await post("/auth/login", { email: artesao.email, senha: artesao.senha })).status).toBe(200);
+  });
+
+  test("sem token responde 401, comprador e artesão respondem 403, e ninguém é suspenso", async () => {
+    const comprador = await registrarELogar("COMPRADOR");
+    const artesao = await registrarELogar("ARTESAO");
+    const corpo = { justificativa: "Tentativa sem permissão." };
+    const alvo = String(artesao.usuario.id);
+
+    expect((await suspender(alvo, corpo)).status).toBe(401);
+    expect((await reativar(alvo, corpo)).status).toBe(401);
+    expect((await suspender(alvo, corpo, comprador.token)).status).toBe(403);
+    expect((await reativar(alvo, corpo, comprador.token)).status).toBe(403);
+    expect((await suspender(String(comprador.usuario.id), corpo, artesao.token)).status).toBe(403);
+
+    expect(await situacaoNoPainel(alvo)).toBe("ATIVO");
+    expect(await situacaoNoPainel(String(comprador.usuario.id))).toBe("ATIVO");
+  });
+
+  test("cadastro inexistente responde 404; repetir a ação ou suspender a si mesmo responde 409", async () => {
+    const comprador = await registrarELogar("COMPRADOR");
+    const id = String(comprador.usuario.id);
+    const corpo = { justificativa: "Conferência das transições proibidas." };
+
+    expect((await suspender("999999999", corpo, admin.token)).status).toBe(404);
+    expect((await reativar("999999999", corpo, admin.token)).status).toBe(404);
+
+    expect((await reativar(id, corpo, admin.token)).status).toBe(409);
+    expect((await suspender(id, corpo, admin.token)).status).toBe(200);
+    expect((await suspender(id, corpo, admin.token)).status).toBe(409);
+
+    const aSiMesmo = await suspender(String(admin.usuario.id), corpo, admin.token);
+    expect(aSiMesmo.status).toBe(409);
+    expect((await get("/admin/painel/metricas", { token: admin.token })).status).toBe(200);
+  });
+
+  // Decisão da equipe em 26/11 (issue #42): loja suspensa não vende, pedido que ainda não
+  // foi enviado é cancelado e o que foi pago é reembolsado.
+  test("suspender artesão tira a peça da venda, cancela o pedido pago e não enviado e devolve o estoque", async () => {
+    const artesao = await registrarELogar("ARTESAO");
+    const comprador = await registrarELogar("COMPRADOR");
+    const produto = await criarProdutoAprovado(artesao.token, admin.token, { nome: `Peça de Loja Suspensa ${Date.now()}`, estoque: 3, preco: 120 });
+    const endereco = { cep: "55002-000", rua: "Rua do Artesanato", numero: "42", bairro: "Centro", cidade: "Caruaru" };
+
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+    const pedido = await post<{ pedidoId: string }>("/pedidos/checkout", { enderecoEntrega: endereco, opcaoEnvioId: "economico" }, { token: comprador.token });
+    expect(pedido.status).toBe(201);
+    const pagamento = await post<{ status: string }>("/pagamentos", { pedidoId: String(pedido.corpo.pedidoId), metodoPagamento: "PIX", tokenCartao: null }, { token: comprador.token });
+    expect(pagamento.status).toBe(200);
+    expect((await get<{ estoque: number }>(`/produtos/${produto.id}`)).corpo.estoque).toBe(2);
+    // Segunda unidade fica no carrinho, para conferir o fechamento da compra depois da suspensão.
+    await post("/carrinho/itens", { produtoId: produto.id, quantidade: 1 }, { token: comprador.token });
+
+    const suspensao = await suspender(String(artesao.usuario.id), { justificativa: "Loja com denúncias de fraude." }, admin.token);
+
+    expect(suspensao.status).toBe(200);
+    expect(suspensao.corpo.efeitos.pedidosCancelados).toBe(1);
+    expect(suspensao.corpo.efeitos.pagamentosReembolsados).toBe(1);
+    expect(suspensao.corpo.efeitos.valorReembolsado).toBeGreaterThanOrEqual(120);
+
+    expect((await get(`/produtos/${produto.id}`)).status).toBe(404);
+    expect((await get(`/artesaos/${artesao.usuario.id}/perfil`)).status).toBe(404);
+    const busca = await get<{ total: number }>(`/produtos?termo=${encodeURIComponent(produto.nome)}`);
+    expect(busca.corpo.total).toBe(0);
+
+    const compras = await get<{ pedidos: { id: string; status: string }[] }>("/comprador/pedidos", { token: comprador.token });
+    expect(compras.corpo.pedidos.find((item) => item.id === String(pedido.corpo.pedidoId))?.status).toBe("CANCELADO");
+
+    const fechamento = await post<{ mensagem: string }>("/pedidos/checkout", { enderecoEntrega: endereco, opcaoEnvioId: "economico" }, { token: comprador.token });
+    expect(fechamento.status).toBe(409);
+    expect(fechamento.corpo.mensagem).toContain("não está mais disponível");
+
+    const reativacao = await reativar(String(artesao.usuario.id), { justificativa: "Denúncias apuradas e descartadas." }, admin.token);
+    expect(reativacao.status).toBe(200);
+    const deVolta = await get<{ estoque: number }>(`/produtos/${produto.id}`);
+    expect(deVolta.status).toBe(200);
+    // A unidade do pedido cancelado voltou ao estoque; reativar não desfaz o cancelamento.
+    expect(deVolta.corpo.estoque).toBe(3);
+    const depois = await get<{ pedidos: { id: string; status: string }[] }>("/comprador/pedidos", { token: comprador.token });
+    expect(depois.corpo.pedidos.find((item) => item.id === String(pedido.corpo.pedidoId))?.status).toBe("CANCELADO");
   });
 });

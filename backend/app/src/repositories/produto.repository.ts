@@ -1,4 +1,5 @@
 import prisma from "../lib/prisma";
+import { DE_LOJA_ATIVA } from "../lib/loja-ativa";
 import { Id, toId } from "../lib/ids";
 
 type FiltrosProduto = {
@@ -89,6 +90,7 @@ export const produtoRepository = {
       excluido: false,
       pausado: false,
       statusValidacao: "APROVADA",
+      ...DE_LOJA_ATIVA,
     };
 
     if (filtros.disponivel) {
@@ -180,6 +182,7 @@ export const produtoRepository = {
         excluido: false,
         pausado: false,
         statusValidacao: "APROVADA",
+        ...DE_LOJA_ATIVA,
       },
       include: { ...inclusaoPadrao, imagens: true },
     });
@@ -356,7 +359,7 @@ export const produtoRepository = {
 
   catalogoParaRecomendacao() {
     return prisma.produto.findMany({
-      where: { excluido: false, pausado: false },
+      where: { excluido: false, pausado: false, ...DE_LOJA_ATIVA },
       orderBy: { id: "asc" },
       include: { ...inclusaoPadrao, imagens: { take: 1 } },
     });
@@ -382,7 +385,7 @@ export const produtoRepository = {
 
   listarTecnicasDistintas() {
     return prisma.produto.findMany({
-      where: { excluido: false, pausado: false },
+      where: { excluido: false, pausado: false, ...DE_LOJA_ATIVA },
       select: { tecnica: true },
       distinct: ["tecnica"],
       orderBy: { tecnica: "asc" },
@@ -391,7 +394,7 @@ export const produtoRepository = {
 
   listarRegioesDistintas() {
     return prisma.produto.findMany({
-      where: { excluido: false, pausado: false },
+      where: { excluido: false, pausado: false, ...DE_LOJA_ATIVA },
       select: { origem: true },
       distinct: ["origem"],
       orderBy: { origem: "asc" },

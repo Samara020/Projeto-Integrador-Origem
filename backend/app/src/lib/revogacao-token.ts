@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import type { Prisma } from "@prisma/client";
 import prisma from "./prisma";
 
 let tabelasInicializadas = false;
@@ -83,10 +84,24 @@ export async function obterVersaoSessaoUsuario(usuarioId: string): Promise<numbe
   return Number(registros[0].versao_sessao) || 1;
 }
 
-export async function invalidarSessoesUsuario(usuarioId: string): Promise<void> {
-  await garantirTabelas();
+/**
+ * Cria as tabelas de controle de sessão, se ainda não existirem. Quem vai invalidar sessões
+ * dentro de uma transação chama isto antes de abri-la: criar tabela não entra na transação.
+ */
+export const prepararControleDeSessao = garantirTabelas;
+
+/**
+ * Sobe a versão de sessão do usuário: todo token emitido antes deixa de valer.
+ * Com `cliente`, a escrita entra na transação de quem chama (as tabelas precisam existir,
+ * ver prepararControleDeSessao).
+ */
+export async function invalidarSessoesUsuario(
+  usuarioId: string,
+  cliente?: Prisma.TransactionClient
+): Promise<void> {
+  if (!cliente) await garantirTabelas();
   const agora = Math.floor(Date.now() / 1000);
-  await prisma.$executeRawUnsafe(
+  await (cliente ?? prisma).$executeRawUnsafe(
     `INSERT INTO sessoes_invalidadas_usuario (usuario_id, invalidado_ate, versao_sessao)
      VALUES ($1, $2, 2)
      ON CONFLICT (usuario_id) DO UPDATE SET
