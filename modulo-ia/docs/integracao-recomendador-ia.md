@@ -2,9 +2,9 @@
 
 ## Projeto Origem — Marketplace de Artesanato Pernambucano
 
-**Versão:** 1.0  
-**Data:** 27/11/2026  
-**Branch:** feat/modulo-ia-dados  
+**Versão:** 1.0
+**Data:** 27/11/2026
+**Branch:** feat/modulo-ia-dados
 **Status:** Implementado e validado por testes automatizados e testes de integração em ambiente local.
 
 ## 1. Objetivo
