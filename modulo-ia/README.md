@@ -481,22 +481,41 @@ O catálogo mockado do Origem contempla:
 - 5 técnicas artesanais.
 - 4 regiões de Pernambuco.
 
-### 15.6. Validação da integridade
+### 15.6. Validação da integridade e dos cenários de recomendação
 
-Os testes automatizados de integridade estão localizados em `tests_dados/test_catalogo.py`.
+Os testes automatizados de validação dos dados estão localizados nos seguintes arquivos:
 
-Os critérios avaliados são:
+| Arquivo | Finalidade | Testes aprovados |
+|---|---|---:|
+| `tests_dados/test_catalogo.py` | Validação da integridade e da consistência dos catálogos. | 28 |
+| `tests_dados/test_validacao_recomendacao.py` | Validação dos cenários de recomendação. | 20 |
+| **Total** | | **48** |
+
+Os critérios avaliados incluem:
 
 - Existência de registros nos catálogos.
 - Unicidade dos identificadores.
 - Presença dos campos obrigatórios.
 - Validade dos campos textuais.
 - Disponibilidade representada por valor booleano.
-- Diversidade de categorias.
-- Diversidade de técnicas artesanais.
-- Diversidade de regiões.
+- Diversidade de categorias, técnicas e regiões.
+- Ausência de registros integralmente duplicados.
+- Ausência de duplicidades descritivas nos catálogos mockados.
+- Unicidade dos identificadores após normalização.
+- Ausência de espaços excedentes.
+- Existência de produtos disponíveis e indisponíveis.
+- Recomendações por categoria, técnica e região.
+- Recomendações com combinação de atributos.
+- Comportamento na ausência de produtos compatíveis.
+- Comportamento com catálogo vazio.
+- Comportamento na ausência de filtros.
+- Comportamento quando todos os produtos estão indisponíveis.
 
-Em 27/11/2026, foram executados 16 testes automatizados, com 100% de aprovação e nenhuma falha.
+Em 27/11/2026, foram executados 48 testes automatizados, com 100% de aprovação e nenhuma falha.
+
+A execução registrada no arquivo de evidências apresentou o seguinte resultado:
+
+`48 passed in 0.17s`
 
 Para reproduzir os testes no Windows, a partir do diretório `modulo-ia`:
 
@@ -511,10 +530,15 @@ Esses testes não dependem da inicialização do PostgreSQL ou do servidor Bento
 ### 15.7. Documentação e evidências
 
 - [Análise do catálogo de produtos](docs/analise-catalogo.md).
-- [Evidências dos testes de integridade](docs/evidencias/testes-integridade-catalogo.txt).
-- [Código dos testes automatizados](tests_dados/test_catalogo.py).
+- [Validação dos dados utilizados pela IA](docs/validacao-dados-ia.md).
+- [Evidências dos testes iniciais de integridade](docs/evidencias/testes-integridade-catalogo.txt).
+- [Evidências dos testes de validação dos dados](docs/evidencias/testes-validacao-dados-ia.txt).
+- [Código dos testes de integridade](tests_dados/test_catalogo.py).
+- [Código dos testes de validação da recomendação](tests_dados/test_validacao_recomendacao.py).
 
-A validação realizada contempla os arquivos JSON e a comparação nominal com o script de dados iniciais do PostgreSQL, não abrangendo testes de integração com uma instância ativa do banco de dados.
+A validação contempla os catálogos JSON, a comparação nominal com o script de dados iniciais do PostgreSQL e os cenários de seleção de candidatos à recomendação.
+
+Os testes de integração HTTP, as consultas a uma instância ativa do PostgreSQL e o monitoramento do desempenho não fazem parte desta etapa.
 
 ## 16. Limitações do mockup
 
