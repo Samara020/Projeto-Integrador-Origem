@@ -27,6 +27,9 @@ COPY --from=deps /venv /venv
 # Copiar algo do estágio de teste obriga o Docker a executá-lo antes do runtime.
 COPY --from=test /app/app /app/app
 COPY --from=test /app/data /app/data
+COPY --from=test /app/resumo_uso_dados.py /app/resumo_uso_dados.py
+# Pasta do log de uso dos dados (logs/uso_dados.jsonl), gravável pelo usuário ia.
+RUN mkdir -p /app/logs && chown ia:ia /app/logs
 WORKDIR /app
 USER ia
 EXPOSE 3001

@@ -19,6 +19,12 @@ os.environ.setdefault(
 
 IA_ROOT = Path(__file__).resolve().parent.parent
 
+# Os testes não escrevem no log real do uso dos dados.
+os.environ.setdefault(
+    "LOG_USO_DADOS",
+    str(IA_ROOT / ".pytest_cache" / "uso_dados_testes.jsonl"),
+)
+
 BASE_URL = "http://127.0.0.1:3001"
 
 

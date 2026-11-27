@@ -5,3 +5,4 @@ __pycache__
 .bentoml
 Dockerfile
 .dockerignore
+logs

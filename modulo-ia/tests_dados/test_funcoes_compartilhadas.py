@@ -2,6 +2,7 @@ import pytest
 
 from app import catalog
 from app import recommendation
+from app import repository
 from app import service
 
 
@@ -47,8 +48,16 @@ def test_recomendador_reutiliza_disponibilidade():
     assert recommendation.is_product_available is catalog.is_product_available
 
 
-def test_servico_reutiliza_disponibilidade():
-    assert service.is_product_available is catalog.is_product_available
+def test_servico_usa_funcoes_de_acesso_no_lote():
+    # A rota em lote chega aos dados só pelas funções de acesso do repositório.
+    assert (
+        service.get_repository_available_products
+        is repository.get_repository_available_products
+    )
+    assert (
+        service.get_repository_products_by_ids
+        is repository.get_repository_products_by_ids
+    )
 
 
 @pytest.mark.parametrize(

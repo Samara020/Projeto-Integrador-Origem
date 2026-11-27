@@ -6,8 +6,14 @@ from pydantic import BaseModel
 from app.config import DEFAULT_LIMIT, MAX_LIMIT, get_api_key
 from app.fallback import select_candidates, select_candidates_batch
 from app.observability import iniciar_cronometro, registrar_execucao
-from app.catalog import normalize_filter, is_product_available
-from app.repository import get_catalog_items, get_repository_product
+from app.catalog import normalize_filter
+from app.data_log import chamador
+from app.repository import (
+    get_catalog_items,
+    get_repository_available_products,
+    get_repository_product,
+    get_repository_products_by_ids,
+)
 
 
 class CatalogItem(BaseModel):
@@ -187,6 +193,10 @@ class RecommendationService:
         ctx: bentoml.Context,
         **params,
     ) -> dict:
+        with chamador("POST /recommendations"):
+            return self._recommendations(ctx, params)
+
+    def _recommendations(self, ctx, params) -> dict:
         start_time = iniciar_cronometro()
         request = RecommendationRequest(**params)
         reference_id = normalizar_texto(request.product_id)
@@ -277,6 +287,10 @@ class RecommendationService:
         ctx: bentoml.Context,
         **params,
     ) -> dict:
+        with chamador("POST /recommendations/batch"):
+            return self._recommendations_batch(ctx, params)
+
+    def _recommendations_batch(self, ctx, params) -> dict:
         start_time = iniciar_cronometro()
         request = BatchRecommendationRequest(**params)
         origem_catalogo = "payload" if request.catalog is not None else "repository_or_json"
@@ -321,10 +335,12 @@ class RecommendationService:
         catalog = resolver_catalogo_requisicao(request.catalog)
 
         if request.product_ids:
-            ids_set = {normalizar_texto(pid) for pid in request.product_ids if normalizar_texto(pid)}
-            references = [item for item in catalog if item.get("product_id") in ids_set]
+            references = get_repository_products_by_ids(
+                request.product_ids,
+                catalog=catalog,
+            )
         else:
-            references = [item for item in catalog if is_product_available(item, default=True)]
+            references = get_repository_available_products(catalog=catalog)
 
         recommendations_by_product = select_candidates_batch(
             references=references,

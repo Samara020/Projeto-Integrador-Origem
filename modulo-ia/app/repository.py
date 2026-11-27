@@ -6,8 +6,10 @@ from app.catalog import (
     filter_products,
     find_product,
     load_catalog,
+    normalize_filter,
     validate_catalog
 )
+from app.data_log import registrar_uso
 
 
 def _build_db_dsn():
@@ -130,20 +132,56 @@ def fetch_catalog_from_db(dsn=None):
     return validate_catalog(items)
 
 
-def get_catalog_items(catalog=None, use_db=True):
+def _carregar_catalogo(catalog=None, use_db=True):
+    """Devolve (itens, fonte). Uso interno: não grava log."""
     if not isinstance(use_db, bool):
         raise TypeError("use_db deve ser um valor booleano.")
 
     if catalog is not None:
-        return validate_catalog(catalog)
+        return validate_catalog(catalog), "lista_recebida"
 
     if use_db:
         db_items = fetch_catalog_from_db()
 
         if db_items is not None:
-            return validate_catalog(db_items)
+            return validate_catalog(db_items), "postgres"
 
-    return load_catalog()
+    return load_catalog(), "json"
+
+
+def _ids(items):
+    return [item.get("product_id") for item in items]
+
+
+def _registrar_erro(funcao, parametros, error):
+    registrar_uso(
+        funcao=funcao,
+        parametros=parametros,
+        registros=0,
+        status="erro",
+        erro=f"{type(error).__name__}: {error}",
+    )
+
+
+def get_catalog_items(catalog=None, use_db=True):
+    """Carrega o catálogo inteiro (payload, PostgreSQL ou JSON)."""
+    parametros = {"catalogo_no_payload": catalog is not None}
+
+    try:
+        items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
+    except (TypeError, ValueError, FileNotFoundError) as error:
+        _registrar_erro("get_catalog_items", parametros, error)
+        raise
+
+    registrar_uso(
+        funcao="get_catalog_items",
+        parametros=parametros,
+        registros=len(items),
+        status="sucesso" if items else "vazio",
+        fonte="payload" if fonte == "lista_recebida" else fonte,
+    )
+
+    return items
 
 
 def get_repository_product(
@@ -151,15 +189,82 @@ def get_repository_product(
     catalog=None,
     use_db=True
 ):
-    items = get_catalog_items(
-        catalog=catalog,
-        use_db=use_db
+    """Busca um produto pelo identificador. Devolve None se não existir."""
+    parametros = {"product_id": product_id}
+
+    try:
+        items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
+        product = find_product(product_id, catalog=items)
+    except (TypeError, ValueError, FileNotFoundError) as error:
+        _registrar_erro("get_repository_product", parametros, error)
+        raise
+
+    if product is None:
+        registrar_uso(
+            funcao="get_repository_product",
+            parametros=parametros,
+            registros=0,
+            status="erro",
+            fonte=fonte,
+            erro=f"produto nao encontrado: {product_id}",
+        )
+        return None
+
+    registrar_uso(
+        funcao="get_repository_product",
+        parametros=parametros,
+        registros=1,
+        status="sucesso",
+        ids=[product["product_id"]],
+        fonte=fonte,
     )
 
-    return find_product(
-        product_id,
-        catalog=items
+    return product
+
+
+def get_repository_products_by_ids(
+    product_ids,
+    catalog=None,
+    use_db=True
+):
+    """Busca vários produtos pelos identificadores, na ordem pedida.
+
+    Identificadores inexistentes são ignorados e ficam registrados no log.
+    Devolve lista vazia se nenhum existir.
+    """
+    pedidos = []
+    for product_id in product_ids or []:
+        normalizado = normalize_filter(product_id)
+        if normalizado is not None and normalizado not in pedidos:
+            pedidos.append(normalizado)
+
+    parametros = {"product_ids": pedidos}
+
+    try:
+        items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
+    except (TypeError, ValueError, FileNotFoundError) as error:
+        _registrar_erro("get_repository_products_by_ids", parametros, error)
+        raise
+
+    por_id = {item["product_id"]: item for item in items}
+    encontrados = [por_id[pid] for pid in pedidos if pid in por_id]
+    faltando = [pid for pid in pedidos if pid not in por_id]
+
+    registrar_uso(
+        funcao="get_repository_products_by_ids",
+        parametros=parametros,
+        registros=len(encontrados),
+        status="sucesso" if encontrados else "vazio",
+        ids=_ids(encontrados),
+        fonte=fonte,
+        erro=(
+            f"produtos nao encontrados: {', '.join(faltando)}"
+            if faltando
+            else None
+        ),
     )
+
+    return encontrados
 
 
 def get_repository_available_products(
@@ -167,15 +272,29 @@ def get_repository_available_products(
     catalog=None,
     use_db=True
 ):
-    items = get_catalog_items(
-        catalog=catalog,
-        use_db=use_db
+    """Lista os produtos disponíveis, sem o produto de referência."""
+    parametros = {"reference_product_id": reference_product_id}
+
+    try:
+        items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
+        result = available_products(
+            reference_product_id=reference_product_id,
+            catalog=items
+        )
+    except (TypeError, ValueError, FileNotFoundError) as error:
+        _registrar_erro("get_repository_available_products", parametros, error)
+        raise
+
+    registrar_uso(
+        funcao="get_repository_available_products",
+        parametros=parametros,
+        registros=len(result),
+        status="sucesso" if result else "vazio",
+        ids=_ids(result),
+        fonte=fonte,
     )
 
-    return available_products(
-        reference_product_id=reference_product_id,
-        catalog=items
-    )
+    return result
 
 
 def get_repository_filtered_products(
@@ -186,15 +305,35 @@ def get_repository_filtered_products(
     catalog=None,
     use_db=True
 ):
-    items = get_catalog_items(
-        catalog=catalog,
-        use_db=use_db
+    """Lista os produtos disponíveis que batem com os filtros informados."""
+    parametros = {
+        "category": category,
+        "technique": technique,
+        "region": region,
+        "reference_product_id": reference_product_id,
+    }
+    parametros = {k: v for k, v in parametros.items() if v is not None}
+
+    try:
+        items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
+        result = filter_products(
+            category=category,
+            technique=technique,
+            region=region,
+            reference_product_id=reference_product_id,
+            catalog=items
+        )
+    except (TypeError, ValueError, FileNotFoundError) as error:
+        _registrar_erro("get_repository_filtered_products", parametros, error)
+        raise
+
+    registrar_uso(
+        funcao="get_repository_filtered_products",
+        parametros=parametros,
+        registros=len(result),
+        status="sucesso" if result else "vazio",
+        ids=_ids(result),
+        fonte=fonte,
     )
 
-    return filter_products(
-        category=category,
-        technique=technique,
-        region=region,
-        reference_product_id=reference_product_id,
-        catalog=items
-    )
+    return result
