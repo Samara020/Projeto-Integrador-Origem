@@ -12,9 +12,6 @@ def _init_batch_worker(catalog):
     global _WORKER_CATALOG
     _WORKER_CATALOG = catalog
 
-
-
-
 def calculate_score(context, candidate):
     score = 0.0
     total_weight = 0.0
@@ -137,11 +134,15 @@ def _rank_single_reference(reference, catalog, limit):
     candidates = [
         item
         for item in catalog
-        if is_product_available(item, default=True) and item.get("product_id") != ref_id
+        if is_product_available(item, default=True)
+        and item.get("product_id") != ref_id
     ]
     ranked = rank_candidates(context, candidates)
-    return ref_id, ranked[:limit]
-
+    compatible = [
+        item for item in ranked
+        if item["score"] > 0
+    ]
+    return ref_id, compatible[:limit]
 
 def _rank_batch_chunk_with_shared_catalog(args):
     references_chunk, limit = args

@@ -636,7 +636,184 @@ A opção `--noconftest` permite executar os testes de equivalência sem iniciar
 
 A validação realizada contempla as funções Python, os catálogos JSON, as consultas simuladas ao PostgreSQL e a equivalência do processamento sequencial e paralelo.
 
-A integração HTTP completa, a consulta a uma instância real do PostgreSQL, a integração com o backend e o monitoramento do desempenho deverão ser validados nas etapas posteriores.
+Na etapa de implementação das funções de acesso aos dados, a integração HTTP completa, a consulta ao PostgreSQL real e a integração com o backend ainda não haviam sido validadas. Essas validações foram realizadas posteriormente na etapa de integração do recomendador, conforme as seções 15.12 a 15.19. O monitoramento sistemático do desempenho permanece como atividade complementar.
+
+### 15.12. Integração do acesso aos dados ao recomendador de IA
+
+O módulo de IA integra as funções de acesso aos dados do catálogo ao fluxo de recomendação do marketplace Origem, permitindo a seleção de produtos compatíveis com os critérios informados pelo usuário.
+
+A integração contempla:
+
+- Consulta aos produtos do catálogo.
+- Identificação do produto de referência.
+- Aplicação dos critérios de categoria, técnica artesanal e região.
+- Verificação da disponibilidade dos produtos.
+- Exclusão do produto utilizado como referência.
+- Exclusão de recomendações duplicadas.
+- Cálculo da pontuação de compatibilidade.
+- Ordenação das recomendações por pontuação.
+- Limitação da quantidade de resultados.
+- Retorno de lista vazia quando não existem produtos compatíveis.
+
+A separação entre acesso aos dados e geração de recomendações foi preservada, permitindo a evolução independente dessas responsabilidades.
+
+### 15.13. Fluxo integrado de recomendação
+
+O fluxo integrado do marketplace utiliza os seguintes componentes:
+
+1. O frontend solicita recomendações ao backend.
+2. O backend consulta os produtos disponíveis no PostgreSQL.
+3. O backend prepara o catálogo e os critérios de recomendação.
+4. O módulo de IA recebe os dados por meio da API de recomendações.
+5. O recomendador seleciona e classifica os produtos compatíveis.
+6. O módulo de IA retorna os identificadores, as pontuações e os motivos das recomendações.
+7. O backend complementa os resultados com os dados dos produtos.
+8. O frontend apresenta as recomendações ao usuário.
+
+O ponto de entrada utilizado pelo frontend é:
+
+`GET /produtos/recomendacoes`
+
+O backend utiliza o cabeçalho `X-Recomendacao-Fonte` para identificar a origem das recomendações, permitindo distinguir os resultados produzidos pelo módulo de IA daqueles obtidos pelo mecanismo alternativo de recomendação.
+
+### 15.14. Critérios de compatibilidade e pontuação
+
+A pontuação das recomendações considera os seguintes pesos:
+
+| Critério | Peso |
+|---|---:|
+| Categoria | 0,50 |
+| Técnica artesanal | 0,30 |
+| Região | 0,20 |
+| Total | 1,00 |
+
+A pontuação é normalizada considerando os atributos presentes no contexto da recomendação.
+
+Os resultados são ordenados por pontuação decrescente, respeitando o limite solicitado.
+
+Durante a validação da integração, foi identificada a possibilidade de o processamento em lote retornar produtos com pontuação igual a zero.
+
+A função `_rank_single_reference`, localizada em `app/recommendation.py`, foi ajustada para excluir essas recomendações antes da aplicação do limite de resultados.
+
+A recomendação individual e a recomendação em lote possuem estratégias de seleção distintas. Portanto, a equivalência integral dos resultados entre essas modalidades não é garantida para todos os contextos.
+
+### 15.15. Validação com o PostgreSQL
+
+A integração foi validada em ambiente local utilizando PostgreSQL 17 e a visão `public.vw_catalogo_recomendacao_ia`.
+
+Durante a validação, foram identificados:
+
+| Indicador | Quantidade |
+|---|---:|
+| Produtos consultados no catálogo | 15 |
+| Produtos disponíveis | 13 |
+| Produtos indisponíveis | 2 |
+| Produtos disponíveis utilizados como referência | 13 |
+| Recomendações validadas no processamento em lote | 57 |
+
+Foram verificadas a disponibilidade, a pertinência ao catálogo, a ausência de duplicidades, a exclusão do produto de referência, a pontuação positiva e a ordenação dos resultados.
+
+A consulta direta ao PostgreSQL pelo módulo de IA foi validada mediante configuração temporária das variáveis de conexão.
+
+No fluxo integrado utilizado pelo frontend, o backend consulta o banco de dados e encaminha o catálogo ao módulo de IA.
+
+Os quantitativos apresentados correspondem ao estado do banco de dados local no momento da validação e podem variar conforme a evolução do catálogo.
+
+### 15.16. Testes automatizados da integração
+
+Foi criado o arquivo:
+
+`tests_dados/test_integracao_recomendador.py`
+
+O arquivo contém 17 novos casos de teste destinados à validação do fluxo de recomendação individual e em lote.
+
+Os testes verificam:
+
+- Integração entre consulta ao catálogo e recomendação.
+- Utilização dos catálogos sintético e representativo do Origem.
+- Limites de 1, 5 e 20 recomendações.
+- Disponibilidade dos produtos recomendados.
+- Pertinência dos produtos ao catálogo consultado.
+- Ausência de duplicidades.
+- Exclusão do produto de referência.
+- Validade e ordenação das pontuações.
+- Exclusão de recomendações com pontuação igual a zero.
+- Equivalência entre modalidades em cenário controlado.
+- Ausência de produtos compatíveis.
+- Catálogo vazio.
+- Ausência de produtos de referência.
+
+### 15.17. Resultados dos testes de regressão e integração
+
+A coleta definitiva das evidências foi realizada em 27/11/2026, na branch `feat/modulo-ia-dados`.
+
+| Grupo de testes | Executados | Aprovados | Falhas |
+|---|---:|---:|---:|
+| Testes de dados e integração do recomendador | 194 | 194 | 0 |
+| Suíte original do módulo de IA | 33 | 33 | 0 |
+| Testes unitários do backend | 6 | 6 | 0 |
+| Testes de integração real | 6 | 6 | 0 |
+| **Total** | **239** | **239** | **0** |
+
+**Taxa de aprovação: 100% das suítes selecionadas.**
+
+Os 17 novos casos de teste estão incluídos nos 194 testes de dados e integração do recomendador, não sendo contabilizados novamente no total consolidado.
+
+Todos os quatro grupos apresentaram código de saída igual a zero.
+
+As advertências de depreciação das dependências Python foram registradas nas evidências e não impediram a aprovação dos testes.
+
+Os resultados apresentados correspondem ao escopo da integração do recomendador, não representando a execução integral de todas as suítes de testes do marketplace Origem.
+
+### 15.18. Validação da integração com o frontend
+
+A integração foi validada em ambiente local com os seguintes serviços:
+
+| Serviço | Endereço local |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend | http://localhost:4000 |
+| Módulo de IA | http://localhost:3001 |
+| PostgreSQL | localhost:5433 |
+
+Foram verificadas as páginas:
+
+- `/produto/2001`
+- `/recomendacoes`
+
+Os testes de integração real confirmaram a disponibilidade dos serviços, a comunicação entre backend e módulo de IA, a origem das recomendações, a aplicação dos filtros e o tratamento de cenários sem resultados.
+
+A apresentação das recomendações nas páginas do frontend também foi verificada manualmente.
+
+Essa validação não substitui uma suíte completa de testes automatizados de interface ou de navegação ponta a ponta.
+
+### 15.19. Documentação técnica e evidências
+
+Os detalhes da implementação, os critérios de validação, os resultados obtidos e as limitações identificadas estão disponíveis nos seguintes arquivos:
+
+- [Documentação da integração do acesso aos dados ao recomendador de IA](docs/integracao-recomendador-ia.md).
+- [Evidências dos testes de integração do recomendador de IA](docs/evidencias/testes-integracao-recomendador-ia.txt).
+- [Testes automatizados da integração do recomendador](tests_dados/test_integracao_recomendador.py).
+- [Documentação das funções de acesso aos dados](docs/acesso-dados-ia.md).
+- [Documentação da validação dos dados utilizados pela IA](docs/validacao-dados-ia.md).
+
+O arquivo de evidências contém os registros das execuções efetivas dos testes, os códigos de saída e a consolidação dos resultados, utilizando codificação UTF-8.
+
+### 15.20. Limitações e continuidade
+
+A integração do acesso aos dados ao recomendador foi implementada e validada em ambiente local.
+
+Permanecem como atividades complementares:
+
+- Evolução dos registros estruturados de execução do módulo de IA.
+- Ampliação dos testes das funções e dos serviços integrados.
+- Monitoramento do uso dos dados e do desempenho.
+- Documentação dos indicadores e das evidências de monitoramento.
+- Avaliação de desempenho sob diferentes volumes de dados.
+- Acompanhamento das advertências e vulnerabilidades das dependências.
+- Revisão da consistência visual das imagens dos produtos recomendados.
+
+Essas atividades deverão ser tratadas nos cartões correspondentes do backlog, conforme seus respectivos critérios de aceitação.
 
 ## 16. Limitações do mockup
 
