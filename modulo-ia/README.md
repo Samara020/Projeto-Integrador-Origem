@@ -431,32 +431,90 @@ npm --prefix frontend run test:api -- tests/api/recomendacoes-integracao.test.ts
 
 ## 15. Catálogo
 
-O módulo trabalha com dois catálogos em `data/`:
+O módulo de inteligência artificial utiliza uma estrutura unificada de acesso aos dados dos produtos do marketplace Origem, permitindo a consulta ao PostgreSQL e a utilização de catálogos mockados.
 
-| Arquivo | Uso |
+### 15.1. Fontes de dados
+
+| Fonte | Finalidade |
 |---|---|
-| `catalogo_origem.json` | Padrão. Espelha as peças da Fake API do frontend (`frontend/src/mocks`), com os mesmos IDs `prd_` |
-| `catalogo.json` | Catálogo sintético dos testes de lógica (`prod_001`...) |
+| `public.vw_catalogo_recomendacao_ia` | View do PostgreSQL utilizada para consultar os produtos cadastrados no banco de dados. |
+| `data/catalogo_origem.json` | Catálogo mockado padrão, baseado nos produtos do Origem, contendo 14 registros. |
+| `data/catalogo.json` | Catálogo sintético utilizado nos testes de lógica de recomendação, contendo 8 registros. |
 
-Para escolher outro arquivo, defina `CATALOGO_IA` com o caminho dele.
+### 15.2. Ordem de acesso aos dados
 
-Em `catalogo_origem.json`, categoria, técnica e região são os nomes exibidos no site,
-e `available` é `true` só para peças com disponibilidade `DISPONIVEL`
-(reservadas e vendidas não são recomendadas). Se as peças da Fake API mudarem,
-atualize este arquivo também.
+O arquivo `app/repository.py`, por meio da função `get_catalog_items()`, estabelece a seguinte ordem de consulta:
 
-O catálogo contém os atributos necessários para a recomendação, incluindo:
+1. Utilização do catálogo fornecido explicitamente à função.
+2. Consulta ao PostgreSQL, quando habilitada e disponível.
+3. Carregamento do catálogo JSON como alternativa.
 
-- Identificador do produto.
-- Nome.
-- Categoria.
-- Técnica artesanal.
-- Região.
-- Disponibilidade.
+A variável de ambiente `CATALOGO_IA` permite selecionar outro arquivo JSON.
 
-Os identificadores do catálogo do site seguem o padrão `prd_201` a `prd_214`.
+### 15.3. Estrutura dos dados
 
-O catálogo permite validar a lógica de recomendação sem dependência de banco de dados.
+| Atributo | Tipo | Descrição |
+|---|---|---|
+| `product_id` | String | Identificador único do produto. |
+| `name` | String | Nome do produto artesanal. |
+| `category` | String | Categoria comercial. |
+| `technique` | String | Técnica artesanal. |
+| `region` | String | Região de origem. |
+| `available` | Boolean | Disponibilidade do produto. |
+
+### 15.4. Identificação dos produtos
+
+O catálogo mockado do Origem utiliza identificadores no intervalo de `prd_201` a `prd_214`.
+
+Os produtos correspondentes no script de dados iniciais do PostgreSQL utilizam identificadores numéricos de `2001` a `2014`, convertidos em texto pelo módulo de IA durante a consulta.
+
+A correspondência nominal entre os 14 produtos foi documentada no arquivo `docs/analise-catalogo.md`.
+
+Os identificadores originais foram preservados, sendo únicos dentro de cada catálogo. A equivalência entre as fontes deverá ser considerada nas integrações.
+
+### 15.5. Diversidade do catálogo
+
+O catálogo mockado do Origem contempla:
+
+- 14 produtos artesanais.
+- 3 categorias comerciais.
+- 5 técnicas artesanais.
+- 4 regiões de Pernambuco.
+
+### 15.6. Validação da integridade
+
+Os testes automatizados de integridade estão localizados em `tests_dados/test_catalogo.py`.
+
+Os critérios avaliados são:
+
+- Existência de registros nos catálogos.
+- Unicidade dos identificadores.
+- Presença dos campos obrigatórios.
+- Validade dos campos textuais.
+- Disponibilidade representada por valor booleano.
+- Diversidade de categorias.
+- Diversidade de técnicas artesanais.
+- Diversidade de regiões.
+
+Em 27/11/2026, foram executados 16 testes automatizados, com 100% de aprovação e nenhuma falha.
+
+Para reproduzir os testes no Windows, a partir do diretório `modulo-ia`:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install pytest==9.2.0
+.\.venv\Scripts\python.exe -m pytest tests_dados -v
+```
+
+Esses testes não dependem da inicialização do PostgreSQL ou do servidor BentoML.
+
+### 15.7. Documentação e evidências
+
+- [Análise do catálogo de produtos](docs/analise-catalogo.md).
+- [Evidências dos testes de integridade](docs/evidencias/testes-integridade-catalogo.txt).
+- [Código dos testes automatizados](tests_dados/test_catalogo.py).
+
+A validação realizada contempla os arquivos JSON e a comparação nominal com o script de dados iniciais do PostgreSQL, não abrangendo testes de integração com uma instância ativa do banco de dados.
 
 ## 16. Limitações do mockup
 
