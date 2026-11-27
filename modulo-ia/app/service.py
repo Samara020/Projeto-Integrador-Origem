@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 import bentoml
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.config import DEFAULT_LIMIT, MAX_LIMIT, get_api_key
 from app.fallback import select_candidates, select_candidates_batch
 from app.observability import iniciar_cronometro, registrar_execucao
+from app.catalog import normalize_filter, is_product_available
 from app.repository import get_catalog_items, get_repository_product
 
 
@@ -33,11 +34,17 @@ class BatchRecommendationRequest(BaseModel):
     catalog: list[CatalogItem] | None = None
 
 
+def resolver_catalogo_requisicao(catalog):
+    items = (
+        [item.model_dump() for item in catalog]
+        if catalog is not None
+        else None
+    )
+    return get_catalog_items(catalog=items)
+
+
 def normalizar_texto(valor):
-    if valor is None:
-        return None
-    texto = valor.strip()
-    return texto if texto else None
+    return normalize_filter(valor)
 
 
 class ErrorDetail(BaseModel):
@@ -221,11 +228,7 @@ class RecommendationService:
             )
             return erro
 
-        catalog = (
-            [item.model_dump() for item in request.catalog]
-            if request.catalog is not None
-            else get_catalog_items()
-        )
+        catalog = resolver_catalogo_requisicao(request.catalog)
 
         reference_product, erro = obter_produto_referencia(
             ctx,
@@ -315,17 +318,13 @@ class RecommendationService:
                 "O limite deve estar entre 1 e 20.",
             )
 
-        catalog = (
-            [item.model_dump() for item in request.catalog]
-            if request.catalog is not None
-            else get_catalog_items()
-        )
+        catalog = resolver_catalogo_requisicao(request.catalog)
 
         if request.product_ids:
             ids_set = {normalizar_texto(pid) for pid in request.product_ids if normalizar_texto(pid)}
             references = [item for item in catalog if item.get("product_id") in ids_set]
         else:
-            references = [item for item in catalog if item.get("available", True)]
+            references = [item for item in catalog if is_product_available(item, default=True)]
 
         recommendations_by_product = select_candidates_batch(
             references=references,

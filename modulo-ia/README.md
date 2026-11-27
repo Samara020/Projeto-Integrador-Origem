@@ -521,8 +521,8 @@ Para reproduzir os testes no Windows, a partir do diretório `modulo-ia`:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install pytest==9.2.0
-.\.venv\Scripts\python.exe -m pytest tests_dados -v
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest tests_dados/test_catalogo.py tests_dados/test_validacao_recomendacao.py -v
 ```
 
 Esses testes não dependem da inicialização do PostgreSQL ou do servidor BentoML.
@@ -539,6 +539,104 @@ Esses testes não dependem da inicialização do PostgreSQL ou do servidor Bento
 A validação contempla os catálogos JSON, a comparação nominal com o script de dados iniciais do PostgreSQL e os cenários de seleção de candidatos à recomendação.
 
 Os testes de integração HTTP, as consultas a uma instância ativa do PostgreSQL e o monitoramento do desempenho não fazem parte desta etapa.
+
+
+### 15.8. Implementação das funções de acesso aos dados
+
+As funções de acesso aos dados foram revisadas e organizadas para separar as responsabilidades de leitura, validação, consulta, normalização e filtragem das responsabilidades de geração de recomendações.
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `app/catalog.py` | Leitura, validação, normalização e filtragem dos catálogos. |
+| `app/repository.py` | Seleção das fontes de dados e consulta ao PostgreSQL. |
+| `app/service.py` | Preparação dos dados recebidos pelas operações do serviço de IA. |
+| `app/fallback.py` | Seleção dos candidatos à recomendação. |
+| `app/recommendation.py` | Pontuação, classificação e processamento das recomendações. |
+
+As principais melhorias implementadas incluem:
+
+- Validação estrutural dos catálogos.
+- Tratamento de parâmetros inválidos.
+- Tratamento de arquivos JSON inexistentes ou inválidos.
+- Consulta de produtos por identificador.
+- Filtragem por categoria, técnica e região.
+- Combinação de filtros.
+- Exclusão de produtos indisponíveis.
+- Exclusão do produto de referência.
+- Preservação de catálogos vazios.
+- Diferenciação entre ausência de registros e indisponibilidade da fonte de dados.
+- Centralização da comparação de atributos.
+- Centralização da normalização textual.
+- Centralização da verificação de disponibilidade.
+- Reutilização das funções de acesso aos dados.
+- Preservação da equivalência entre processamento sequencial e paralelo nos cenários testados.
+
+A consulta ao PostgreSQL utiliza a biblioteca `psycopg[binary]`, na versão `3.3.9`, registrada no arquivo `requirements.txt`.
+
+A documentação completa das funções, seus parâmetros, retornos, exceções e limitações está disponível em [Documentação das funções de acesso aos dados](docs/acesso-dados-ia.md).
+
+### 15.9. Testes automatizados das funções de acesso aos dados
+
+| Arquivo | Finalidade | Testes aprovados |
+|---|---|---:|
+| `tests_dados/test_catalogo.py` | Integridade dos catálogos. | 28 |
+| `tests_dados/test_validacao_recomendacao.py` | Validação dos cenários de recomendação. | 20 |
+| `tests_dados/test_acesso_dados.py` | Leitura, validação, pesquisa e filtragem. | 60 |
+| `tests_dados/test_repository.py` | Consulta e seleção das fontes de dados. | 40 |
+| `tests_dados/test_funcoes_compartilhadas.py` | Reutilização das funções e regressão. | 29 |
+| `tests/test_parallel_equivalence.py` | Equivalência do processamento sequencial e paralelo. | 4 |
+| **Total** | | **181** |
+
+Em 27/11/2026, foram realizadas duas execuções independentes de testes automatizados para geração das evidências.
+
+| Execução | Aprovados | Falhas | Avisos | Tempo |
+|---|---:|---:|---:|---:|
+| Testes de dados | 177 | 0 | 29 | 1,92 s |
+| Testes de equivalência paralela | 4 | 0 | 0 | 0,39 s |
+| **Total** | **181** | **0** | **29** | **2,31 s** |
+
+Os 181 testes incluem os 48 testes de integridade e validação dos dados documentados anteriormente.
+
+Ambas as execuções apresentaram código de saída igual a zero.
+
+Os 29 avisos estão relacionados à descontinuação futura de recursos das bibliotecas Pathspec, BentoML e Pydantic, sem ocorrência de falhas nos testes realizados.
+
+### 15.10. Reprodução dos testes de acesso aos dados
+
+A partir do diretório `modulo-ia`, no Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pytest tests_dados -v
+.\.venv\Scripts\python.exe -m pytest --noconftest tests/test_parallel_equivalence.py -v
+```
+
+Ambiente utilizado na geração das evidências:
+
+| Componente | Versão |
+|---|---|
+| Python | 3.13.14 |
+| Pytest | 9.1.1 |
+| BentoML | 1.4.39 |
+| Requests | 2.34.2 |
+| Psycopg Binary | 3.3.9 |
+
+A opção `--noconftest` permite executar os testes de equivalência sem iniciar automaticamente o servidor HTTP.
+
+### 15.11. Documentação e evidências do acesso aos dados
+
+- [Documentação das funções de acesso aos dados](docs/acesso-dados-ia.md).
+- [Evidências dos testes de acesso aos dados](docs/evidencias/testes-acesso-dados-ia.txt).
+- [Código dos testes de acesso aos dados](tests_dados/test_acesso_dados.py).
+- [Código dos testes do repositório](tests_dados/test_repository.py).
+- [Código dos testes das funções compartilhadas](tests_dados/test_funcoes_compartilhadas.py).
+- [Código dos testes de equivalência paralela](tests/test_parallel_equivalence.py).
+
+A validação realizada contempla as funções Python, os catálogos JSON, as consultas simuladas ao PostgreSQL e a equivalência do processamento sequencial e paralelo.
+
+A integração HTTP completa, a consulta a uma instância real do PostgreSQL, a integração com o backend e o monitoramento do desempenho deverão ser validados nas etapas posteriores.
 
 ## 16. Limitações do mockup
 
