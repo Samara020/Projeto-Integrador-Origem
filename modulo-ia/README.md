@@ -4,6 +4,166 @@ Mockup executável do módulo de recomendação de produtos do marketplace Orige
 
 O módulo utiliza atributos dos produtos para calcular uma pontuação de relacionamento, ordenar candidatos e retornar recomendações justificadas. A implementação utiliza um catálogo sintético, permitindo executar e testar a lógica sem depender de banco de dados ou de dados reais.
 
+## Entrega AV2: dados, funções de acesso e log de uso
+
+Esta seção segue a ordem pedida no enunciado. O restante do README (a partir da seção 1) é a documentação detalhada do módulo.
+
+Resumo do caminho: o módulo de IA é o serviço BentoML `RecommendationService`. As rotas `POST /recommendations` e `POST /recommendations/batch` só chegam aos produtos pelas funções de `app/repository.py`. Cada chamada a essas funções grava uma linha em `modulo-ia/logs/uso_dados.jsonl`. O script `resumo_uso_dados.py` lê esse arquivo e mostra o resumo.
+
+### A. Como instalar e rodar
+
+Na raiz do repositório, com Python 3.13:
+
+```powershell
+# Windows (PowerShell)
+python -m venv modulo-ia\.venv
+.\modulo-ia\.venv\Scripts\python.exe -m pip install -r .\modulo-ia\requirements.txt
+$env:PYTHONPATH="$PWD\modulo-ia"
+.\modulo-ia\.venv\Scripts\bentoml.exe serve app.service:RecommendationService --port 3001
+```
+
+```bash
+# Linux / macOS
+python3 -m venv modulo-ia/.venv
+modulo-ia/.venv/bin/python -m pip install -r modulo-ia/requirements.txt
+export PYTHONPATH="$PWD/modulo-ia"
+modulo-ia/.venv/bin/bentoml serve app.service:RecommendationService --port 3001
+```
+
+Deixe esse terminal aberto. Sem `DATABASE_URL` ou `POSTGRES_*` definidos, o módulo lê os dados de `modulo-ia/data/catalogo_origem.json`, que é o caminho desta demonstração.
+
+Alternativa com Docker: `docker compose up --build modulo-ia`. Nesse caso o log fica dentro do contêiner, em `/app/logs/uso_dados.jsonl`, e os comandos dos passos D e E viram `docker compose exec modulo-ia cat logs/uso_dados.jsonl` e `docker compose exec modulo-ia python resumo_uso_dados.py`.
+
+Testes das funções, do log e do resumo (não precisam do servidor):
+
+```bash
+cd modulo-ia
+python -m pytest tests_dados -q
+```
+
+### B. Dicionário de dados
+
+Arquivo versionado: `modulo-ia/data/catalogo_origem.json`, com 15 produtos fictícios inspirados no artesanato de Pernambuco. Não há dados pessoais.
+
+| Campo | Significado no negócio |
+|---|---|
+| `product_id` | Identificador do produto na vitrine do Origem. É o que a página do produto envia ao módulo para pedir "produtos parecidos". |
+| `name` | Nome do produto como aparece para o comprador. O módulo não usa o nome para pontuar; ele serve só para conferência humana. |
+| `category` | Seção comercial da loja (Artesanato, Arte e Decoração, Literatura...). É o critério mais forte da recomendação (peso 0,5) e é obrigatório para um produto entrar na lista de parecidos. |
+| `technique` | Técnica artesanal usada pelo artesão (Cerâmica, Bordado, Cordel...). Segundo critério de semelhança (peso 0,3). |
+| `region` | Região de Pernambuco onde a peça foi feita. Terceiro critério de semelhança (peso 0,2), que valoriza peças do mesmo território. |
+| `available` | `true` se a peça pode ser comprada agora (aprovada, não pausada e com estoque). Produto com `false` nunca é recomendado. |
+
+Casos difíceis incluídos de propósito:
+
+- `prd_215` (Rabeca de Cabaça): única peça da categoria "Instrumentos Musicais". Não tem nenhum semelhante, então a recomendação volta vazia.
+- `prd_206` e `prd_208`: produtos indisponíveis. Existem no catálogo, mas nunca aparecem como recomendação.
+- `prd_999`: identificador que não existe no arquivo. Ele é usado na terceira chamada da demonstração.
+
+Com o PostgreSQL configurado, os mesmos campos vêm da view `public.vw_catalogo_recomendacao_ia` (veja `database/sql/10_estrutura_modulo_ia.sql`).
+
+### C. Funções de acesso aos dados
+
+Todas ficam em `app/repository.py`. As rotas não abrem o arquivo JSON nem o banco diretamente.
+
+| Função | O que entrega | Quando não encontra nada |
+|---|---|---|
+| `get_catalog_items(catalog=None)` | O catálogo inteiro. A origem é, nesta ordem: lista enviada na requisição, PostgreSQL ou JSON. | Lista vazia. Arquivo ausente ou inválido gera erro claro (`FileNotFoundError` / `ValueError`). |
+| `get_repository_product(product_id)` | Um produto pelo identificador. A rota usa para achar o produto de referência. | Devolve `None`, o log registra `status: "erro"` com o id, e a rota responde `404 PRODUCT_NOT_FOUND`. |
+| `get_repository_products_by_ids(product_ids)` | Vários produtos pelos identificadores (usada pela rota em lote). | Ignora os ids que não existem e registra quais faltaram. Se nenhum existir, devolve lista vazia. |
+| `get_repository_available_products(reference_product_id=None)` | Produtos que podem ser recomendados (disponíveis, sem o de referência). | Lista vazia. |
+| `get_repository_filtered_products(category, technique, region)` | Produtos disponíveis que batem com os filtros. | Lista vazia. |
+
+**Experiência: alterar um dado muda a resposta.** Com o servidor rodando, faça a chamada 1 do passo D (`prd_201`). A resposta traz `prd_213`, `prd_202` e `prd_207`. Abra `data/catalogo_origem.json`, troque `"available": true` por `"available": false` no `prd_213` e salve. Repita a chamada 1, sem reiniciar o servidor: o `prd_213` some e ficam só `prd_202` e `prd_207`. Volte o valor para `true` no final. As duas respostas estão em `docs/evidencias/respostas_chamadas_exemplo.txt`.
+
+### D. Como gerar o log com três chamadas
+
+Em outro terminal, com o servidor do passo A rodando:
+
+```bash
+# Linux / macOS / Git Bash
+curl -s -X POST http://localhost:3001/recommendations -H "Content-Type: application/json" -H "X-API-Key: origem-mockup-key" -d '{"product_id": "prd_201", "limit": 5}'
+curl -s -X POST http://localhost:3001/recommendations -H "Content-Type: application/json" -H "X-API-Key: origem-mockup-key" -d '{"product_id": "prd_215", "limit": 5}'
+curl -s -X POST http://localhost:3001/recommendations -H "Content-Type: application/json" -H "X-API-Key: origem-mockup-key" -d '{"product_id": "prd_999", "limit": 5}'
+```
+
+```powershell
+# Windows (PowerShell)
+$h = @{ "X-API-Key" = "origem-mockup-key" }
+foreach ($id in "prd_201", "prd_215", "prd_999") {
+  try {
+    Invoke-RestMethod -Method Post -Uri http://localhost:3001/recommendations -Headers $h `
+      -ContentType "application/json" -Body (@{ product_id = $id; limit = 5 } | ConvertTo-Json) | ConvertTo-Json -Depth 5
+  } catch { "$id -> $($_.Exception.Message)" }
+}
+```
+
+O que cada chamada mostra:
+
+1. `prd_201`: caso normal. Devolve 3 recomendações.
+2. `prd_215`: produto sem semelhante. Devolve `{"recommendations": []}`.
+3. `prd_999`: identificador inexistente. Devolve `404 PRODUCT_NOT_FOUND`.
+
+Abra o log:
+
+```bash
+cat modulo-ia/logs/uso_dados.jsonl             # Linux / macOS
+Get-Content modulo-ia\logs\uso_dados.jsonl     # Windows
+```
+
+Cada chamada gera duas linhas: `get_catalog_items`, que carrega o catálogo, e `get_repository_product`, que busca o produto de referência. As três linhas de `get_repository_product` mostram o uso dos dados, uma por chamada:
+
+```json
+{"data_hora": "2026-11-27T18:57:06-03:00", "funcao": "get_repository_product", "chamador": "POST /recommendations", "parametros": {"product_id": "prd_201"}, "registros": 1, "status": "sucesso", "ids": ["prd_201"], "fonte": "lista_recebida"}
+{"data_hora": "2026-11-27T18:57:06-03:00", "funcao": "get_repository_product", "chamador": "POST /recommendations", "parametros": {"product_id": "prd_215"}, "registros": 1, "status": "sucesso", "ids": ["prd_215"], "fonte": "lista_recebida"}
+{"data_hora": "2026-11-27T18:57:06-03:00", "funcao": "get_repository_product", "chamador": "POST /recommendations", "parametros": {"product_id": "prd_999"}, "registros": 0, "status": "erro", "fonte": "lista_recebida", "erro": "produto nao encontrado: prd_999"}
+```
+
+Campos de cada linha:
+
+| Campo | Conteúdo |
+|---|---|
+| `data_hora` | Data e hora da chamada, com fuso. |
+| `funcao` | Função de acesso chamada. |
+| `chamador` | Quem chamou: a rota (`POST /recommendations`, `POST /recommendations/batch`) ou `direto` (testes e scripts). |
+| `parametros` | Resumo dos parâmetros. Só identificadores e filtros, nunca dados pessoais. |
+| `registros` | Quantos registros a função devolveu. |
+| `status` | `sucesso`, `vazio` (funcionou, mas não achou nada) ou `erro`. |
+| `ids` | Identificadores dos produtos devolvidos, nas funções que consultam produtos específicos. |
+| `fonte` | De onde vieram os dados: `json`, `postgres`, `payload` (lista enviada pelo backend) ou `lista_recebida` (catálogo já carregado na mesma requisição). |
+| `erro` | Motivo do erro ou ids não encontrados. |
+
+O arquivo só recebe linhas novas e nunca é apagado pelo módulo. Para começar do zero, apague o arquivo à mão. O caminho pode ser trocado com a variável `LOG_USO_DADOS`. Os testes gravam em um arquivo temporário e não sujam este log.
+
+O log de execução das rotas, já existente (evento `modulo_ia_execucao`, na saída do terminal), continua igual e separado deste.
+
+### E. Como ver o resumo
+
+```bash
+python modulo-ia/resumo_uso_dados.py
+```
+
+O script mostra quantas vezes cada função foi chamada (com sucesso, vazio e erro), quem chamou, os erros com o motivo, os produtos mais consultados, os produtos do catálogo nunca consultados e os ids pedidos que não existem. Opções: `--log <arquivo>` e `--catalogo <arquivo>`.
+
+Exemplo gerado em 27/11/2026, com as três chamadas, o experimento da seção C e uma chamada em lote (`prd_209` e `prd_999`): `docs/evidencias/uso_dados_exemplo.jsonl` (log) e `docs/evidencias/resumo_uso_dados_exemplo.txt` (resumo).
+
+### F. Respostas
+
+Com base no resumo de exemplo:
+
+**(a) Qual dado o módulo mais usa?** O catálogo inteiro: `get_catalog_items` aparece em 5 das 10 linhas, porque toda recomendação compara a categoria, a técnica e a região do produto de referência com as de todos os outros. Entre os produtos, o mais consultado foi o `prd_201`, pedido duas vezes (chamada normal e experimento).
+
+**(b) Algum dado nunca foi usado? O que isso sugere?** Sim: 12 dos 15 produtos nunca foram consultados como referência. Entre eles estão `prd_206` e `prd_208`, que estão indisponíveis e por isso também nunca são recomendados. Com uso real, isso apontaria produtos que ninguém visita e itens parados no catálogo, bons candidatos a revisão de cadastro ou destaque na vitrine. Já o `prd_215` foi consultado, mas nunca gera recomendação, o que mostra que o catálogo precisa de mais peças nessa categoria ou de uma regra alternativa (por exemplo, mais vendidos da mesma região). Limitação: o resumo conta os produtos pedidos como referência; os produtos que aparecem dentro das respostas não entram nessa contagem.
+
+**(c) Houve erro? Por quê?** Sim, um: `get_repository_product` com `prd_999`, um identificador que não existe no catálogo e foi usado de propósito. A função devolve `None`, o log registra o motivo e a rota responde `404 PRODUCT_NOT_FOUND`, sem derrubar o serviço. O mesmo id também aparece na chamada em lote: ali ele é ignorado, e a resposta segue com os produtos que existem.
+
+### G. Declaração de uso de IA generativa
+
+- **Ferramenta:** Claude (Anthropic), modelo Claude Opus 5.5, em 27/11/2026, usado por Lara Thaylanne.
+- **Para quê:** ler o que já existia na branch `feat/modulo-ia-dados` e implementar a parte que faltava: o log em arquivo (`app/data_log.py` e o registro dentro de `app/repository.py`), a função `get_repository_products_by_ids`, a passagem da rota em lote pelas funções de acesso, o produto `prd_215`, o script `resumo_uso_dados.py`, os testes `tests_dados/test_log_uso_dados.py` e esta seção do README.
+- **Validação:** os testes de `tests_dados` foram executados (204 aprovados). As três chamadas e o experimento foram reproduzidos, e o log e o resumo de exemplo foram gerados a partir deles. A squad revisa a branch antes do merge.
+- As declarações de uso de IA das etapas anteriores estão em `uso-ia-concorrencia.md`, na raiz.
+
 ## 1. Tecnologias
 
 - Python 3.13+
@@ -438,7 +598,7 @@ O módulo de inteligência artificial utiliza uma estrutura unificada de acesso 
 | Fonte | Finalidade |
 |---|---|
 | `public.vw_catalogo_recomendacao_ia` | View do PostgreSQL utilizada para consultar os produtos cadastrados no banco de dados. |
-| `data/catalogo_origem.json` | Catálogo mockado padrão, baseado nos produtos do Origem, contendo 14 registros. |
+| `data/catalogo_origem.json` | Catálogo mockado padrão, baseado nos produtos do Origem, contendo 15 registros (14 equivalentes ao seed do PostgreSQL e o caso difícil `prd_215`). |
 | `data/catalogo.json` | Catálogo sintético utilizado nos testes de lógica de recomendação, contendo 8 registros. |
 
 ### 15.2. Ordem de acesso aos dados
@@ -464,7 +624,7 @@ A variável de ambiente `CATALOGO_IA` permite selecionar outro arquivo JSON.
 
 ### 15.4. Identificação dos produtos
 
-O catálogo mockado do Origem utiliza identificadores no intervalo de `prd_201` a `prd_214`.
+O catálogo mockado do Origem utiliza identificadores no intervalo de `prd_201` a `prd_215`. O `prd_215` existe só no JSON: é o caso sem semelhante usado na demonstração do log.
 
 Os produtos correspondentes no script de dados iniciais do PostgreSQL utilizam identificadores numéricos de `2001` a `2014`, convertidos em texto pelo módulo de IA durante a consulta.
 
@@ -476,10 +636,10 @@ Os identificadores originais foram preservados, sendo únicos dentro de cada cat
 
 O catálogo mockado do Origem contempla:
 
-- 14 produtos artesanais.
-- 3 categorias comerciais.
-- 5 técnicas artesanais.
-- 4 regiões de Pernambuco.
+- 15 produtos artesanais.
+- 4 categorias comerciais.
+- 6 técnicas artesanais.
+- 5 regiões de Pernambuco.
 
 ### 15.6. Validação da integridade e dos cenários de recomendação
 

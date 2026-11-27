@@ -7,6 +7,8 @@
 
 > **Avaliação de IA (AV2):** instruções de instalação, tabela de requisitos e casos de teste estão na seção [Módulo de IA](#módulo-de-ia-recomendação-de-produtos-av2).
 >
+> **Projeto AV2 (dados, funções de acesso e log de uso do módulo de IA):** passo a passo em [`modulo-ia/README.md`, seção "Entrega AV2"](modulo-ia/README.md#entrega-av2-dados-funções-de-acesso-e-log-de-uso).
+>
 > **FCCPD · Unidade 2 (Parte 2 — Arquitetura Distribuída, Paralelismo e Benchmarks):** diagrama, justificativa da separação, código paralelo, metodologia, resultados e evidências estão na seção [Arquitetura Distribuída — Projeto Origem (FCCPD / Unidade 2)](#arquitetura-distribuída--projeto-origem-fccpd--unidade-2).
 
 ## Sobre o projeto
