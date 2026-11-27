@@ -1,0 +1,27 @@
+Log: docs/evidencias/uso_dados_exemplo.jsonl
+Linhas lidas: 10
+Período: 2026-11-27T18:57:06-03:00 até 2026-11-27T18:57:06-03:00
+
+Chamadas por função
+  função                               total  sucesso  vazio  erro
+  get_catalog_items                        5        5      0     0
+  get_repository_product                   4        3      0     1
+  get_repository_products_by_ids           1        1      0     0
+
+Chamadas por quem chamou
+  POST /recommendations                    8
+  POST /recommendations/batch              2
+
+Erros: 1
+  1x get_repository_product: produto nao encontrado: prd_999
+
+Produtos mais consultados
+  prd_201        2
+  prd_215        1
+  prd_209        1
+
+Produtos do catálogo nunca consultados (12)
+  prd_202, prd_203, prd_204, prd_205, prd_206, prd_207, prd_208, prd_210, prd_211, prd_212, prd_213, prd_214
+
+Identificadores pedidos que não existem no catálogo
+  prd_999        2

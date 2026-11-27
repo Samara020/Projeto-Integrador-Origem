@@ -1,0 +1,6 @@
+POST /recommendations {"product_id": "prd_201", "limit": 5} -> 200 {"recommendations": [{"product_id": "prd_213", "score": 1.0, "reason": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região."}, {"product_id": "prd_202", "score": 0.8, "reason": "Recomendado por mesma categoria, mesma técnica artesanal."}, {"product_id": "prd_207", "score": 0.5, "reason": "Recomendado por mesma categoria."}]}
+POST /recommendations {"product_id": "prd_215", "limit": 5} -> 200 {"recommendations": []}
+POST /recommendations {"product_id": "prd_999", "limit": 5} -> 404 {"error": {"code": "PRODUCT_NOT_FOUND", "message": "Produto de referência não encontrado."}}
+# experimento: prd_213 com available=false
+POST /recommendations {"product_id": "prd_201", "limit": 5} -> 200 {"recommendations": [{"product_id": "prd_202", "score": 0.8, "reason": "Recomendado por mesma categoria, mesma técnica artesanal."}, {"product_id": "prd_207", "score": 0.5, "reason": "Recomendado por mesma categoria."}]}
+POST /recommendations/batch {"product_ids": ["prd_209", "prd_999"], "limit": 3} -> 200 {"total_products": 1, "recommendations_by_product": {"prd_209": [{"product_id": "prd_210", "score": 1.0, "reason": "Recomendado por mesma categoria, mesma técnica artesanal, mesma região."}]}}
