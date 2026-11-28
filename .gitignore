@@ -13,3 +13,6 @@ e2e/cypress/videos/
 e2e/cypress/downloads/
 CONTEXTO.md
 .maestri/
+
+# log de uso dos dados do módulo de IA (gerado ao rodar)
+modulo-ia/logs/

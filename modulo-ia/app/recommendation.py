@@ -1,6 +1,7 @@
-﻿from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import math
 
+from app.catalog import attributes_match, is_product_available
 from app.config import WEIGHTS
 
 
@@ -10,17 +11,6 @@ _WORKER_CATALOG = []
 def _init_batch_worker(catalog):
     global _WORKER_CATALOG
     _WORKER_CATALOG = catalog
-
-
-def attributes_match(context_value, candidate_value):
-    if context_value is None or candidate_value is None:
-        return False
-
-    if isinstance(context_value, str) and isinstance(candidate_value, str):
-        return context_value.strip().casefold() == candidate_value.strip().casefold()
-
-    return context_value == candidate_value
-
 
 def calculate_score(context, candidate):
     score = 0.0
@@ -144,11 +134,15 @@ def _rank_single_reference(reference, catalog, limit):
     candidates = [
         item
         for item in catalog
-        if item.get("available", True) and item.get("product_id") != ref_id
+        if is_product_available(item, default=True)
+        and item.get("product_id") != ref_id
     ]
     ranked = rank_candidates(context, candidates)
-    return ref_id, ranked[:limit]
-
+    compatible = [
+        item for item in ranked
+        if item["score"] > 0
+    ]
+    return ref_id, compatible[:limit]
 
 def _rank_batch_chunk_with_shared_catalog(args):
     references_chunk, limit = args

@@ -110,5 +110,13 @@
     "technique": "Entalhe em madeira",
     "region": "Sertão do São Francisco",
     "available": true
+  },
+  {
+    "product_id": "prd_215",
+    "name": "Rabeca de Cabaça",
+    "category": "Instrumentos Musicais",
+    "technique": "Luteria",
+    "region": "Região Metropolitana do Recife",
+    "available": true
   }
 ]

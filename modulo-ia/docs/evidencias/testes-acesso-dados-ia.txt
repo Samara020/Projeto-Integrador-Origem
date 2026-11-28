@@ -1,0 +1,248 @@
+﻿PROJETO ORIGEM - MODULO DE IA
+Cartao: Implementar funcoes de acesso aos dados
+Data: 27/11/2026 10:33:57
+Branch: feat/modulo-ia-dados
+Commit base: 4eec12c
+Ambiente: Windows PowerShell
+
+VERSAO DO PYTHON
+Python 3.13.14
+
+VERSAO DO PYTEST
+pytest 9.1.1
+
+VERIFICACAO DAS DEPENDENCIAS
+No broken requirements found.
+
+EXECUCAO 1 - TESTES DE DADOS
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia
+plugins: anyio-4.16.0
+collecting ... collected 177 items
+
+tests_dados/test_acesso_dados.py::test_validar_catalogo_valido PASSED    [  0%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_vazio PASSED     [  1%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[None] PASSED [  1%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[valor1] PASSED [  2%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[catalogo] PASSED [  2%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[123] PASSED [  3%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[None] PASSED [  3%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[produto] PASSED [  4%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[123] PASSED [  5%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto0] PASSED [  5%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto1] PASSED [  6%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto2] PASSED [  6%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto3] PASSED [  7%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto4] PASSED [  7%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[None-None] PASSED [  8%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[-None] PASSED  [  9%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[   -None] PASSED [  9%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[ Cer\xe2mica -Cer\xe2mica] PASSED [ 10%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[123] PASSED [ 10%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[True] PASSED [ 11%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[valor2] PASSED [ 11%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[valor3] PASSED [ 12%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_json PASSED     [ 12%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_vazio PASSED    [ 13%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_inexistente PASSED [ 14%]
+tests_dados/test_acesso_dados.py::test_carregar_json_invalido PASSED     [ 14%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_com_estrutura_invalida PASSED [ 15%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_informado PASSED [ 15%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_vazio PASSED    [ 16%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_invalido PASSED [ 16%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_padrao PASSED   [ 17%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_existente PASSED   [ 18%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_inexistente PASSED [ 18%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_com_espacos PASSED [ 19%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_em_catalogo_vazio PASSED [ 19%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[None] PASSED [ 20%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[] PASSED [ 20%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[   ] PASSED [ 21%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_com_identificador_invalido PASSED [ 22%]
+tests_dados/test_acesso_dados.py::test_consultar_produtos_disponiveis PASSED [ 22%]
+tests_dados/test_acesso_dados.py::test_excluir_produto_de_referencia PASSED [ 23%]
+tests_dados/test_acesso_dados.py::test_disponibilidade_estritamente_booleana PASSED [ 23%]
+tests_dados/test_acesso_dados.py::test_consultar_catalogo_vazio PASSED   [ 24%]
+tests_dados/test_acesso_dados.py::test_consultar_catalogo_indisponivel PASSED [ 24%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros0-esperados0] PASSED [ 25%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros1-esperados1] PASSED [ 25%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros2-esperados2] PASSED [ 26%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros3-esperados3] PASSED [ 27%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros4-esperados4] PASSED [ 27%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros5-esperados5] PASSED [ 28%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros6-esperados6] PASSED [ 28%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros7-esperados7] PASSED [ 29%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros8-esperados8] PASSED [ 29%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros0] PASSED [ 30%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros1] PASSED [ 31%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros2] PASSED [ 31%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros3] PASSED [ 32%]
+tests_dados/test_acesso_dados.py::test_filtrar_catalogo_vazio PASSED     [ 32%]
+tests_dados/test_acesso_dados.py::test_filtrar_excluindo_produto_de_referencia PASSED [ 33%]
+tests_dados/test_acesso_dados.py::test_filtrar_produto_com_atributo_ausente PASSED [ 33%]
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo.json] PASSED [ 34%]
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo_origem.json] PASSED [ 35%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo.json] PASSED [ 35%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo_origem.json] PASSED [ 36%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo.json] PASSED [ 36%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo_origem.json] PASSED [ 37%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo.json] PASSED [ 37%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo_origem.json] PASSED [ 38%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo.json] PASSED [ 38%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo_origem.json] PASSED [ 39%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo.json] PASSED [ 40%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo_origem.json] PASSED [ 40%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo.json] PASSED [ 41%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo_origem.json] PASSED [ 41%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo.json] PASSED [ 42%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo_origem.json] PASSED [ 42%]
+tests_dados/test_catalogo.py::test_registros_sem_duplicidade[catalogo.json] PASSED [ 43%]
+tests_dados/test_catalogo.py::test_registros_sem_duplicidade[catalogo_origem.json] PASSED [ 44%]
+tests_dados/test_catalogo.py::test_produtos_sem_duplicidade_descritiva[catalogo.json] PASSED [ 44%]
+tests_dados/test_catalogo.py::test_produtos_sem_duplicidade_descritiva[catalogo_origem.json] PASSED [ 45%]
+tests_dados/test_catalogo.py::test_identificadores_normalizados_unicos[catalogo.json] PASSED [ 45%]
+tests_dados/test_catalogo.py::test_identificadores_normalizados_unicos[catalogo_origem.json] PASSED [ 46%]
+tests_dados/test_catalogo.py::test_campos_sem_espacos_excedentes[catalogo.json] PASSED [ 46%]
+tests_dados/test_catalogo.py::test_campos_sem_espacos_excedentes[catalogo_origem.json] PASSED [ 47%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_disponiveis[catalogo.json] PASSED [ 48%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_disponiveis[catalogo_origem.json] PASSED [ 48%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_indisponiveis[catalogo.json] PASSED [ 49%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_indisponiveis[catalogo_origem.json] PASSED [ 49%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Cer\xe2mica-Cer\xe2mica-True] PASSED [ 50%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[CER\xc2MICA-cer\xe2mica-True] PASSED [ 50%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[ Cer\xe2mica -cer\xe2mica-True] PASSED [ 51%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Madeira-Cer\xe2mica-False] PASSED [ 51%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[None-Cer\xe2mica-False] PASSED [ 52%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Cer\xe2mica-None-False] PASSED [ 53%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[None-None-False] PASSED [ 53%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[1-1-True] PASSED [ 54%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[1-2-False] PASSED [ 54%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendador_reutiliza_comparacao PASSED [ 55%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto0-False-True] PASSED [ 55%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto1-True-False] PASSED [ 56%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto2-True-False] PASSED [ 57%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto3-False-False] PASSED [ 57%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto4-False-False] PASSED [ 58%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto5-False-False] PASSED [ 58%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto6-True-True] PASSED [ 59%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendador_reutiliza_disponibilidade PASSED [ 59%]
+tests_dados/test_funcoes_compartilhadas.py::test_servico_reutiliza_disponibilidade PASSED [ 60%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[None-None] PASSED [ 61%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[-None] PASSED [ 61%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[   -None] PASSED [ 62%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[ Cer\xe2mica -Cer\xe2mica] PASSED [ 62%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico_parametro_invalido PASSED [ 63%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_recebido_pela_requisicao PASSED [ 63%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_vazio_recebido_pela_requisicao PASSED [ 64%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_ausente_na_requisicao PASSED [ 64%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendacao_lote_exclui_indisponiveis PASSED [ 65%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendacao_lote_preserva_disponibilidade_padrao PASSED [ 66%]
+tests_dados/test_repository.py::test_dsn_sem_configuracao PASSED         [ 66%]
+tests_dados/test_repository.py::test_dsn_prioriza_database_url PASSED    [ 67%]
+tests_dados/test_repository.py::test_dsn_por_variaveis[POSTGRES] PASSED  [ 67%]
+tests_dados/test_repository.py::test_dsn_por_variaveis[DB] PASSED        [ 68%]
+tests_dados/test_repository.py::test_dsn_codifica_credenciais PASSED     [ 68%]
+tests_dados/test_repository.py::test_normalizar_registro PASSED          [ 69%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[False] PASSED [ 70%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[None] PASSED [ 70%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[0] PASSED [ 71%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[1] PASSED [ 71%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[true] PASSED [ 72%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[false] PASSED [ 72%]
+tests_dados/test_repository.py::test_catalogo_explicito_prioritario PASSED [ 73%]
+tests_dados/test_repository.py::test_catalogo_explicito_vazio PASSED     [ 74%]
+tests_dados/test_repository.py::test_catalogo_explicito_invalido PASSED  [ 74%]
+tests_dados/test_repository.py::test_catalogo_do_banco PASSED            [ 75%]
+tests_dados/test_repository.py::test_banco_vazio_sem_fallback PASSED     [ 75%]
+tests_dados/test_repository.py::test_banco_invalido PASSED               [ 76%]
+tests_dados/test_repository.py::test_fallback_para_json PASSED           [ 76%]
+tests_dados/test_repository.py::test_consulta_com_banco_desativado PASSED [ 77%]
+tests_dados/test_repository.py::test_use_db_invalido[None] PASSED        [ 77%]
+tests_dados/test_repository.py::test_use_db_invalido[1] PASSED           [ 78%]
+tests_dados/test_repository.py::test_use_db_invalido[true] PASSED        [ 79%]
+tests_dados/test_repository.py::test_use_db_invalido[valor3] PASSED      [ 79%]
+tests_dados/test_repository.py::test_use_db_invalido[valor4] PASSED      [ 80%]
+tests_dados/test_repository.py::test_buscar_produto PASSED               [ 80%]
+tests_dados/test_repository.py::test_buscar_produto_inexistente PASSED   [ 81%]
+tests_dados/test_repository.py::test_buscar_produto_identificador_invalido PASSED [ 81%]
+tests_dados/test_repository.py::test_consultar_disponiveis PASSED        [ 82%]
+tests_dados/test_repository.py::test_excluir_referencia PASSED           [ 83%]
+tests_dados/test_repository.py::test_filtrar_categoria PASSED            [ 83%]
+tests_dados/test_repository.py::test_filtrar_atributos_combinados PASSED [ 84%]
+tests_dados/test_repository.py::test_filtrar_sem_resultados PASSED       [ 84%]
+tests_dados/test_repository.py::test_filtrar_catalogo_vazio PASSED       [ 85%]
+tests_dados/test_repository.py::test_filtrar_parametro_invalido PASSED   [ 85%]
+tests_dados/test_repository.py::test_consulta_banco_sem_configuracao PASSED [ 86%]
+tests_dados/test_repository.py::test_consulta_banco_com_sucesso PASSED   [ 87%]
+tests_dados/test_repository.py::test_consulta_banco_sem_registros PASSED [ 87%]
+tests_dados/test_repository.py::test_consulta_banco_indisponivel PASSED  [ 88%]
+tests_dados/test_repository.py::test_consulta_banco_registro_invalido PASSED [ 88%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto0-esperados0] PASSED [ 89%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto1-esperados1] PASSED [ 89%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto2-esperados2] PASSED [ 90%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto3-esperados3] PASSED [ 90%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto4-esperados4] PASSED [ 91%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto5-esperados5] PASSED [ 92%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto6-esperados6] PASSED [ 92%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto7-esperados7] PASSED [ 93%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto0-catalogo.json] PASSED [ 93%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto0-catalogo_origem.json] PASSED [ 94%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto1-catalogo.json] PASSED [ 94%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto1-catalogo_origem.json] PASSED [ 95%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto2-catalogo.json] PASSED [ 96%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto2-catalogo_origem.json] PASSED [ 96%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto3-catalogo.json] PASSED [ 97%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto3-catalogo_origem.json] PASSED [ 97%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto4-catalogo.json] PASSED [ 98%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto4-catalogo_origem.json] PASSED [ 98%]
+tests_dados/test_validacao_recomendacao.py::test_catalogo_vazio PASSED   [ 99%]
+tests_dados/test_validacao_recomendacao.py::test_catalogo_com_todos_produtos_indisponiveis PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\pathspec\pathspec.py:326: 11 warnings
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\pathspec\pathspec.py:326: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+    patterns = [use_factory(__line) for __line in lines if __line]  # type: ignore[arg-type]
+
+.venv\Lib\site-packages\pathspec\pattern.py:125: 11 warnings
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\pathspec\pattern.py:125: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+    raw_regex, include = self.pattern_to_regex(pattern)
+
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158: PydanticDeprecatedSince211: The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated. If you are calling `super().__get_pydantic_core_schema__` when overriding the method on a Pydantic model, consider using `handler(source)` instead. However, note that overriding this method on models can lead to unexpected side effects. Deprecated in Pydantic V2.11 to be removed in V3.0.
+    return super().__get_pydantic_core_schema__(source, handler)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 177 passed, 29 warnings in 1.92s =======================
+Codigo de saida: 0
+
+EXECUCAO 2 - TESTES DE EQUIVALENCIA PARALELA
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia
+plugins: anyio-4.16.0
+collecting ... collected 4 items
+
+tests/test_parallel_equivalence.py::test_sequential_and_parallel_return_identical_ranking PASSED [ 25%]
+tests/test_parallel_equivalence.py::test_parallel_handles_empty_candidates PASSED [ 50%]
+tests/test_parallel_equivalence.py::test_batch_sequential_and_parallel_return_identical_recommendations PASSED [ 75%]
+tests/test_parallel_equivalence.py::test_select_candidates_and_batch_integrate_parallel_path PASSED [100%]
+
+============================== 4 passed in 0.39s ==============================
+Codigo de saida: 0
+
+ESCOPO E LIMITACOES
+Testes automatizados locais.
+Consultas ao PostgreSQL simuladas.
+Integracao HTTP completa nao executada nesta etapa.
+Conexao com uma instancia real do PostgreSQL nao validada.
+Testes de equivalencia executados sem inicializacao do servidor HTTP.
+Os resultados correspondem a duas execucoes independentes.

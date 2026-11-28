@@ -7,6 +7,8 @@
 
 > **Avaliação de IA (AV2):** instruções de instalação, tabela de requisitos e casos de teste estão na seção [Módulo de IA](#módulo-de-ia-recomendação-de-produtos-av2).
 >
+> **Projeto AV2 (dados, funções de acesso e log de uso do módulo de IA):** passo a passo em [`modulo-ia/README.md`, seção "Entrega AV2"](modulo-ia/README.md#entrega-av2-dados-funções-de-acesso-e-log-de-uso).
+>
 > **FCCPD · Unidade 2 (Parte 2 — Arquitetura Distribuída, Paralelismo e Benchmarks):** diagrama, justificativa da separação, código paralelo, metodologia, resultados e evidências estão na seção [Arquitetura Distribuída — Projeto Origem (FCCPD / Unidade 2)](#arquitetura-distribuída--projeto-origem-fccpd--unidade-2).
 
 ## Sobre o projeto
@@ -59,14 +61,11 @@ A plataforma reúne uma vitrine para compradores, ferramentas de gerenciamento p
 
 ### Inteligência Artificial
 
-O projeto contempla um módulo de Inteligência Artificial voltado para:
+O projeto contempla um módulo de Inteligência Artificial voltado para a **recomendação de produtos** (HU-17), disponibilizada pelo serviço BentoML integrado ao backend e ao frontend.
 
-* Recomendação de produtos;
-* Classificação automática de produtos;
-* Análise de sentimento das avaliações;
-* Previsão de demanda, de forma opcional.
+A recomendação parte de um baseline simples, considerando características como categoria, técnica artesanal e região, para sugerir produtos relacionados ao item visualizado ou aos filtros de pesquisa.
 
-A recomendação parte de um baseline simples, considerando características como técnica, região e popularidade, antes de abordagens mais sofisticadas.
+As demais aplicações de IA previstas no backlog — **HU-23 — Triagem inteligente e escalonamento do suporte** (classificação automática de chamados, análise de sentimento, previsão de demanda e encaminhamento para atendimento humano) — integram a visão do projeto, mas **não fazem parte do escopo implementado do módulo atual** e não devem ser apresentadas como funcionalidade pronta.
 
 ## Stack
 
@@ -170,8 +169,8 @@ Confirmar pedido
 
 ### Suporte e IA
 - Central de suporte
-- Chat com IA para triagem
-- Escalonamento para atendimento humano
+
+> A triagem com IA para atendimento (classificação de chamados, análise de sentimento, previsão de demanda e escalonamento humano — HU-23) integra a visão do projeto, mas não está implementada nesta entrega. Está registrada como backlog futuro, fora do escopo do módulo de recomendação (HU-17).
 
 ### Estados e exceções
 - Estado vazio
@@ -197,7 +196,7 @@ O projeto integra as contribuições das disciplinas do 4º semestre:
 * **Modelagem e Projeto de Banco de Dados:** modelagem e estruturação dos dados;
 * **Requisitos, Projeto de Software e Validação:** análise de domínio, requisitos, arquitetura e testes;
 * **Fundamentos de Computação Concorrente, Paralela e Distribuída:** concorrência, processamento assíncrono, distribuição e desempenho;
-* **Engenharia de Software e IA:** recomendação, classificação automática e análise de sentimento.
+* **Engenharia de Software e IA:** recomendação de produtos baseada em conteúdo (categoria, técnica e região) via serviço BentoML integrado ao backend e ao frontend (HU-17).
 
 ## Escopo e limitações
 
@@ -289,7 +288,7 @@ Esse comando encerra os contêineres sem apagar os dados persistidos no volume d
 
 Mockup executável do módulo especificado na AV1 (HU-17, documento [`docs/Baseline de IA.pdf`](docs/Baseline%20de%20IA.pdf)). Trilha A: recomendação/ranqueamento com **BentoML**.
 
-O serviço recebe um produto de referência ou filtros (categoria, técnica, região), compara os atributos dos produtos, calcula um score de relação, ordena os candidatos e devolve as recomendações com uma justificativa. Os dados são sintéticos e ficam em `modulo-ia/data/catalogo_origem.json` (14 produtos). O código fica em [`modulo-ia/`](modulo-ia/).
+O serviço recebe um produto de referência ou filtros (categoria, técnica, região), compara os atributos dos produtos, calcula um score de relação, ordena os candidatos e devolve as recomendações com uma justificativa. Os dados são sintéticos e ficam em `modulo-ia/data/catalogo_origem.json` (15 produtos: 13 disponíveis, 2 indisponíveis; `prd_215` existe somente no JSON, caso mock sem semelhante). O código fica em [`modulo-ia/`](modulo-ia/).
 
 ### Requisitos
 
@@ -303,16 +302,18 @@ Na raiz do repositório clonado.
 **Linux / macOS:**
 
 ```bash
-python3 -m venv .venv-ia
-source .venv-ia/bin/activate
+python3 -m venv modulo-ia/.venv
+source modulo-ia/.venv/bin/activate
+export PYTHONPATH="$PWD/modulo-ia"
 pip install -r modulo-ia/requirements.txt
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-python -m venv .venv-ia
-.\.venv-ia\Scripts\Activate.ps1
+python -m venv modulo-ia\.venv
+.\modulo-ia\.venv\Scripts\Activate.ps1
+$env:PYTHONPATH="$PWD\modulo-ia"
 pip install -r modulo-ia\requirements.txt
 ```
 
@@ -320,7 +321,7 @@ pip install -r modulo-ia\requirements.txt
 
 ### Como subir
 
-Com o ambiente ativado:
+Com o ambiente ativado e `PYTHONPATH` apontando para `modulo-ia`:
 
 ```bash
 cd modulo-ia
@@ -458,6 +459,8 @@ HTTP 404
 O que conferir: a entrada é validada antes do processamento (RNF-02) e o erro vem com código e mensagem.
 
 > Os resultados esperados estão formatados para leitura; o terminal pode mostrar o JSON numa linha só. Os acentos podem aparecer como código (`técnica`) ou trocados no Windows PowerShell 5.1 (`tÃ©cnica`). O que importa são os ids, a ordem, os scores e o código HTTP.
+
+Cada chamada grava linhas no JSONL de uso dos dados (`modulo-ia/logs/uso_dados.jsonl`, via `app/data_log.py`) e emite um evento `modulo_ia_execucao` na saída padrão do serviço (via `app/observability.py`), com `execucao_id`, `filtros` efetivos, `total_*` (candidatos, analisados, compativeis, sugestoes, resultados) e latência. O script `modulo-ia/resumo_uso_dados.py` agora reporta também `execucoes` (requisicoes, sucesso, erro, vazias, sugestoes, por_rota, latencia_ms, latencia_consultas_ms). Detalhes em [`docs/modulo-ia-dados-e-monitoramento.md`](docs/modulo-ia-dados-e-monitoramento.md).
 
 Mais detalhes do módulo (estratégia, fallback, testes automatizados com `pytest`) estão em [`modulo-ia/README.md`](modulo-ia/README.md).
 

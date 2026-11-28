@@ -1,0 +1,672 @@
+PROJETO ORIGEM - MARKETPLACE DE ARTESANATO PERNAMBUCANO
+
+EVIDENCIAS DE TESTES DA INTEGRACAO DO ACESSO AOS DADOS AO RECOMENDADOR DE IA
+
+Cartao: Integrar o acesso aos dados ao recomendador de IA
+Branch: feat/modulo-ia-dados
+Commit base: 937b2c7
+Data da coleta: 27/11/2026 16:19:50
+Ambiente: Windows PowerShell e Docker Compose
+Codificacao: UTF-8
+Escopo: Testes de dados, modulo de IA, backend e integracao real.
+
+=== 1. AMBIENTE DE EXECUCAO ===
+
+Docker version 29.6.2, build dfc4efb
+Docker Compose version v5.3.1
+v24.18.0
+11.16.0
+NAME                 IMAGE                                                                     COMMAND                  SERVICE     CREATED             STATUS                       PORTS
+origem-backend-1     origem-backend                                                            "docker-entrypoint.s…"   backend     40 minutes ago      Up 40 minutes (healthy)      0.0.0.0:4000->4000/tcp, [::]:4000->4000/tcp
+origem-frontend-1    origem-frontend                                                           "docker-entrypoint.s…"   frontend    35 minutes ago      Up 35 minutes (healthy)      0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+origem-modulo-ia-1   sha256:8c45777ea9a7ec5624a84cd0dd66118311e302ee70d04340cbdc68d79de585bf   "sh -c 'bentoml serv…"   modulo-ia   About an hour ago   Up About an hour (healthy)   0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp
+origem-postgres      postgres:17                                                               "docker-entrypoint.s…"   postgres    About an hour ago   Up About an hour (healthy)   0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp
+
+=== 2. TESTES DE DADOS E INTEGRACAO DO RECOMENDADOR ===
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia
+plugins: anyio-4.16.0
+collecting ... collected 194 items
+
+tests_dados/test_acesso_dados.py::test_validar_catalogo_valido PASSED    [  0%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_vazio PASSED     [  1%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[None] PASSED [  1%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[valor1] PASSED [  2%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[catalogo] PASSED [  2%]
+tests_dados/test_acesso_dados.py::test_validar_catalogo_com_tipo_invalido[123] PASSED [  3%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[None] PASSED [  3%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[produto] PASSED [  4%]
+tests_dados/test_acesso_dados.py::test_validar_registro_com_tipo_invalido[123] PASSED [  4%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto0] PASSED [  5%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto1] PASSED [  5%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto2] PASSED [  6%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto3] PASSED [  6%]
+tests_dados/test_acesso_dados.py::test_validar_identificador_invalido[produto4] PASSED [  7%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[None-None] PASSED [  7%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[-None] PASSED  [  8%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[   -None] PASSED [  8%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtros[ Cer\xe2mica -Cer\xe2mica] PASSED [  9%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[123] PASSED [  9%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[True] PASSED [ 10%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[valor2] PASSED [ 10%]
+tests_dados/test_acesso_dados.py::test_normalizar_filtro_invalido[valor3] PASSED [ 11%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_json PASSED     [ 11%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_vazio PASSED    [ 12%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_inexistente PASSED [ 12%]
+tests_dados/test_acesso_dados.py::test_carregar_json_invalido PASSED     [ 13%]
+tests_dados/test_acesso_dados.py::test_carregar_catalogo_com_estrutura_invalida PASSED [ 13%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_informado PASSED [ 14%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_vazio PASSED    [ 14%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_invalido PASSED [ 15%]
+tests_dados/test_acesso_dados.py::test_resolver_catalogo_padrao PASSED   [ 15%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_existente PASSED   [ 16%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_inexistente PASSED [ 17%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_com_espacos PASSED [ 17%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_em_catalogo_vazio PASSED [ 18%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[None] PASSED [ 18%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[] PASSED [ 19%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_sem_identificador[   ] PASSED [ 19%]
+tests_dados/test_acesso_dados.py::test_buscar_produto_com_identificador_invalido PASSED [ 20%]
+tests_dados/test_acesso_dados.py::test_consultar_produtos_disponiveis PASSED [ 20%]
+tests_dados/test_acesso_dados.py::test_excluir_produto_de_referencia PASSED [ 21%]
+tests_dados/test_acesso_dados.py::test_disponibilidade_estritamente_booleana PASSED [ 21%]
+tests_dados/test_acesso_dados.py::test_consultar_catalogo_vazio PASSED   [ 22%]
+tests_dados/test_acesso_dados.py::test_consultar_catalogo_indisponivel PASSED [ 22%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros0-esperados0] PASSED [ 23%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros1-esperados1] PASSED [ 23%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros2-esperados2] PASSED [ 24%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros3-esperados3] PASSED [ 24%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros4-esperados4] PASSED [ 25%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros5-esperados5] PASSED [ 25%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros6-esperados6] PASSED [ 26%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros7-esperados7] PASSED [ 26%]
+tests_dados/test_acesso_dados.py::test_filtrar_produtos[filtros8-esperados8] PASSED [ 27%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros0] PASSED [ 27%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros1] PASSED [ 28%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros2] PASSED [ 28%]
+tests_dados/test_acesso_dados.py::test_filtrar_com_parametros_invalidos[filtros3] PASSED [ 29%]
+tests_dados/test_acesso_dados.py::test_filtrar_catalogo_vazio PASSED     [ 29%]
+tests_dados/test_acesso_dados.py::test_filtrar_excluindo_produto_de_referencia PASSED [ 30%]
+tests_dados/test_acesso_dados.py::test_filtrar_produto_com_atributo_ausente PASSED [ 30%]
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo.json] PASSED [ 31%]
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo_origem.json] PASSED [ 31%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo.json] PASSED [ 32%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo_origem.json] PASSED [ 32%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo.json] PASSED [ 33%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo_origem.json] PASSED [ 34%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo.json] PASSED [ 34%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo_origem.json] PASSED [ 35%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo.json] PASSED [ 35%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo_origem.json] PASSED [ 36%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo.json] PASSED [ 36%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo_origem.json] PASSED [ 37%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo.json] PASSED [ 37%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo_origem.json] PASSED [ 38%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo.json] PASSED [ 38%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo_origem.json] PASSED [ 39%]
+tests_dados/test_catalogo.py::test_registros_sem_duplicidade[catalogo.json] PASSED [ 39%]
+tests_dados/test_catalogo.py::test_registros_sem_duplicidade[catalogo_origem.json] PASSED [ 40%]
+tests_dados/test_catalogo.py::test_produtos_sem_duplicidade_descritiva[catalogo.json] PASSED [ 40%]
+tests_dados/test_catalogo.py::test_produtos_sem_duplicidade_descritiva[catalogo_origem.json] PASSED [ 41%]
+tests_dados/test_catalogo.py::test_identificadores_normalizados_unicos[catalogo.json] PASSED [ 41%]
+tests_dados/test_catalogo.py::test_identificadores_normalizados_unicos[catalogo_origem.json] PASSED [ 42%]
+tests_dados/test_catalogo.py::test_campos_sem_espacos_excedentes[catalogo.json] PASSED [ 42%]
+tests_dados/test_catalogo.py::test_campos_sem_espacos_excedentes[catalogo_origem.json] PASSED [ 43%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_disponiveis[catalogo.json] PASSED [ 43%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_disponiveis[catalogo_origem.json] PASSED [ 44%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_indisponiveis[catalogo.json] PASSED [ 44%]
+tests_dados/test_catalogo.py::test_catalogo_contem_produtos_indisponiveis[catalogo_origem.json] PASSED [ 45%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Cer\xe2mica-Cer\xe2mica-True] PASSED [ 45%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[CER\xc2MICA-cer\xe2mica-True] PASSED [ 46%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[ Cer\xe2mica -cer\xe2mica-True] PASSED [ 46%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Madeira-Cer\xe2mica-False] PASSED [ 47%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[None-Cer\xe2mica-False] PASSED [ 47%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[Cer\xe2mica-None-False] PASSED [ 48%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[None-None-False] PASSED [ 48%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[1-1-True] PASSED [ 49%]
+tests_dados/test_funcoes_compartilhadas.py::test_comparacao_compartilhada[1-2-False] PASSED [ 50%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendador_reutiliza_comparacao PASSED [ 50%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto0-False-True] PASSED [ 51%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto1-True-False] PASSED [ 51%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto2-True-False] PASSED [ 52%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto3-False-False] PASSED [ 52%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto4-False-False] PASSED [ 53%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto5-False-False] PASSED [ 53%]
+tests_dados/test_funcoes_compartilhadas.py::test_disponibilidade_compartilhada[produto6-True-True] PASSED [ 54%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendador_reutiliza_disponibilidade PASSED [ 54%]
+tests_dados/test_funcoes_compartilhadas.py::test_servico_reutiliza_disponibilidade PASSED [ 55%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[None-None] PASSED [ 55%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[-None] PASSED [ 56%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[   -None] PASSED [ 56%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico[ Cer\xe2mica -Cer\xe2mica] PASSED [ 57%]
+tests_dados/test_funcoes_compartilhadas.py::test_normalizacao_servico_parametro_invalido PASSED [ 57%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_recebido_pela_requisicao PASSED [ 58%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_vazio_recebido_pela_requisicao PASSED [ 58%]
+tests_dados/test_funcoes_compartilhadas.py::test_catalogo_ausente_na_requisicao PASSED [ 59%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendacao_lote_exclui_indisponiveis PASSED [ 59%]
+tests_dados/test_funcoes_compartilhadas.py::test_recomendacao_lote_preserva_disponibilidade_padrao PASSED [ 60%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo.json-1] PASSED [ 60%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo.json-5] PASSED [ 61%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo.json-20] PASSED [ 61%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo_origem.json-1] PASSED [ 62%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo_origem.json-5] PASSED [ 62%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_individual[catalogo_origem.json-20] PASSED [ 63%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo.json-1] PASSED [ 63%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo.json-5] PASSED [ 64%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo.json-20] PASSED [ 64%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo_origem.json-1] PASSED [ 65%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo_origem.json-5] PASSED [ 65%]
+tests_dados/test_integracao_recomendador.py::test_fluxo_em_lote[catalogo_origem.json-20] PASSED [ 66%]
+tests_dados/test_integracao_recomendador.py::test_lote_exclui_pontuacao_zero PASSED [ 67%]
+tests_dados/test_integracao_recomendador.py::test_individual_e_lote_cenario_equivalente PASSED [ 67%]
+tests_dados/test_integracao_recomendador.py::test_lote_sem_produtos_compativeis PASSED [ 68%]
+tests_dados/test_integracao_recomendador.py::test_lote_com_catalogo_vazio PASSED [ 68%]
+tests_dados/test_integracao_recomendador.py::test_lote_sem_referencias PASSED [ 69%]
+tests_dados/test_repository.py::test_dsn_sem_configuracao PASSED         [ 69%]
+tests_dados/test_repository.py::test_dsn_prioriza_database_url PASSED    [ 70%]
+tests_dados/test_repository.py::test_dsn_por_variaveis[POSTGRES] PASSED  [ 70%]
+tests_dados/test_repository.py::test_dsn_por_variaveis[DB] PASSED        [ 71%]
+tests_dados/test_repository.py::test_dsn_codifica_credenciais PASSED     [ 71%]
+tests_dados/test_repository.py::test_normalizar_registro PASSED          [ 72%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[False] PASSED [ 72%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[None] PASSED [ 73%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[0] PASSED [ 73%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[1] PASSED [ 74%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[true] PASSED [ 74%]
+tests_dados/test_repository.py::test_normalizar_disponibilidade[false] PASSED [ 75%]
+tests_dados/test_repository.py::test_catalogo_explicito_prioritario PASSED [ 75%]
+tests_dados/test_repository.py::test_catalogo_explicito_vazio PASSED     [ 76%]
+tests_dados/test_repository.py::test_catalogo_explicito_invalido PASSED  [ 76%]
+tests_dados/test_repository.py::test_catalogo_do_banco PASSED            [ 77%]
+tests_dados/test_repository.py::test_banco_vazio_sem_fallback PASSED     [ 77%]
+tests_dados/test_repository.py::test_banco_invalido PASSED               [ 78%]
+tests_dados/test_repository.py::test_fallback_para_json PASSED           [ 78%]
+tests_dados/test_repository.py::test_consulta_com_banco_desativado PASSED [ 79%]
+tests_dados/test_repository.py::test_use_db_invalido[None] PASSED        [ 79%]
+tests_dados/test_repository.py::test_use_db_invalido[1] PASSED           [ 80%]
+tests_dados/test_repository.py::test_use_db_invalido[true] PASSED        [ 80%]
+tests_dados/test_repository.py::test_use_db_invalido[valor3] PASSED      [ 81%]
+tests_dados/test_repository.py::test_use_db_invalido[valor4] PASSED      [ 81%]
+tests_dados/test_repository.py::test_buscar_produto PASSED               [ 82%]
+tests_dados/test_repository.py::test_buscar_produto_inexistente PASSED   [ 82%]
+tests_dados/test_repository.py::test_buscar_produto_identificador_invalido PASSED [ 83%]
+tests_dados/test_repository.py::test_consultar_disponiveis PASSED        [ 84%]
+tests_dados/test_repository.py::test_excluir_referencia PASSED           [ 84%]
+tests_dados/test_repository.py::test_filtrar_categoria PASSED            [ 85%]
+tests_dados/test_repository.py::test_filtrar_atributos_combinados PASSED [ 85%]
+tests_dados/test_repository.py::test_filtrar_sem_resultados PASSED       [ 86%]
+tests_dados/test_repository.py::test_filtrar_catalogo_vazio PASSED       [ 86%]
+tests_dados/test_repository.py::test_filtrar_parametro_invalido PASSED   [ 87%]
+tests_dados/test_repository.py::test_consulta_banco_sem_configuracao PASSED [ 87%]
+tests_dados/test_repository.py::test_consulta_banco_com_sucesso PASSED   [ 88%]
+tests_dados/test_repository.py::test_consulta_banco_sem_registros PASSED [ 88%]
+tests_dados/test_repository.py::test_consulta_banco_indisponivel PASSED  [ 89%]
+tests_dados/test_repository.py::test_consulta_banco_registro_invalido PASSED [ 89%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto0-esperados0] PASSED [ 90%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto1-esperados1] PASSED [ 90%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo.json-contexto2-esperados2] PASSED [ 91%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto3-esperados3] PASSED [ 91%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto4-esperados4] PASSED [ 92%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto5-esperados5] PASSED [ 92%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto6-esperados6] PASSED [ 93%]
+tests_dados/test_validacao_recomendacao.py::test_recomendacao_por_atributos[catalogo_origem.json-contexto7-esperados7] PASSED [ 93%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto0-catalogo.json] PASSED [ 94%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto0-catalogo_origem.json] PASSED [ 94%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto1-catalogo.json] PASSED [ 95%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto1-catalogo_origem.json] PASSED [ 95%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto2-catalogo.json] PASSED [ 96%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto2-catalogo_origem.json] PASSED [ 96%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto3-catalogo.json] PASSED [ 97%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto3-catalogo_origem.json] PASSED [ 97%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto4-catalogo.json] PASSED [ 98%]
+tests_dados/test_validacao_recomendacao.py::test_sem_produtos_compativeis[contexto4-catalogo_origem.json] PASSED [ 98%]
+tests_dados/test_validacao_recomendacao.py::test_catalogo_vazio PASSED   [ 99%]
+tests_dados/test_validacao_recomendacao.py::test_catalogo_com_todos_produtos_indisponiveis PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\pathspec\pathspec.py:326: 11 warnings
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\pathspec\pathspec.py:326: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+    patterns = [use_factory(__line) for __line in lines if __line]  # type: ignore[arg-type]
+
+.venv\Lib\site-packages\pathspec\pattern.py:125: 11 warnings
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\pathspec\pattern.py:125: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+    raw_regex, include = self.pattern_to_regex(pattern)
+
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158
+  C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Lib\site-packages\_bentoml_sdk\io_models.py:158: PydanticDeprecatedSince211: The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated. If you are calling `super().__get_pydantic_core_schema__` when overriding the method on a Pydantic model, consider using `handler(source)` instead. However, note that overriding this method on models can lead to unexpected side effects. Deprecated in Pydantic V2.11 to be removed in V3.0.
+    return super().__get_pydantic_core_schema__(source, handler)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 194 passed, 29 warnings in 1.46s =======================
+Codigo de saida: 0
+
+=== 3. SUITE ORIGINAL DO MODULO DE IA ===
+
+ Image origem-modulo-ia Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 642B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.48kB 0.0s done
+#2 DONE 0.0s
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/python:3.13-slim
+#4 DONE 1.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 119B done
+#5 DONE 0.0s
+
+#6 [deps 1/4] FROM docker.io/library/python:3.13-slim@sha256:7249d5587b78209a006dc4a3b5340678f84ea729239193aa559962cd8c1fce50
+#6 resolve docker.io/library/python:3.13-slim@sha256:7249d5587b78209a006dc4a3b5340678f84ea729239193aa559962cd8c1fce50 0.0s done
+#6 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 202.15kB 0.1s done
+#7 DONE 0.2s
+
+#8 [runtime 2/6] RUN useradd --create-home --uid 10001 ia
+#8 DONE 0.6s
+
+#9 [deps 2/4] RUN python -m venv /venv
+#9 DONE 5.1s
+
+#10 [deps 3/4] COPY requirements.txt .
+#10 DONE 0.1s
+
+#11 [deps 4/4] RUN pip install -r requirements.txt
+#11 1.363 Collecting bentoml==1.4.39 (from -r requirements.txt (line 1))
+#11 1.672   Downloading bentoml-1.4.39-py3-none-any.whl.metadata (15 kB)
+#11 1.804 Collecting pytest==9.1.1 (from -r requirements.txt (line 2))
+#11 1.882   Downloading pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+#11 2.016 Collecting requests==2.34.2 (from -r requirements.txt (line 3))
+#11 2.100   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+#11 2.193 Collecting psycopg==3.3.9 (from psycopg[binary]==3.3.9->-r requirements.txt (line 4))
+#11 2.271   Downloading psycopg-3.3.9-py3-none-any.whl.metadata (4.4 kB)
+#11 2.363 Collecting a2wsgi>=1.10.7 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 2.439   Downloading a2wsgi-1.10.10-py3-none-any.whl.metadata (4.0 kB)
+#11 3.439 Collecting aiohttp (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 3.545   Downloading aiohttp-3.14.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+#11 3.743 Collecting aiohttp-asgi-connector>=1.1.2 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 3.823   Downloading aiohttp_asgi_connector-1.2.0-py3-none-any.whl.metadata (4.6 kB)
+#11 3.907 Collecting aiosqlite>=0.20.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 3.986   Downloading aiosqlite-0.22.1-py3-none-any.whl.metadata (4.3 kB)
+#11 4.088 Collecting attrs>=22.2.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 4.164   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+#11 4.256 Collecting cattrs<23.2.0,>=22.1.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 4.337   Downloading cattrs-23.1.2-py3-none-any.whl.metadata (9.3 kB)
+#11 4.422 Collecting click-option-group (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 4.499   Downloading click_option_group-0.5.10-py3-none-any.whl.metadata (5.9 kB)
+#11 4.589 Collecting click>=7.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 4.686   Downloading click-8.5.1-py3-none-any.whl.metadata (2.6 kB)
+#11 4.775 Collecting cloudpickle>=2.0.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 4.853   Downloading cloudpickle-3.1.3-py3-none-any.whl.metadata (7.1 kB)
+#11 4.950 Collecting fsspec>=2025.7.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 5.029   Downloading fsspec-2026.9.0-py3-none-any.whl.metadata (10 kB)
+#11 5.143 Collecting httpx (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 5.222   Downloading httpx-0.29.0-py3-none-any.whl.metadata (7.1 kB)
+#11 5.421 Collecting httpx-ws>=0.6.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 5.503   Downloading httpx_ws-0.10.0-py3-none-any.whl.metadata (11 kB)
+#11 5.590 Collecting jinja2>=3.0.1 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 5.667   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+#11 5.914 Collecting kantoku>=0.18.3 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 5.990   Downloading kantoku-0.18.3-py3-none-any.whl.metadata (2.1 kB)
+#11 6.288 Collecting numpy (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 6.385   Downloading numpy-2.5.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+#11 6.480 Collecting nvidia-ml-py (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 6.564   Downloading nvidia_ml_py-13.615.71-py3-none-any.whl.metadata (9.7 kB)
+#11 6.661 Collecting opentelemetry-api~=1.20 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 6.736   Downloading opentelemetry_api-1.45.2-py3-none-any.whl.metadata (1.4 kB)
+#11 6.828 Collecting opentelemetry-instrumentation-aiohttp-client~=0.41b0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 6.905   Downloading opentelemetry_instrumentation_aiohttp_client-0.66b2-py3-none-any.whl.metadata (2.3 kB)
+#11 7.010 Collecting opentelemetry-instrumentation-asgi~=0.41b0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.093   Downloading opentelemetry_instrumentation_asgi-0.66b2-py3-none-any.whl.metadata (2.0 kB)
+#11 7.187 Collecting opentelemetry-instrumentation~=0.41b0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.274   Downloading opentelemetry_instrumentation-0.66b2-py3-none-any.whl.metadata (7.2 kB)
+#11 7.368 Collecting opentelemetry-sdk~=1.20 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.446   Downloading opentelemetry_sdk-1.45.2-py3-none-any.whl.metadata (1.6 kB)
+#11 7.538 Collecting opentelemetry-semantic-conventions~=0.41b0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.616   Downloading opentelemetry_semantic_conventions-0.66b2-py3-none-any.whl.metadata (2.4 kB)
+#11 7.712 Collecting opentelemetry-util-http~=0.41b0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.801   Downloading opentelemetry_util_http-0.66b2-py3-none-any.whl.metadata (2.6 kB)
+#11 7.889 Collecting packaging>=22.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 7.972   Downloading packaging-26.4-py3-none-any.whl.metadata (3.5 kB)
+#11 8.061 Collecting pathspec (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 8.137   Downloading pathspec-1.1.1-py3-none-any.whl.metadata (14 kB)
+#11 8.230 Collecting pip-requirements-parser>=31.2.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 8.309   Downloading pip_requirements_parser-32.0.1-py3-none-any.whl.metadata (9.3 kB)
+#11 8.400 Collecting prometheus-client>=0.10.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 8.477   Downloading prometheus_client-0.26.0-py3-none-any.whl.metadata (2.1 kB)
+#11 8.643 Collecting psutil (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 8.719   Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+#11 8.931 Collecting pydantic<3 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 9.105   Downloading pydantic-2.14.4-py3-none-any.whl.metadata (143 kB)
+#11 9.345 Collecting python-dateutil (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 9.425   Downloading python_dateutil-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+#11 9.517 Collecting python-json-logger (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 9.614   Downloading python_json_logger-4.2.0-py3-none-any.whl.metadata (2.9 kB)
+#11 9.701 Collecting python-multipart (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 9.779   Downloading python_multipart-0.0.34-py3-none-any.whl.metadata (6.3 kB)
+#11 9.898 Collecting pyyaml>=5.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 9.980   Downloading pyyaml-6.0.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.3 kB)
+#11 10.08 Collecting rich-toolkit>=0.15.1 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 10.17   Downloading rich_toolkit-0.20.6-py3-none-any.whl.metadata (3.0 kB)
+#11 10.27 Collecting rich>=11.2.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 10.35   Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+#11 10.44 Collecting schema (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 10.52   Downloading schema-0.7.8-py2.py3-none-any.whl.metadata (34 kB)
+#11 10.85 Collecting simple-di>=0.1.4 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 10.92   Downloading simple_di-0.1.5-py3-none-any.whl.metadata (3.0 kB)
+#11 11.02 Collecting starlette>=0.24.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 11.10   Downloading starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+#11 11.19 Collecting tomli-w (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 11.27   Downloading tomli_w-1.2.0-py3-none-any.whl.metadata (5.7 kB)
+#11 11.38 Collecting uvicorn>=0.22.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 11.45   Downloading uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+#11 11.62 Collecting watchfiles>=0.15.0 (from bentoml==1.4.39->-r requirements.txt (line 1))
+#11 11.71   Downloading watchfiles-1.3.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+#11 11.80 Collecting iniconfig>=1.0.1 (from pytest==9.1.1->-r requirements.txt (line 2))
+#11 11.88   Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+#11 11.96 Collecting pluggy<2,>=1.5 (from pytest==9.1.1->-r requirements.txt (line 2))
+#11 12.05   Downloading pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+#11 12.14 Collecting pygments>=2.7.2 (from pytest==9.1.1->-r requirements.txt (line 2))
+#11 12.22   Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+#11 12.56 Collecting charset_normalizer<4,>=2 (from requests==2.34.2->-r requirements.txt (line 3))
+#11 12.66   Downloading charset_normalizer-3.5.3-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (43 kB)
+#11 12.77 Collecting idna<4,>=2.5 (from requests==2.34.2->-r requirements.txt (line 3))
+#11 12.84   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+#11 12.94 Collecting urllib3<3,>=1.26 (from requests==2.34.2->-r requirements.txt (line 3))
+#11 13.02   Downloading urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+#11 13.11 Collecting certifi>=2023.5.7 (from requests==2.34.2->-r requirements.txt (line 3))
+#11 13.18   Downloading certifi-2026.11.20-py3-none-any.whl.metadata (2.5 kB)
+#11 13.46 Collecting psycopg-binary==3.3.9 (from psycopg[binary]==3.3.9->-r requirements.txt (line 4))
+#11 13.56   Downloading psycopg_binary-3.3.9-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+#11 13.65 Collecting typing-extensions>=4.5.0 (from opentelemetry-api~=1.20->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 13.73   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+#11 14.21 Collecting wrapt<3.0.0,>=1.0.0 (from opentelemetry-instrumentation~=0.41b0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 14.32   Downloading wrapt-2.5.2-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (7.6 kB)
+#11 14.42 Collecting asgiref~=3.0 (from opentelemetry-instrumentation-asgi~=0.41b0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 14.50   Downloading asgiref-3.13.0-py3-none-any.whl.metadata (12 kB)
+#11 14.60 Collecting annotated-types>=0.6.0 (from pydantic<3->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 14.67   Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+#11 15.69 Collecting pydantic-core==2.50.5 (from pydantic<3->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 15.78   Downloading pydantic_core-2.50.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.6 kB)
+#11 15.86 Collecting typing-inspection>=0.4.4 (from pydantic<3->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 15.95   Downloading typing_inspection-0.4.5-py3-none-any.whl.metadata (2.6 kB)
+#11 16.07 Collecting aiohappyeyeballs>=2.5.0 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 16.15   Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl.metadata (5.9 kB)
+#11 16.24 Collecting aiosignal>=1.4.0 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 16.32   Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+#11 16.48 Collecting frozenlist>=1.1.1 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 16.58   Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+#11 16.98 Collecting multidict<8.0,>=4.5 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 17.10   Downloading multidict-7.2.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (6.1 kB)
+#11 17.25 Collecting propcache>=0.2.0 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 17.33   Downloading propcache-0.5.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (25 kB)
+#11 17.75 Collecting yarl<2.0,>=1.25.1 (from aiohttp->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 17.85   Downloading yarl-1.25.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (111 kB)
+#11 18.08 Collecting anyio>=4.10.0 (from httpx-ws>=0.6.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 18.16   Downloading anyio-4.16.0-py3-none-any.whl.metadata (4.7 kB)
+#11 18.24 Collecting httpcore>=1.0.4 (from httpx-ws>=0.6.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 18.32   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+#11 18.42 Collecting wsproto (from httpx-ws>=0.6.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 18.53   Downloading wsproto-1.3.2-py3-none-any.whl.metadata (5.2 kB)
+#11 18.62 Collecting h11>=0.16 (from httpcore>=1.0.4->httpx-ws>=0.6.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 18.70   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+#11 18.84 Collecting MarkupSafe>=2.0 (from jinja2>=3.0.1->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 19.04   Downloading markupsafe-3.0.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+#11 19.38 Collecting pyzmq>=17.0 (from kantoku>=0.18.3->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 19.50   Downloading pyzmq-27.3.0-cp312-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+#11 19.63 Collecting tornado>=5.0.2 (from kantoku>=0.18.3->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 19.72   Downloading tornado-6.6.1-cp311-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (2.6 kB)
+#11 20.09 Collecting pyparsing (from pip-requirements-parser>=31.2.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 20.18   Downloading pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+#11 20.29 Collecting markdown-it-py>=2.2.0 (from rich>=11.2.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 20.37   Downloading markdown_it_py-4.3.0-py3-none-any.whl.metadata (7.9 kB)
+#11 20.47 Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=11.2.0->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 20.54   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+#11 20.68 Collecting tzdata (from python-dateutil->bentoml==1.4.39->-r requirements.txt (line 1))
+#11 20.76   Downloading tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+#11 20.86 Downloading bentoml-1.4.39-py3-none-any.whl (1.2 MB)
+#11 21.05    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 8.6 MB/s  0:00:00
+#11 21.22 Downloading pytest-9.1.1-py3-none-any.whl (386 kB)
+#11 21.33 Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+#11 21.42 Downloading psycopg-3.3.9-py3-none-any.whl (219 kB)
+#11 21.55 Downloading psycopg_binary-3.3.9-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.9 MB)
+#11 22.22    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.9/3.9 MB 5.7 MB/s  0:00:00
+#11 22.30 Downloading cattrs-23.1.2-py3-none-any.whl (50 kB)
+#11 22.39 Downloading charset_normalizer-3.5.3-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (256 kB)
+#11 22.51 Downloading idna-3.20-py3-none-any.whl (69 kB)
+#11 22.59 Downloading opentelemetry_api-1.45.2-py3-none-any.whl (60 kB)
+#11 22.68 Downloading opentelemetry_instrumentation-0.66b2-py3-none-any.whl (36 kB)
+#11 22.76 Downloading opentelemetry_semantic_conventions-0.66b2-py3-none-any.whl (206 kB)
+#11 22.85 Downloading opentelemetry_instrumentation_aiohttp_client-0.66b2-py3-none-any.whl (13 kB)
+#11 22.93 Downloading opentelemetry_util_http-0.66b2-py3-none-any.whl (8.4 kB)
+#11 23.00 Downloading opentelemetry_instrumentation_asgi-0.66b2-py3-none-any.whl (15 kB)
+#11 23.09 Downloading asgiref-3.13.0-py3-none-any.whl (27 kB)
+#11 23.16 Downloading opentelemetry_sdk-1.45.2-py3-none-any.whl (141 kB)
+#11 23.25 Downloading pluggy-1.7.0-py3-none-any.whl (27 kB)
+#11 23.33 Downloading pydantic-2.14.4-py3-none-any.whl (494 kB)
+#11 23.48 Downloading pydantic_core-2.50.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (2.3 MB)
+#11 23.76    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 7.9 MB/s  0:00:00
+#11 23.84 Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)
+#11 23.92 Downloading wrapt-2.5.2-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (248 kB)
+#11 24.02 Downloading a2wsgi-1.10.10-py3-none-any.whl (17 kB)
+#11 24.10 Downloading aiohttp_asgi_connector-1.2.0-py3-none-any.whl (7.4 kB)
+#11 24.18 Downloading aiohttp-3.14.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.9 MB)
+#11 24.41    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.9/1.9 MB 9.2 MB/s  0:00:00
+#11 24.50 Downloading multidict-7.2.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (516 kB)
+#11 24.61 Downloading yarl-1.25.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (117 kB)
+#11 24.69 Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
+#11 24.77 Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+#11 24.85 Downloading aiosqlite-0.22.1-py3-none-any.whl (17 kB)
+#11 24.93 Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+#11 25.00 Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+#11 25.09 Downloading certifi-2026.11.20-py3-none-any.whl (127 kB)
+#11 25.18 Downloading click-8.5.1-py3-none-any.whl (126 kB)
+#11 25.27 Downloading cloudpickle-3.1.3-py3-none-any.whl (22 kB)
+#11 25.34 Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (234 kB)
+#11 25.43 Downloading fsspec-2026.9.0-py3-none-any.whl (221 kB)
+#11 25.54 Downloading httpx_ws-0.10.0-py3-none-any.whl (16 kB)
+#11 25.61 Downloading anyio-4.16.0-py3-none-any.whl (134 kB)
+#11 25.70 Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+#11 25.79 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+#11 25.87 Downloading httpx-0.29.0-py3-none-any.whl (73 kB)
+#11 25.95 Downloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+#11 26.03 Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+#11 26.12 Downloading kantoku-0.18.3-py3-none-any.whl (118 kB)
+#11 26.21 Downloading markupsafe-3.0.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (23 kB)
+#11 26.28 Downloading packaging-26.4-py3-none-any.whl (140 kB)
+#11 26.37 Downloading pip_requirements_parser-32.0.1-py3-none-any.whl (35 kB)
+#11 26.45 Downloading prometheus_client-0.26.0-py3-none-any.whl (64 kB)
+#11 26.54 Downloading propcache-0.5.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (234 kB)
+#11 26.66 Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+#11 26.81    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 8.3 MB/s  0:00:00
+#11 26.89 Downloading pyyaml-6.0.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (838 kB)
+#11 26.97    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 838.5/838.5 kB 9.9 MB/s  0:00:00
+#11 27.05 Downloading pyzmq-27.3.0-cp312-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (855 kB)
+#11 27.13    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 855.2/855.2 kB 11.0 MB/s  0:00:00
+#11 27.20 Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+#11 27.30 Downloading markdown_it_py-4.3.0-py3-none-any.whl (96 kB)
+#11 27.38 Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+#11 27.46 Downloading rich_toolkit-0.20.6-py3-none-any.whl (39 kB)
+#11 27.54 Downloading simple_di-0.1.5-py3-none-any.whl (9.8 kB)
+#11 27.62 Downloading starlette-1.10.0-py3-none-any.whl (80 kB)
+#11 27.70 Downloading tornado-6.6.1-cp311-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (534 kB)
+#11 27.75    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 534.5/534.5 kB 10.4 MB/s  0:00:00
+#11 27.83 Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+#11 27.90 Downloading typing_inspection-0.4.5-py3-none-any.whl (14 kB)
+#11 27.98 Downloading uvicorn-0.54.0-py3-none-any.whl (87 kB)
+#11 28.06 Downloading watchfiles-1.3.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (458 kB)
+#11 28.18 Downloading click_option_group-0.5.10-py3-none-any.whl (11 kB)
+#11 28.26 Downloading numpy-2.5.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (15.7 MB)
+#11 29.53    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.7/15.7 MB 12.5 MB/s  0:00:01
+#11 29.61 Downloading nvidia_ml_py-13.615.71-py3-none-any.whl (58 kB)
+#11 29.69 Downloading pathspec-1.1.1-py3-none-any.whl (57 kB)
+#11 29.76 Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+#11 29.85 Downloading pyparsing-3.3.3-py3-none-any.whl (126 kB)
+#11 29.93 Downloading python_dateutil-4.0.0-py3-none-any.whl (92 kB)
+#11 30.02 Downloading python_json_logger-4.2.0-py3-none-any.whl (14 kB)
+#11 30.10 Downloading python_multipart-0.0.34-py3-none-any.whl (32 kB)
+#11 30.18 Downloading schema-0.7.8-py2.py3-none-any.whl (19 kB)
+#11 30.25 Downloading tomli_w-1.2.0-py3-none-any.whl (6.7 kB)
+#11 30.33 Downloading tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+#11 30.42 Downloading wsproto-1.3.2-py3-none-any.whl (24 kB)
+#11 30.90 Installing collected packages: schema, nvidia-ml-py, wrapt, urllib3, tzdata, typing-extensions, tornado, tomli-w, simple-di, pyzmq, pyyaml, python-multipart, python-json-logger, pyparsing, pygments, psycopg-binary, psycopg, psutil, propcache, prometheus-client, pluggy, pathspec, packaging, opentelemetry-util-http, numpy, multidict, mdurl, MarkupSafe, iniconfig, idna, h11, fsspec, frozenlist, cloudpickle, click, charset_normalizer, certifi, attrs, asgiref, annotated-types, aiosqlite, aiohappyeyeballs, a2wsgi, yarl, wsproto, uvicorn, typing-inspection, requests, python-dateutil, pytest, pydantic-core, pip-requirements-parser, opentelemetry-api, markdown-it-py, kantoku, jinja2, httpcore, click-option-group, cattrs, anyio, aiosignal, watchfiles, starlette, rich, pydantic, opentelemetry-semantic-conventions, httpx, aiohttp, rich-toolkit, opentelemetry-sdk, opentelemetry-instrumentation, httpx-ws, aiohttp-asgi-connector, opentelemetry-instrumentation-asgi, opentelemetry-instrumentation-aiohttp-client, bentoml
+#11 42.74
+#11 42.75 Successfully installed MarkupSafe-3.0.4 a2wsgi-1.10.10 aiohappyeyeballs-2.7.1 aiohttp-3.14.5 aiohttp-asgi-connector-1.2.0 aiosignal-1.4.0 aiosqlite-0.22.1 annotated-types-0.8.0 anyio-4.16.0 asgiref-3.13.0 attrs-26.1.0 bentoml-1.4.39 cattrs-23.1.2 certifi-2026.11.20 charset_normalizer-3.5.3 click-8.5.1 click-option-group-0.5.10 cloudpickle-3.1.3 frozenlist-1.8.0 fsspec-2026.9.0 h11-0.16.0 httpcore-1.0.9 httpx-0.29.0 httpx-ws-0.10.0 idna-3.20 iniconfig-2.3.1 jinja2-3.1.6 kantoku-0.18.3 markdown-it-py-4.3.0 mdurl-0.1.2 multidict-7.2.1 numpy-2.5.5 nvidia-ml-py-13.615.71 opentelemetry-api-1.45.2 opentelemetry-instrumentation-0.66b2 opentelemetry-instrumentation-aiohttp-client-0.66b2 opentelemetry-instrumentation-asgi-0.66b2 opentelemetry-sdk-1.45.2 opentelemetry-semantic-conventions-0.66b2 opentelemetry-util-http-0.66b2 packaging-26.4 pathspec-1.1.1 pip-requirements-parser-32.0.1 pluggy-1.7.0 prometheus-client-0.26.0 propcache-0.5.4 psutil-7.2.2 psycopg-3.3.9 psycopg-binary-3.3.9 pydantic-2.14.4 pydantic-core-2.50.5 pygments-2.21.0 pyparsing-3.3.3 pytest-9.1.1 python-dateutil-4.0.0 python-json-logger-4.2.0 python-multipart-0.0.34 pyyaml-6.0.4 pyzmq-27.3.0 requests-2.34.2 rich-15.0.0 rich-toolkit-0.20.6 schema-0.7.8 simple-di-0.1.5 starlette-1.10.0 tomli-w-1.2.0 tornado-6.6.1 typing-extensions-4.16.0 typing-inspection-0.4.5 tzdata-2026.6 urllib3-2.8.0 uvicorn-0.54.0 watchfiles-1.3.0 wrapt-2.5.2 wsproto-1.3.2 yarl-1.25.1
+#11 DONE 43.5s
+
+#12 [test 1/3] WORKDIR /app
+#12 DONE 0.2s
+
+#13 [test 2/3] COPY . .
+#13 DONE 0.5s
+
+#14 [test 3/3] RUN python -m pytest tests -p no:cacheprovider -q
+#14 ...
+
+#15 [runtime 3/6] COPY --from=deps /venv /venv
+#15 DONE 3.3s
+
+#14 [test 3/3] RUN python -m pytest tests -p no:cacheprovider -q
+#14 5.178 .................................                                        [100%]
+#14 6.931 =============================== warnings summary ===============================
+#14 6.931 ../venv/lib/python3.13/site-packages/pathspec/pathspec.py:326: 11 warnings
+#14 6.931   /venv/lib/python3.13/site-packages/pathspec/pathspec.py:326: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+#14 6.931     patterns = [use_factory(__line) for __line in lines if __line]  # type: ignore[arg-type]
+#14 6.931
+#14 6.931 ../venv/lib/python3.13/site-packages/pathspec/pattern.py:125: 11 warnings
+#14 6.931   /venv/lib/python3.13/site-packages/pathspec/pattern.py:125: DeprecationWarning: GitWildMatchPattern ('gitwildmatch') is deprecated. Use 'gitignore' for GitIgnoreBasicPattern or GitIgnoreSpecPattern instead.
+#14 6.931     raw_regex, include = self.pattern_to_regex(pattern)
+#14 6.931
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931 ../venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158
+#14 6.931   /venv/lib/python3.13/site-packages/_bentoml_sdk/io_models.py:158: PydanticDeprecatedSince211: The `__get_pydantic_core_schema__` method of the `BaseModel` class is deprecated. If you are calling `super().__get_pydantic_core_schema__` when overriding the method on a Pydantic model, consider using `handler(source)` instead. However, note that overriding this method on models can lead to unexpected side effects. Deprecated in Pydantic V2.11 to be removed in V3.0.
+#14 6.931     return super().__get_pydantic_core_schema__(source, handler)
+#14 6.931
+#14 6.931 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+#14 6.931 33 passed, 29 warnings in 5.56s
+#14 DONE 7.1s
+
+#16 [runtime 4/6] COPY --from=test /app/app /app/app
+#16 DONE 0.2s
+
+#17 [runtime 5/6] COPY --from=test /app/data /app/data
+#17 DONE 0.1s
+
+#18 [runtime 6/6] WORKDIR /app
+#18 DONE 0.0s
+
+#19 exporting to image
+#19 exporting layers
+#19 exporting layers 9.1s done
+#19 exporting manifest sha256:c202e58f01d92b44d5eb869505a65b1b7cddfa43640c214494283a729afacc73 0.0s done
+#19 exporting config sha256:4cb497098289ef27f78df9c67832bc51b93560d91b629086a7fef872c82950f4 0.0s done
+#19 exporting attestation manifest sha256:8f3457b46e941ff62ae37750b41c0ba2af59d90b063f0a2adb7f89fe1ba38cd6 0.0s done
+#19 exporting manifest list sha256:b0ba6bfde00977ebcb447f30eaeca79a511208ca1fb1c7fbcad6e6a62da3b6d3
+#19 exporting manifest list sha256:b0ba6bfde00977ebcb447f30eaeca79a511208ca1fb1c7fbcad6e6a62da3b6d3 0.0s done
+#19 naming to docker.io/library/origem-modulo-ia:latest done
+#19 unpacking to docker.io/library/origem-modulo-ia:latest
+#19 unpacking to docker.io/library/origem-modulo-ia:latest 4.4s done
+#19 DONE 13.6s
+
+#20 resolving provenance for metadata file
+#20 DONE 0.0s
+ Image origem-modulo-ia Built
+Codigo de saida: 0
+
+=== 4. TESTES UNITARIOS DO BACKEND ===
+
+
+> @origem/backend@1.0.0 test:unit
+> jest --config jest.unit.config.ts --runInBand --runTestsByPath tests/recomendacoes.unit.test.ts --verbose --no-colors
+
+PASS tests/recomendacoes.unit.test.ts
+  Integração de recomendações (Backend <-> Módulo de IA)
+    √ solicita recomendações à IA com catálogo real, X-API-Key e hidrata motivos válidos (8 ms)
+    √ respeita lista vazia retornada pela IA sem inventar itens sem relação (RF-11) (1 ms)
+    √ aplica baseline local coerente com pesos e disponibilidade quando IA retorna 503 (2 ms)
+    √ aplica baseline local quando há erro de rede/timeout ao chamar IA (12 ms)
+    √ retorna lista vazia para produto de referência inexistente
+    √ controller GET /produtos/recomendacoes expõe X-Recomendacao-Fonte e contrato JSON (2 ms)
+System.Management.Automation.RemoteException
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        2.645 s, estimated 3 s
+Ran all test suites within paths "tests/recomendacoes.unit.test.ts".
+Codigo de saida: 0
+
+=== 5. TESTES DE INTEGRACAO REAL ===
+
+
+> frontend@0.1.0 test:api
+> jest --config jest.api.config.mjs --runTestsByPath tests/api/recomendacoes-integracao.test.ts --verbose --no-colors
+
+PASS api tests/api/recomendacoes-integracao.test.ts
+  integração real · Frontend (:3000 via FRONTEND_BASE_URL) + Backend (:4000) + PostgreSQL + Módulo de IA (:3001)
+    √ serviços integrados respondem saudáveis (backend, módulo de IA e páginas do frontend) (85 ms)
+    √ GET /produtos/recomendacoes?produtoId=2001 consulta a IA com catálogo real, expõe CORS e retorna apenas peças válidas disponíveis (107 ms)
+    √ GET /produtos/recomendacoes por filtro (técnica) sem produtoId retorna peças coerentes via IA (34 ms)
+    √ GET /produtos/recomendacoes por filtro (região) retorna peças da região via IA (25 ms)
+    √ retorna lista vazia quando não há candidatos elegíveis para o critério (RF-11) (32 ms)
+    √ retorna lista vazia sem erro 500 para produto de referência inexistente (25 ms)
+System.Management.Automation.RemoteException
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        0.794 s, estimated 1 s
+Ran all test suites within paths "tests/api/recomendacoes-integracao.test.ts".
+Codigo de saida: 0
+
+=== 6. RESULTADOS DAS EXECUCOES ===
+
+Testes de dados: 0
+Suite original do modulo de IA: 0
+Testes unitarios do backend: 0
+Testes de integracao real: 0
+
+Data de encerramento: 27/11/2026 16:23:30
+
+
+=== 7. CONSOLIDACAO DAS EVIDENCIAS ===
+
+Testes de dados e integracao do recomendador: 194 aprovados
+Suite original do modulo de IA: 33 aprovados
+Testes unitarios do backend: 6 aprovados
+Testes de integracao real: 6 aprovados
+
+Total de testes: 239
+Total de testes aprovados: 239
+Total de falhas: 0
+Taxa de aprovacao: 100%
+
+Todos os quatro grupos apresentaram codigo de saida 0.
+
+Os resultados correspondem as suites selecionadas para a validacao
+da integracao do acesso aos dados ao recomendador de IA.
+
+Os registros foram obtidos mediante execucao real dos testes.
+
+Codificacao do arquivo: UTF-8
+
+Data da consolidacao: 27/11/2026 16:25:19

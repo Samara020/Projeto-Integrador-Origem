@@ -1,0 +1,24 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\samar\projetos\Projeto-Integrador-Origem\modulo-ia
+collecting ... collected 16 items
+
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo.json] PASSED [  6%]
+tests_dados/test_catalogo.py::test_catalogo_nao_vazio[catalogo_origem.json] PASSED [ 12%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo.json] PASSED [ 18%]
+tests_dados/test_catalogo.py::test_identificadores_unicos[catalogo_origem.json] PASSED [ 25%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo.json] PASSED [ 31%]
+tests_dados/test_catalogo.py::test_campos_obrigatorios[catalogo_origem.json] PASSED [ 37%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo.json] PASSED [ 43%]
+tests_dados/test_catalogo.py::test_campos_textuais_validos[catalogo_origem.json] PASSED [ 50%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo.json] PASSED [ 56%]
+tests_dados/test_catalogo.py::test_disponibilidade_booleana[catalogo_origem.json] PASSED [ 62%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo.json] PASSED [ 68%]
+tests_dados/test_catalogo.py::test_diversidade_categorias[catalogo_origem.json] PASSED [ 75%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo.json] PASSED [ 81%]
+tests_dados/test_catalogo.py::test_diversidade_tecnicas[catalogo_origem.json] PASSED [ 87%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo.json] PASSED [ 93%]
+tests_dados/test_catalogo.py::test_diversidade_regioes[catalogo_origem.json] PASSED [100%]
+
+============================= 16 passed in 0.06s ==============================
