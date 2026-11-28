@@ -1,17 +1,13 @@
-import os
-
 import pytest
 import requests
 
 
-# O Next usa a porta 3000, então o serviço de IA sobe na 3001.
-BASE_URL = os.getenv("IA_BASE_URL", "http://localhost:3001")
 API_KEY = "origem-mockup-key"
 
 
-def test_recomendacoes_http():
+def test_recomendacoes_http(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": API_KEY},
         json={
             "product_id": "prd_201",
@@ -35,9 +31,9 @@ def test_recomendacoes_http():
     assert scores == sorted(scores, reverse=True)
 
 
-def test_recomendacoes_sem_autenticacao():
+def test_recomendacoes_sem_autenticacao(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         json={"product_id": "prd_201", "limit": 5},
         timeout=5,
     )
@@ -45,9 +41,9 @@ def test_recomendacoes_sem_autenticacao():
     assert response.status_code == 401
 
 
-def test_recomendacoes_com_chave_invalida():
+def test_recomendacoes_com_chave_invalida(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": "chave-invalida"},
         json={"product_id": "prd_201", "limit": 5},
         timeout=5,
@@ -56,9 +52,9 @@ def test_recomendacoes_com_chave_invalida():
     assert response.status_code == 403
 
 
-def test_recomendacoes_com_limite_invalido():
+def test_recomendacoes_com_limite_invalido(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": API_KEY},
         json={"product_id": "prd_201", "limit": 21},
         timeout=5,
@@ -67,9 +63,9 @@ def test_recomendacoes_com_limite_invalido():
     assert response.status_code == 400
 
 
-def test_recomendacoes_produto_inexistente():
+def test_recomendacoes_produto_inexistente(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": API_KEY},
         json={"product_id": "prd_999", "limit": 5},
         timeout=5,
@@ -93,9 +89,9 @@ def test_recomendacoes_produto_inexistente():
         ),
     ],
 )
-def test_recomendacoes_http_por_filtro_sem_categoria(filtros, esperados, motivo):
+def test_recomendacoes_http_por_filtro_sem_categoria(filtros, esperados, motivo, ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": API_KEY},
         json=filtros,
         timeout=5,
@@ -108,7 +104,7 @@ def test_recomendacoes_http_por_filtro_sem_categoria(filtros, esperados, motivo)
     assert all(item["reason"] == motivo for item in recomendacoes)
 
 
-def test_recomendacoes_http_com_catalogo_dinamico():
+def test_recomendacoes_http_com_catalogo_dinamico(ia_url):
     catalogo = [
         {
             "product_id": "2001",
@@ -145,7 +141,7 @@ def test_recomendacoes_http_com_catalogo_dinamico():
     ]
 
     response = requests.post(
-        f"{BASE_URL}/recommendations",
+        f"{ia_url}/recommendations",
         headers={"X-API-Key": API_KEY},
         json={
             "product_id": "2001",
@@ -162,9 +158,9 @@ def test_recomendacoes_http_com_catalogo_dinamico():
     assert recomendacoes[1]["score"] == 0.8
 
 
-def test_recomendacoes_batch_http():
+def test_recomendacoes_batch_http(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations/batch",
+        f"{ia_url}/recommendations/batch",
         headers={"X-API-Key": API_KEY},
         json={"product_ids": ["prd_201", "prd_202"], "limit": 3},
         timeout=5,
@@ -181,9 +177,9 @@ def test_recomendacoes_batch_http():
     )
 
 
-def test_recomendacoes_batch_sem_autenticacao():
+def test_recomendacoes_batch_sem_autenticacao(ia_url):
     response = requests.post(
-        f"{BASE_URL}/recommendations/batch",
+        f"{ia_url}/recommendations/batch",
         json={"limit": 3},
         timeout=5,
     )

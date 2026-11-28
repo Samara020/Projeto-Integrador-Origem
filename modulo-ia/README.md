@@ -10,6 +10,8 @@ Esta seção segue a ordem pedida no enunciado. O restante do README (a partir d
 
 Resumo do caminho: o módulo de IA é o serviço BentoML `RecommendationService`. As rotas `POST /recommendations` e `POST /recommendations/batch` só chegam aos produtos pelas funções de `app/repository.py`. Cada chamada a essas funções grava uma linha em `modulo-ia/logs/uso_dados.jsonl`. O script `resumo_uso_dados.py` lê esse arquivo e mostra o resumo.
 
+> **Estado atual vs. histórico:** esta seção ("Entrega AV2") descreve o estado corrente da branch `feat/modulo-ia-dados` (dados, funções de acesso e log de uso). As seções numeradas a seguir (1 em diante) documentam o módulo como um todo, incluindo partes do mockup AV1 já implementado anteriormente (estratégia, fallback, pesos, endpoint, testes de lógica). Sempre que uma seção descreve uma etapa histórica, ela é marcada como tal; o estado atual é o desta Entrega AV2 e do `docs/modulo-ia-dados-e-monitoramento.md`.
+
 ### A. Como instalar e rodar
 
 Na raiz do repositório, com Python 3.13:
@@ -111,7 +113,7 @@ cat modulo-ia/logs/uso_dados.jsonl             # Linux / macOS
 Get-Content modulo-ia\logs\uso_dados.jsonl     # Windows
 ```
 
-Cada chamada gera duas linhas: `get_catalog_items`, que carrega o catálogo, e `get_repository_product`, que busca o produto de referência. As três linhas de `get_repository_product` mostram o uso dos dados, uma por chamada:
+Cada chamada gera pelo menos duas linhas no JSONL de uso dos dados: `get_catalog_items`, que carrega o catálogo, e `get_repository_product`, que busca o produto de referência. Em falha de fonte (ex.: PostgreSQL indisponível) há também a linha de erro/fallback correspondente; a execução da rota também grava aqui o evento `modulo_ia_execucao` (sem a chave `funcao`), com o mesmo `execucao_id` das linhas de acesso. O mesmo evento sai na saída padrão do serviço.
 
 ```json
 {"data_hora": "2026-11-27T18:57:06-03:00", "funcao": "get_repository_product", "chamador": "POST /recommendations", "parametros": {"product_id": "prd_201"}, "registros": 1, "status": "sucesso", "ids": ["prd_201"], "fonte": "lista_recebida"}
@@ -131,11 +133,14 @@ Campos de cada linha:
 | `status` | `sucesso`, `vazio` (funcionou, mas não achou nada) ou `erro`. |
 | `ids` | Identificadores dos produtos devolvidos, nas funções que consultam produtos específicos. |
 | `fonte` | De onde vieram os dados: `json`, `postgres`, `payload` (lista enviada pelo backend) ou `lista_recebida` (catálogo já carregado na mesma requisição). |
-| `erro` | Motivo do erro ou ids não encontrados. |
+| `erro` | Motivo do erro ou ids não encontrados. Sem DSN, usuário, host ou senha. |
+| `duracao_ms` | Duração da função de acesso, em milissegundos. |
+| `execucao_id` | Identificador da requisição; é o mesmo nas linhas de acesso e no evento `modulo_ia_execucao`. Ausente em chamadas diretas. |
+| `motivo_fallback` | Por que o JSON foi usado no lugar do PostgreSQL (`dsn_nao_configurado`, `psycopg_indisponivel`, `postgres_falha: <TipoExcecao>`, `postgres_indisponivel`, `banco_desativado`). |
 
 O arquivo só recebe linhas novas e nunca é apagado pelo módulo. Para começar do zero, apague o arquivo à mão. O caminho pode ser trocado com a variável `LOG_USO_DADOS`. Os testes gravam em um arquivo temporário e não sujam este log.
 
-O log de execução das rotas, já existente (evento `modulo_ia_execucao`, na saída do terminal), continua igual e separado deste.
+O evento `modulo_ia_execucao` é gravado tanto na saída do terminal quanto neste arquivo, como uma linha sem `funcao`. Ele traz `execucao_id`, `rota`, `status`, `resultado` (`com_sugestoes`, `vazio` ou `erro`), `elapsed_ms`, filtros efetivos, contexto da referência, fonte do catálogo e contagens (`total_catalogo`, `total_candidatos`, `total_analisados`, `total_compativeis`, `total_sugestoes`; no lote, `total_referencias`). Detalhes em `docs/modulo-ia-dados-e-monitoramento.md`.
 
 ### E. Como ver o resumo
 
@@ -143,7 +148,7 @@ O log de execução das rotas, já existente (evento `modulo_ia_execucao`, na sa
 python modulo-ia/resumo_uso_dados.py
 ```
 
-O script mostra quantas vezes cada função foi chamada (com sucesso, vazio e erro), quem chamou, os erros com o motivo, os produtos mais consultados, os produtos do catálogo nunca consultados e os ids pedidos que não existem. Opções: `--log <arquivo>` e `--catalogo <arquivo>`.
+O script mostra quantas vezes cada função foi chamada (com sucesso, vazio e erro), quem chamou, os erros com o motivo, os produtos mais consultados, os produtos do catálogo nunca consultados e os ids pedidos que não existem. Também consolida as execuções (`execucoes`): requisições, sucessos, erros, respostas vazias, sugestões retornadas e latências das requisições e das consultas. Eventos de execução não entram na contagem de chamadas por função. Opções: `--log <arquivo>` e `--catalogo <arquivo>`.
 
 Exemplo gerado em 27/11/2026, com as três chamadas, o experimento da seção C e uma chamada em lote (`prd_209` e `prd_999`): `docs/evidencias/uso_dados_exemplo.jsonl` (log) e `docs/evidencias/resumo_uso_dados_exemplo.txt` (resumo).
 
@@ -179,8 +184,11 @@ modulo-ia/
 ├── app/
 │   ├── config.py
 │   ├── catalog.py
+│   ├── data_log.py
 │   ├── fallback.py
+│   ├── observability.py
 │   ├── recommendation.py
+│   ├── repository.py
 │   └── service.py
 ├── data/
 │   ├── catalogo.json
@@ -188,9 +196,12 @@ modulo-ia/
 ├── tests/
 │   ├── conftest.py
 │   ├── test_api.py
+│   ├── test_monitoramento_http.py
 │   ├── test_performance.py
 │   ├── test_recommendation.py
 │   └── test_service.py
+├── tests_dados/
+├── resumo_uso_dados.py
 ├── requirements.txt
 └── README.md
 ```
@@ -543,8 +554,6 @@ RECOMENDACAO_TIMEOUT_MS=2000
 6. Na interface:
    - `/produto/[id]` (`Recomendados.tsx`): exibe skeleton no carregamento, cards com `motivo` e link para `/produto/[id]`, oculta a seção se a lista vier vazia (RF-11) e exibe botão *"Tentar de novo"* se o backend falhar.
    - `/recomendacoes` (`Recomendacoes.tsx`): recomenda a partir da última peça vista e da região/técnica favorita, exibindo estado vazio com link para o `/catalogo` quando não houver itens elegíveis.
-
-> **Compatibilidade com Fake API (AV1):** quando o frontend roda sem `NEXT_PUBLIC_API_URL` (usando `/api`), a rota `frontend/src/app/api/produtos/recomendacoes/route.ts` continua funcional falando diretamente com `modulo-ia` sobre `catalogo_origem.json`.
 
 ### Contrato opcional `catalog` em `POST /recommendations`
 

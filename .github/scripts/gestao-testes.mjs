@@ -15,7 +15,7 @@ import { lerBacklog } from "../../scripts/metricas.mjs";
 import { analisar } from "./verificar-quarentena.mjs";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const PASTAS = ["frontend/tests", "backend/app/tests", "e2e/cypress", "modulo-ia/tests"];
+const PASTAS = ["frontend/tests", "backend/app/tests", "e2e/cypress", "modulo-ia/tests", "modulo-ia/tests_dados"];
 const ARQUIVO_DE_TESTE = /(\.test\.(ts|tsx|js|mjs)|\.cy\.js|(^|\/)test_[^/]+\.py)$/;
 const TITULO = /\b(?:describe|it|test)(?:\.each\([^)]*\))?\(/;
 

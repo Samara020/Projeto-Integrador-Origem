@@ -563,6 +563,78 @@
       ],
       "origem": "atribuição"
     },
+    "modulo-ia/tests_dados/test_acesso_dados.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_catalogo.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_funcoes_compartilhadas.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_integracao_recomendador.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_log_uso_dados.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_repository.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_validacao_recomendacao.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests/test_monitoramento_http.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
+    "modulo-ia/tests_dados/test_regressoes_monitoramento.py": {
+      "tipo": "requisito",
+      "casos": [],
+      "hu": [
+        "HU-17"
+      ],
+      "origem": "atribuição"
+    },
     "e2e/cypress/support/redeSegura.test.js": {
       "tipo": "detalhe técnico",
       "motivo": "Guarda de rede da própria automação End-to-End."

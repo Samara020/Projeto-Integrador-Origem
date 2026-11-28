@@ -81,7 +81,13 @@ const NIVEIS = {
       { nome: "Jest · frontend", ...npm("frontend", "test:unit", ["--coverage"]), relatorio: "unit-jest.xml" },
       {
         nome: "pytest · módulo de IA (lógica)",
-        ...pytest(["modulo-ia/tests", "--ignore=modulo-ia/tests/test_api.py"], "unit-pytest.xml"),
+        ...pytest(["modulo-ia/tests", "--ignore=modulo-ia/tests/test_api.py", "--ignore=modulo-ia/tests/test_monitoramento_http.py"], "unit-pytest.xml"),
+      },
+      {
+        // Suíte de dados do módulo de IA (sem servidor HTTP): usa o conftest de
+        // tests_dados, que apenas isola LOG_USO_DADOS e não sobe o servidor 3001.
+        nome: "pytest · módulo de IA (dados)",
+        ...pytest(["modulo-ia/tests_dados"], "unit-pytest-dados.xml"),
       },
       {
         // Regra que libera imagem pública no bloqueio de rede do E2E (support/redeSegura.js).
@@ -109,7 +115,7 @@ const NIVEIS = {
     titulo: "Testes de API",
     suites: [
       { nome: "Jest · API real (frontend -> backend/Postgres)", ...npm("frontend", "test:api"), relatorio: "api-jest.xml" },
-      { nome: "pytest · módulo de IA (HTTP)", ...pytest(["modulo-ia/tests/test_api.py"], "api-pytest.xml") },
+      { nome: "pytest · módulo de IA (HTTP)", ...pytest(["modulo-ia/tests/test_api.py", "modulo-ia/tests/test_monitoramento_http.py"], "api-pytest.xml") },
     ],
   },
   e2e: {

@@ -16,6 +16,7 @@ WORKDIR /app
 COPY . .
 ENV PYTHONPATH=/app
 RUN python -m pytest tests -p no:cacheprovider -q
+RUN python -m pytest tests_dados -p no:cacheprovider -q
 
 FROM python:3.13-slim AS runtime
 ENV PATH="/venv/bin:$PATH" \

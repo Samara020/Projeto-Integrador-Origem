@@ -1,4 +1,7 @@
-﻿import os
+﻿import functools
+import os
+import time
+from contextvars import ContextVar
 from urllib.parse import quote
 
 from app.catalog import (
@@ -9,7 +12,39 @@ from app.catalog import (
     normalize_filter,
     validate_catalog
 )
-from app.data_log import registrar_uso
+from app.data_log import anotar_execucao, registrar_uso as _registrar_uso
+
+
+# Início da função de acesso em andamento e motivo do último fallback do
+# PostgreSQL para o JSON. Servem só para enriquecer as linhas do log.
+_inicio_acesso = ContextVar("inicio_acesso_dados", default=None)
+_motivo_fallback = ContextVar("motivo_fallback_dados", default=None)
+
+
+def registrar_uso(**campos):
+    """Grava a linha de uso incluindo duração e motivo de fallback."""
+    inicio = _inicio_acesso.get()
+    if inicio is not None:
+        campos["duracao_ms"] = round((time.perf_counter() - inicio) * 1000, 2)
+    if campos.get("fonte") == "json":
+        campos["motivo_fallback"] = _motivo_fallback.get()
+    return _registrar_uso(**campos)
+
+
+def _acesso(funcao):
+    """Marca o início da função de acesso para medir a duração."""
+
+    @functools.wraps(funcao)
+    def envolvida(*args, **kwargs):
+        token_inicio = _inicio_acesso.set(time.perf_counter())
+        token_motivo = _motivo_fallback.set(None)
+        try:
+            return funcao(*args, **kwargs)
+        finally:
+            _inicio_acesso.reset(token_inicio)
+            _motivo_fallback.reset(token_motivo)
+
+    return envolvida
 
 
 def _build_db_dsn():
@@ -90,16 +125,23 @@ def _normalize_row(row):
     }
 
 
+def _anotar_fallback(motivo):
+    _motivo_fallback.set(motivo)
+    anotar_execucao(motivo_fallback=motivo)
+
+
 def fetch_catalog_from_db(dsn=None):
     target_dsn = dsn or _build_db_dsn()
 
     if not target_dsn:
+        _anotar_fallback("dsn_nao_configurado")
         return None
 
     try:
         import psycopg
         from psycopg.rows import dict_row
     except ImportError:
+        _anotar_fallback("psycopg_indisponivel")
         return None
 
     query = """
@@ -124,7 +166,18 @@ def fetch_catalog_from_db(dsn=None):
                 cur.execute(query)
                 rows = cur.fetchall()
 
-    except psycopg.Error:
+    except psycopg.Error as error:
+        # Só o tipo da exceção: a mensagem pode trazer host/usuário do DSN.
+        motivo = f"postgres_falha: {type(error).__name__}"
+        _anotar_fallback(motivo)
+        registrar_uso(
+            funcao="fetch_catalog_from_db",
+            parametros={"dsn_configurado": True},
+            registros=0,
+            status="erro",
+            fonte="postgres",
+            erro=motivo,
+        )
         return None
 
     items = [_normalize_row(row) for row in rows]
@@ -138,14 +191,22 @@ def _carregar_catalogo(catalog=None, use_db=True):
         raise TypeError("use_db deve ser um valor booleano.")
 
     if catalog is not None:
+        anotar_execucao(fonte_catalogo="payload")
         return validate_catalog(catalog), "lista_recebida"
 
     if use_db:
         db_items = fetch_catalog_from_db()
 
         if db_items is not None:
+            anotar_execucao(fonte_catalogo="postgres")
             return validate_catalog(db_items), "postgres"
 
+        if _motivo_fallback.get() is None:
+            _anotar_fallback("postgres_indisponivel")
+    else:
+        _anotar_fallback("banco_desativado")
+
+    anotar_execucao(fonte_catalogo="json")
     return load_catalog(), "json"
 
 
@@ -163,6 +224,7 @@ def _registrar_erro(funcao, parametros, error):
     )
 
 
+@_acesso
 def get_catalog_items(catalog=None, use_db=True):
     """Carrega o catálogo inteiro (payload, PostgreSQL ou JSON)."""
     parametros = {"catalogo_no_payload": catalog is not None}
@@ -184,6 +246,7 @@ def get_catalog_items(catalog=None, use_db=True):
     return items
 
 
+@_acesso
 def get_repository_product(
     product_id,
     catalog=None,
@@ -222,6 +285,36 @@ def get_repository_product(
     return product
 
 
+def _descrever_tipo(valor):
+    return f"tipo invalido: {type(valor).__name__}"
+
+
+def _validar_ids(product_ids):
+    """Valida lista/tupla de strings e devolve os ids normalizados, sem repetição."""
+    if product_ids is None:
+        return []
+
+    if not isinstance(product_ids, (list, tuple)):
+        raise TypeError(
+            "product_ids deve ser uma lista ou tupla de strings, "
+            f"recebido {type(product_ids).__name__}."
+        )
+
+    pedidos = []
+    for posicao, product_id in enumerate(product_ids):
+        if not isinstance(product_id, str):
+            raise TypeError(
+                f"product_ids[{posicao}] deve ser string, "
+                f"recebido {type(product_id).__name__}."
+            )
+        normalizado = normalize_filter(product_id)
+        if normalizado is not None and normalizado not in pedidos:
+            pedidos.append(normalizado)
+
+    return pedidos
+
+
+@_acesso
 def get_repository_products_by_ids(
     product_ids,
     catalog=None,
@@ -233,16 +326,14 @@ def get_repository_products_by_ids(
     Devolve lista vazia se nenhum existir.
     """
     pedidos = []
-    for product_id in product_ids or []:
-        normalizado = normalize_filter(product_id)
-        if normalizado is not None and normalizado not in pedidos:
-            pedidos.append(normalizado)
-
     parametros = {"product_ids": pedidos}
 
     try:
+        pedidos.extend(_validar_ids(product_ids))
         items, fonte = _carregar_catalogo(catalog=catalog, use_db=use_db)
     except (TypeError, ValueError, FileNotFoundError) as error:
+        if not pedidos:
+            parametros = {"product_ids": _descrever_tipo(product_ids)}
         _registrar_erro("get_repository_products_by_ids", parametros, error)
         raise
 
@@ -267,6 +358,7 @@ def get_repository_products_by_ids(
     return encontrados
 
 
+@_acesso
 def get_repository_available_products(
     reference_product_id=None,
     catalog=None,
@@ -297,6 +389,7 @@ def get_repository_available_products(
     return result
 
 
+@_acesso
 def get_repository_filtered_products(
     category=None,
     technique=None,

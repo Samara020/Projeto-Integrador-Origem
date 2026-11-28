@@ -7,7 +7,10 @@ Uso (dentro de modulo-ia/):
 Lê o arquivo .jsonl gerado por app/data_log.py e mostra:
 - quantas vezes cada função de acesso foi chamada (e por quem);
 - quantos erros e quais foram;
-- quais produtos foram mais consultados e quais nunca foram.
+- quais produtos foram mais consultados e quais nunca foram;
+- as requisições (eventos modulo_ia_execucao): quantas, quantas vazias,
+  quantas sugestões e a latência, separadas das linhas de acesso aos dados.
+Logs antigos, só com linhas de acesso, continuam funcionando.
 """
 
 import argparse
@@ -48,6 +51,56 @@ def ler_log(caminho):
     return linhas, invalidas
 
 
+def e_execucao(linha):
+    """Evento de execução de rota (não é uma linha de acesso aos dados)."""
+    return linha.get("evento") == "modulo_ia_execucao"
+
+
+def estatisticas(valores):
+    """Média, p95 (posição mais próxima) e máximo, em ms."""
+    valores = sorted(v for v in valores if isinstance(v, (int, float)))
+    if not valores:
+        return None
+    posicao = max(0, -(-95 * len(valores) // 100) - 1)
+    return {
+        "amostras": len(valores),
+        "media": round(sum(valores) / len(valores), 2),
+        "p95": valores[posicao],
+        "max": valores[-1],
+    }
+
+
+def resumir_execucoes(linhas):
+    """Resume as requisições e a latência das consultas de acesso."""
+    eventos = [linha for linha in linhas if e_execucao(linha)]
+    acessos = [linha for linha in linhas if not e_execucao(linha)]
+
+    por_rota = defaultdict(Counter)
+    resultados = Counter()
+    for evento in eventos:
+        rota = evento.get("rota", "?")
+        por_rota[rota]["requisicoes"] += 1
+        por_rota[rota][evento.get("status", "?")] += 1
+        resultado = evento.get("resultado")
+        if resultado is None and evento.get("status") == "sucesso":
+            resultado = "?"
+        resultados[resultado or evento.get("status", "?")] += 1
+        sugestoes = evento.get("total_sugestoes")
+        if isinstance(sugestoes, int):
+            por_rota[rota]["sugestoes"] += sugestoes
+
+    return {
+        "requisicoes": len(eventos),
+        "sucesso": sum(1 for e in eventos if e.get("status") == "sucesso"),
+        "erro": sum(1 for e in eventos if e.get("status") == "erro"),
+        "vazias": resultados["vazio"],
+        "sugestoes": sum(c["sugestoes"] for c in por_rota.values()),
+        "por_rota": por_rota,
+        "latencia_ms": estatisticas(e.get("elapsed_ms") for e in eventos),
+        "latencia_consultas_ms": estatisticas(a.get("duracao_ms") for a in acessos),
+    }
+
+
 def ids_do_catalogo(caminho):
     with caminho.open("r", encoding="utf-8") as arquivo:
         return [item["product_id"] for item in json.load(arquivo)]
@@ -69,6 +122,8 @@ def resumir(linhas, catalogo_ids):
     pedidos_inexistentes = Counter()
 
     for linha in linhas:
+        if e_execucao(linha):
+            continue
         funcao = linha.get("funcao", "?")
         status = linha.get("status", "?")
         por_funcao[funcao]["total"] += 1
@@ -93,16 +148,49 @@ def resumir(linhas, catalogo_ids):
         "consultas": consultas,
         "nunca": nunca,
         "inexistentes": pedidos_inexistentes,
+        "execucoes": resumir_execucoes(linhas),
     }
+
+
+def _linha_latencia(titulo, dados):
+    if dados is None:
+        return f"  {titulo}: sem medições"
+    return (
+        f"  {titulo}: média {dados['media']} ms | p95 {dados['p95']} ms "
+        f"| máx {dados['max']} ms ({dados['amostras']} medições)"
+    )
+
+
+def imprimir_execucoes(execucoes):
+    print("\nRequisições (eventos de execução)")
+    if not execucoes["requisicoes"]:
+        print("  (nenhum evento de execução; logs antigos só têm acessos a dados)")
+    else:
+        print(
+            f"  total {execucoes['requisicoes']} | sucesso {execucoes['sucesso']} "
+            f"| erro {execucoes['erro']} | vazias (0 sugestões) {execucoes['vazias']} "
+            f"| sugestões retornadas {execucoes['sugestoes']}"
+        )
+        for rota, c in sorted(execucoes["por_rota"].items()):
+            print(
+                f"  {rota:<28} requisições {c['requisicoes']:>3} "
+                f"erro {c['erro']:>3} sugestões {c['sugestoes']:>4}"
+            )
+        print(_linha_latencia("latência das requisições", execucoes["latencia_ms"]))
+    print(_linha_latencia("latência das consultas", execucoes["latencia_consultas_ms"]))
 
 
 def imprimir(resumo, linhas, invalidas, caminho_log):
     print(f"Log: {caminho_log}")
     print(f"Linhas lidas: {len(linhas)}" + (f" (ignoradas {invalidas} inválidas)" if invalidas else ""))
+    eventos = resumo["execucoes"]["requisicoes"]
+    print(f"  acessos a dados: {len(linhas) - eventos} | eventos de requisição: {eventos}")
     if linhas:
         print(f"Período: {linhas[0].get('data_hora')} até {linhas[-1].get('data_hora')}")
 
-    print("\nChamadas por função")
+    imprimir_execucoes(resumo["execucoes"])
+
+    print("\nChamadas por função (acessos a dados, não requisições)")
     print(f"  {'função':<36}{'total':>6}{'sucesso':>9}{'vazio':>7}{'erro':>6}")
     for funcao, c in sorted(resumo["por_funcao"].items(), key=lambda kv: -kv[1]["total"]):
         print(f"  {funcao:<36}{c['total']:>6}{c['sucesso']:>9}{c['vazio']:>7}{c['erro']:>6}")
